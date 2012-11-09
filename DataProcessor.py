@@ -400,7 +400,7 @@ def ReactionProbabilities(organismid, complex_probability_file):
                 if GPR == "":
                     GPR = cplxToTuple[cplx][2]
                 elif cplxToTuple[cplx][2] != "":
-                    GPR = "or".join( [ GPR, cplxToTuple[cplx][2] ] )
+                    GPR = " or ".join( [ GPR, cplxToTuple[cplx][2] ] )
         fid.write("%s\t%1.4f\t%s\t%s\t%s\n" %(rxn, maxp, TYPE, complexinfo, GPR))
     fid.close()
 
@@ -483,5 +483,3 @@ def MakeProbabilisticJsonFile(annotation_file, blast_result_file, roleset_probab
 
     json.dump(resp, open(outfile, "w"), indent=4)
     return
-
-
