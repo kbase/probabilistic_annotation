@@ -134,8 +134,9 @@ def subsystemFids_WORKAROUND(MINN, COUNT):
     ssdict = cdmi_entity.all_entities_Subsystem(MINN,COUNT,["id"])
     ssids = getFieldFromEntity(ssdict, "id")
     ssroledict = cdmi.subsystems_to_roles(ssids, [])
-    ssroles = []
+    print ssids
     print ssroledict
+    ssroles = []
     exit(2)
 
 #######

@@ -10,7 +10,7 @@ usage="%prog [options]"
 description="""Main driver to get data needed out of the KBase and store it locally.
 Data will be stored in a local database autoReconInfo
 All of this data is QUERY INDEPENDENT. It should all be the same
-for any organism for which you want to do a reconstruction... """
+for any organism for which you want to do a reconstruction..."""
 parser = optparse.OptionParser(usage=usage, description=description)
 parser.add_option("-r", "--regenerate", help="Regenerate database if it already exists (NOTE - takes a long time)", action="store_true", dest="regenerate", default=False)
 parser.add_option("-d", "--deleteonly", help="Delete data files but do not regenerate (WARNING - this is not reversible)", action="store_true", dest="delete", default=False)
@@ -43,11 +43,11 @@ if options.regenerate or options.delete:
     safeRemove(COMPLEXES_ROLES_FILE)
     safeRemove(REACTION_COMPLEXES_FILE)
 
-    folder = os.path.join("data", "OTU")
-    for the_file in os.listdir(folder):
-        file_path = os.path.join(folder, the_file)
-        if os.path.isfile(file_path):
-            os.unlink(file_path)
+#    folder = os.path.join("data", "OTU")
+#    for the_file in os.listdir(folder):
+#        file_path = os.path.join(folder, the_file)
+#        if os.path.isfile(file_path):
+#            os.unlink(file_path)
 
 # Our job is done if all we want to do is delete files.
 if options.delete:
@@ -74,6 +74,10 @@ try:
     sub_fids = readSubsystemFids()
 except IOError:
     sub_fids = subsystemFids(MINN, COUNT)
+    # NOTE - This is a TEMPORARY workaround for an issue with
+    # the KBase subsystem load. This function WILL BE DELETED
+    # and reverted to the call above once that issue is fixed...
+#    sub_fids = subsystemFids_WORKAROUND(MINN, COUNT)
     writeSubsystemFids(sub_fids)
 
 ###########
@@ -147,24 +151,24 @@ except IOError:
 # for the OTUs (prokaryote only because neighborhoods 
 # are generally not conserved for eukaryotes)
 #############
-sys.stderr.write("OTU neighborhoods...\n")
-try:
-    fid = open(OTU_NEIGHBORHOOD_FILE, "r")
-    fid.close()
-except IOError:
+#sys.stderr.write("OTU neighborhoods...\n")
+#try:
+#    fid = open(OTU_NEIGHBORHOOD_FILE, "r")
+#    fid.close()
+#except IOError:
     # tuplist: [ (contig_id, feature_id, start_location, strand) ]
     # Final file has this and then the roles in a delimited list
-    for prokotu in prokotus:
+#    for prokotu in prokotus:
         # This is mostly because I keep running into incredibly stupid errors.
         # Lets see if I can figure out what the hell is causing them.
-        try:
-            fid = open(os.path.join("data", "OTU", prokotu), "r")
-            fid.close()
-        except IOError:
-            tuplist, fidToRoles = getGenomeNeighborhoodsAndRoles([prokotu])
-            writeOtuNeighborhoods(tuplist, fidToRoles, options.verbose, os.path.join("data", "OTU", prokotu))
-    cmd = "cat %s%s* > %s" %(os.path.join("data", "OTU"), os.sep, OTU_NEIGHBORHOOD_FILE)
-    os.system(cmd)
+#        try:
+#            fid = open(os.path.join("data", "OTU", prokotu), "r")
+#            fid.close()
+#        except IOError:
+#            tuplist, fidToRoles = getGenomeNeighborhoodsAndRoles([prokotu])
+#            writeOtuNeighborhoods(tuplist, fidToRoles, options.verbose, os.path.join("data", "OTU", prokotu))
+#    cmd = "cat %s%s* > %s" %(os.path.join("data", "OTU"), os.sep, OTU_NEIGHBORHOOD_FILE)
+#    os.system(cmd)
 
 ################
 # Complexes --> Roles
