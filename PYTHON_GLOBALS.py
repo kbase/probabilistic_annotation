@@ -31,10 +31,6 @@ SUBSYSTEM_OTU_FASTA_FILE = os.path.join(BASEDIR, "data", "SUBSYSTEM_FASTA")
 COMPLEXES_ROLES_FILE = os.path.join(BASEDIR, "data", "COMPLEXES_ROLES")
 REACTION_COMPLEXES_FILE = os.path.join(BASEDIR, "data", "REACTIONS_COMPLEXES")
 
-print SUBSYSTEM_FID_FILE
-print DLIT_FID_FILE
-print CONCATINATED_FID_FILE
-
 # Minimum index
 MINN = 0
 # Number of items to grab

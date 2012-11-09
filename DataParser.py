@@ -13,8 +13,8 @@ MIN_EVALUE = 1E-200 #E values of less than 1E-200 are treated as 1E-200 to avoid
 #  OTUs   #
 ###########
 
-def readOtuData():
-    fid = open(OTU_ID_FILE, "r")
+def readOtuData(folder):
+    fid = open(os.path.join(folder, OTU_ID_FILE), "r")
     otus = []
     prokotus = []
     for line in fid:
@@ -25,8 +25,8 @@ def readOtuData():
     fid.close()
     return otus, prokotus
 
-def writeOtuData(otus, prokotus):
-    fid = open(OTU_ID_FILE, "w")
+def writeOtuData(otus, prokotus, folder):
+    fid = open(os.path.join(folder, OTU_ID_FILE), "w")
     for otu in otus:
         if otu in prokotus:
             fid.write("%s\t%d\n" %(otu, 1))
@@ -39,8 +39,8 @@ def writeOtuData(otus, prokotus):
 # Subsystem FIDs #
 ##################
 
-def readSubsystemFids():
-    fid = open(SUBSYSTEM_FID_FILE, "r")
+def readSubsystemFids(folder):
+    fid = open(os.path.join(folder, SUBSYSTEM_FID_FILE), "r")
     sub_fids = []
     for line in fid:
         spl = line.strip("\r\n")
@@ -48,8 +48,8 @@ def readSubsystemFids():
     fid.close()
     return sub_fids
 
-def writeSubsystemFids(sub_fids):
-    fid = open(SUBSYSTEM_FID_FILE, "w")
+def writeSubsystemFids(sub_fids, folder):
+    fid = open(os.path.join(folder, SUBSYSTEM_FID_FILE), "w")
     for f in sub_fids:
         fid.write("%s\n" %(f))
     fid.close()
@@ -59,8 +59,8 @@ def writeSubsystemFids(sub_fids):
 # OTU FIDs       #
 ##################
 
-def readDlitFids():
-    fid = open(DLIT_FID_FILE, "r")
+def readDlitFids(folder):
+    fid = open(os.path.join(folder, DLIT_FID_FILE), "r")
     otu_fids = []
     for line in fid:
         spl = line.strip("\r\n")
@@ -68,8 +68,8 @@ def readDlitFids():
     fid.close()
     return otu_fids
 
-def writeDlitFids(otu_fids):
-    fid = open(DLIT_FID_FILE, "w")
+def writeDlitFids(otu_fids, folder):
+    fid = open(os.path.join(folder, DLIT_FID_FILE), "w")
     for f in otu_fids:
         fid.write("%s\n" %(f))
     fid.close()
@@ -79,8 +79,8 @@ def writeDlitFids(otu_fids):
 # Filtered OTU list #
 #####################
 
-def readFilteredOtus():
-    fid = open(SUBSYSTEM_OTU_FIDS_FILE, "r")
+def readFilteredOtus(folder):
+    fid = open(os.path.join(folder, SUBSYSTEM_OTU_FIDS_FILE), "r")
     otu_fids = []
     for line in fid:
         spl = line.strip("\r\n")
@@ -88,8 +88,8 @@ def readFilteredOtus():
     fid.close()
     return otu_fids
 
-def writeFilteredOtus(otu_fids):
-    fid = open(SUBSYSTEM_OTU_FIDS_FILE, "w")
+def writeFilteredOtus(otu_fids, folder):
+    fid = open(os.path.join(folder, SUBSYSTEM_OTU_FIDS_FILE), "w")
     for f in otu_fids:
         fid.write("%s\n" %(f))
     fid.close()
@@ -99,8 +99,8 @@ def writeFilteredOtus(otu_fids):
 # Roles for filtered OTUs #
 ###########################
 
-def readFilteredOtuRoles():
-    fid = open(SUBSYSTEM_OTU_FID_ROLES_FILE, "r")
+def readFilteredOtuRoles(folder):
+    fid = open(os.path.join(folder, SUBSYSTEM_OTU_FID_ROLES_FILE), "r")
     otu_fidsToRoles = {}
     for line in fid:
         spl = line.strip("\r\n").split("\t")
@@ -112,8 +112,8 @@ def readFilteredOtuRoles():
     fid.close()
     return otu_fidsToRoles
 
-def writeFilteredOtuRoles(otu_fidsToRoles):
-    fid = open(SUBSYSTEM_OTU_FID_ROLES_FILE, "w")
+def writeFilteredOtuRoles(otu_fidsToRoles, folder):
+    fid = open(os.path.join(folder, SUBSYSTEM_OTU_FID_ROLES_FILE), "w")
     for f in otu_fidsToRoles:
         fid.write("%s\t%s\n" %(f, SEPARATOR.join(otu_fidsToRoles[f])))
     fid.close()
@@ -123,65 +123,65 @@ def writeFilteredOtuRoles(otu_fidsToRoles):
 # Subsystem FASTA file #
 ########################
 
-def readSubsystemFasta():
-    fid = open(SUBSYSTEM_OTU_FASTA_FILE, "r")
+def readSubsystemFasta(folder):
+    fid = open(os.path.join(folder, SUBSYSTEM_OTU_FASTA_FILE), "r")
     fid.close()
     return
 
-def writeSubsystemFasta(fidsToSeqs):
-    fid = open(SUBSYSTEM_OTU_FASTA_FILE, "w")
+def writeSubsystemFasta(fidsToSeqs, folder):
+    fid = open(os.path.join(folder, SUBSYSTEM_OTU_FASTA_FILE), "w")
     for fids in fidsToSeqs:
         fid.write(">%s\n%s\n" %(fids, fidsToSeqs[fids]))
     fid.close()
     # Compile the BLAST database for the fasta file
-    os.system("makeblastdb -in %s -dbtype prot > /dev/null" %(SUBSYSTEM_OTU_FASTA_FILE))
+    os.system("makeblastdb -in %s -dbtype prot > /dev/null" %(os.path.join(folder, SUBSYSTEM_OTU_FASTA_FILE)))
     return
 
 #####################
 # OTU neighborhoods #
 #####################
 
-def readOtuNeighborhoods():
-    fid = open(OTU_NEIGHBORHOOD_FILE, "r")
+#def readOtuNeighborhoods(folder):
+#    fid = open(os.path.join(folder, OTU_NEIGHBORHOOD_FILE), "r")##
 
-    tuplist = []
-    fidToRoles = {}
-    for line in fid:
-        spl = line.strip("\r\n").split("\t")
-        roles = spl[4].split(SEPARATOR)
-        if spl[1] in fidToRoles:
-            fidToRoles[spl[1]] += roles
-        else:
-            fidToRoles[spl[1]] = roles
-        tuplist.append( (spl[0], spl[1], spl[2], spl[3],) )
-    fid.close()
-    return tuplist, fidToRoles
+#    tuplist = []
+#    fidToRoles = {}
+#    for line in fid:
+#        spl = line.strip("\r\n").split("\t")
+#        roles = spl[4].split(SEPARATOR)
+#        if spl[1] in fidToRoles:
+#            fidToRoles[spl[1]] += roles
+#        else:
+#            fidToRoles[spl[1]] = roles
+#        tuplist.append( (spl[0], spl[1], spl[2], spl[3],) )
+#    fid.close()
+#    return tuplist, fidToRoles
 
-def writeOtuNeighborhoods(tuplist, fidToRoles, verbose, fname):
-    fid = open(fname, "w")
-    for f in tuplist:
-        if f[1] in fidToRoles:
-            roles = fidToRoles[f[1]]
-        else:
-            if verbose:
-                sys.stderr.write("WARNING: Fid %s has no role despite being a neighbor of an OTU gene!\n" %(f[1]) )
-            roles = ""
-        try:
-            fid.write("%s\t%s\t%s\t%s\t%s\n" %(f[0], f[1], f[2], f[3], SEPARATOR.join(roles)))
-        except UnicodeEncodeError:
-            sys.stderr.write("ERROR: encountered roles that contain non-ASCII characters?\n")
-            sys.stderr.write("In gene ID %s\n" %(f[1]))
-            sys.stderr.write("Skipping...\n")
-            continue
-    fid.close()
-    return
+#def writeOtuNeighborhoods(tuplist, fidToRoles, verbose, fname):
+#    fid = open(fname, "w")
+#    for f in tuplist:
+#        if f[1] in fidToRoles:
+#            roles = fidToRoles[f[1]]
+#        else:
+#            if verbose:
+#                sys.stderr.write("WARNING: Fid %s has no role despite being a neighbor of an OTU gene!\n" %(f[1]) )
+#            roles = ""
+#        try:
+#            fid.write("%s\t%s\t%s\t%s\t%s\n" %(f[0], f[1], f[2], f[3], SEPARATOR.join(roles)))
+#        except UnicodeEncodeError:
+#            sys.stderr.write("ERROR: encountered roles that contain non-ASCII characters?\n")
+#            sys.stderr.write("In gene ID %s\n" %(f[1]))
+#            sys.stderr.write("Skipping...\n")
+#            continue
+#    fid.close()
+#    return
 
 #####################
 # Complex --> roles #
 #####################
 
-def readComplexRoles():
-    fid = open(COMPLEXES_ROLES_FILE, "r")
+def readComplexRoles(folder):
+    fid = open(os.path.join(folder, COMPLEXES_ROLES_FILE), "r")
     complexToRequiredRoles = {}
     for line in fid:
         spl = line.strip("\r\n").split("\t")
@@ -195,8 +195,8 @@ def readComplexRoles():
     fid.close()
     return complexToRequiredRoles
 
-def writeComplexRoles(complexToRequiredRoles):
-    fid = open(COMPLEXES_ROLES_FILE, "w")
+def writeComplexRoles(complexToRequiredRoles, folder):
+    fid = open(os.path.join(folder, COMPLEXES_ROLES_FILE), "w")
     for complexes in complexToRequiredRoles:
         fid.write("%s\t%s\n" %(complexes, SEPARATOR.join(complexToRequiredRoles[complexes])))
     fid.close()
@@ -206,8 +206,8 @@ def writeComplexRoles(complexToRequiredRoles):
 # Reaction --> complex  #
 #########################
 
-def readReactionComplex():
-    fid = open(REACTION_COMPLEXES_FILE, "r")
+def readReactionComplex(folder):
+    fid = open(os.path.join(folder, REACTION_COMPLEXES_FILE), "r")
     rxnToComplexes = {}
     for line in fid:
         spl = line.strip("\r\n").split("\t")
@@ -221,8 +221,8 @@ def readReactionComplex():
     fid.close()
     return rxnToComplexes
 
-def writeReactionComplex(rxnToComplexes):
-    fid = open(REACTION_COMPLEXES_FILE, "w")
+def writeReactionComplex(rxnToComplexes, folder):
+    fid = open(os.path.join(folder, REACTION_COMPLEXES_FILE), "w")
     for rxn in rxnToComplexes:
         fid.write("%s\t%s\n" %(rxn, SEPARATOR.join(rxnToComplexes[rxn])))
     fid.close()
