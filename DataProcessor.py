@@ -58,14 +58,14 @@ def setUpQueryData(organismid):
     return fasta_file, json_file
 
 # BLAST the query vs. the subsystem genes
-def runBlast(organismid, query_fasta):
+def runBlast(organismid, query_fasta, folder):
     blast_result_file = os.path.join(organismid, "%s.blastout" %(organismid))
     try:
         fid = open(blast_result_file, "r")
         fid.close()
         sys.stderr.write("BLAST results file %s already exists.\n" %(blast_result_file))
     except IOError:
-        cmd = "blastp -query \"%s\" -db %s -outfmt 6 -evalue 1E-5 -num_threads 8 -out \"%s\"" %(query_fasta, SUBSYSTEM_OTU_FASTA_FILE, blast_result_file)
+        cmd = "blastp -query \"%s\" -db %s -outfmt 6 -evalue 1E-5 -num_threads 8 -out \"%s\"" %(query_fasta, os.path.join(folder, SUBSYSTEM_OTU_FASTA_FILE), blast_result_file)
         sys.stderr.write("Running BLAST with command: %s\n" %(cmd))
         os.system(cmd)
         sys.stderr.write("BLAST command complete\n")

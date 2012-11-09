@@ -6,7 +6,7 @@ import optparse
 import os, sys
 from DataProcessor import *
 
-usage="%prog [options] organismid"
+usage="%prog [options] -f filedir organismid"
 description="""Main driver to run probabilistic annotation.
 
 First generates a list of Query-independent (i.e. same for all queries)
@@ -25,32 +25,41 @@ to come up with annotation probabilities.
 parser = optparse.OptionParser(usage=usage, description=description)
 parser.add_option("-r", "--regenerate", help="Regenerate database if it already exists (NOTE - takes a long time)", 
                   action="store_true", dest="regenerate", default=False)
+parser.add_option("-f", "--folder", help="Name of directory (folder) in which to store organism-independent data files (from KBase) - REQUIRED",
+                  action="store", type="str", dest="folder", default=None)
 (options, args) = parser.parse_args()
 
-# Make folders where results will go...
-try:
-    os.mkdir("data")
-except OSError:
-    pass;
-
-try:
-    os.mkdir(os.path.join("data", "OTU"))
-except OSError:
-    pass;
+if options.folder is None:
+    sys.stderr.write("ERROR: Folder -f (in which organism-independent data is stored or will be generated if doesnt exist) is mandatory\n")
+    exit(2)
 
 if len(args) < 1:
     sys.stderr.write("ERROR: Organism ID is a required argument\n")
     exit(2)
 
+# If the output folder doesn't already exist, create it.
+try:
+    os.mkdir(options.folder)
+except OSError:
+    pass;
+
+#try:
+#    os.mkdir(os.path.join("data", "OTU"))
+#except OSError:
+#    pass;
+
 # Run the extractor driver to get the data
-cmd = "python ExtractorDriver.py"
+cmd = "python ExtractorDriver.py -f %s" %(options.folder)
 if options.regenerate:
     cmd += cmd + " -r"
 os.system(cmd)
 
+# Now we run all the organism-specific stuff.
+# All of the results are saved to [organismid]/[organismid].* where different extensions
+# are different calculated data.
 organismid = args[0]
 fasta_file, json_file = setUpQueryData(organismid)
-blast_result_file = runBlast(organismid, fasta_file)
+blast_result_file = runBlast(organismid, fasta_file, options.folder)
 roleset_probability_file = RolesetProbabilitiesMarble(organismid, blast_result_file)
 role_probability_file = RolesetProbabilitiesToRoleProbabilities(organismid, roleset_probability_file)
 total_role_probability_file = TotalRoleProbabilities(organismid, role_probability_file)

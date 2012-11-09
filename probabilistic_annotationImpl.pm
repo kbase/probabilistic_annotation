@@ -182,7 +182,18 @@ sub annotation_probabilities
     print FILE $JSON_STRING;
     close(FILE);
     # System call to probability calculator
-    my $status = system("python", "Probability_calculation_frontend.py", $genomeId);
+
+    # CHRIS: The folder where the workspace function ultimately dumps the files should be
+    # placed in this variable
+    #
+    # Fow now I'm using a relative path "data" just so you can see what it does.
+    # It will create the folder if it doesn't exist and dump files to it.
+    #
+    # The expected names of each file are listed in PYTHON_GLOBALS.py. If possible please
+    # have the workspace extractor save any temporary files with those names. If this is not
+    # possible I'll change that.
+    my $workspacefolder = "data"
+    my $status = system("python", "Probability_calculation_frontend.py -f $workspacefolder ", $genomeId);
     if ( ($status >>= 8) != 0 ) {
 	die "Probability calculator failed.";
     }
