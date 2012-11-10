@@ -79,7 +79,7 @@ def runBlast(organismid, query_fasta, folder):
 #   roles of a protein              #
 #   (order-independent)             #
 #####################################
-def RolesetProbabilitiesMarble(organismid, blast_result_file):
+def RolesetProbabilitiesMarble(organismid, blast_result_file, folder):
     roleset_probability_file = os.path.join(organismid, "%s.rolesetprobs" %(organismid))
     try:
         fid = open(roleset_probability_file, "r")
@@ -91,7 +91,7 @@ def RolesetProbabilitiesMarble(organismid, blast_result_file):
     sys.stderr.write("Performing marble-picking on rolesets...")
 
     # Read in the target roles (this function returns the roles as lists!)
-    targetIdToRole = readFilteredOtuRoles()
+    targetIdToRole = readFilteredOtuRoles(folder)
 
     # Convert the lists of roles into "rolestrings" (sort the list so that order doesn't matter)
     # in order to deal with the case where some of the hits are multi-functional and others only have
@@ -270,7 +270,7 @@ def TotalRoleProbabilities(organismid, role_probability_file):
 #       CPLX_PARTIAL (only some roles found - only those roles that were found were utilized; does not distinguish between not there and no reps for those not found)
 #       CPLX_NOTTHERE (Probability of 0 because the genes aren't there)
 #       CPLX_NOREPS (Probability 0f 0 because there are no representative genes in the subsystems)
-def ComplexProbabilities(organismid, total_role_probability_file):
+def ComplexProbabilities(organismid, total_role_probability_file, folder):
     # 0 - check if the complex probability file already exists
     complex_probability_file = os.path.join(organismid, "%s.complexprob" %(organismid))
 
@@ -285,10 +285,10 @@ def ComplexProbabilities(organismid, total_role_probability_file):
     sys.stderr.write("Computing complex probabilities...")
     # 1 - Read required data:
     # complexes --> roles 
-    complexesToRequiredRoles = readComplexRoles()
+    complexesToRequiredRoles = readComplexRoles(folder)
     # subsystem roles
     # (used to distinguish between NOTTHERE and NOREPS)
-    otu_fidsToRoles = readFilteredOtuRoles()
+    otu_fidsToRoles = readFilteredOtuRoles(folder)
     allroles = set()
     for fid in otu_fidsToRoles:
         for role in otu_fidsToRoles[fid]:
@@ -363,7 +363,7 @@ def ComplexProbabilities(organismid, total_role_probability_file):
 #
 # ComplexInfo is information about the complex IDs, their probabilities, and their TYPE
 #   (propogated here to prevent having to deal with 
-def ReactionProbabilities(organismid, complex_probability_file):
+def ReactionProbabilities(organismid, complex_probability_file, folder):
     reaction_probability_file = os.path.join(organismid, "%s.rxnprobs" %(organismid))
     try:
         fid = open(reaction_probability_file, "r")
@@ -381,7 +381,7 @@ def ReactionProbabilities(organismid, complex_probability_file):
         cplxToTuple[spl[0]] = ( float(spl[1]), spl[2], spl[5] )
     
     # Take the MAXIMUM probability of complexes
-    rxnsToComplexes = readReactionComplex()
+    rxnsToComplexes = readReactionComplex(folder)
 
     fid = open(reaction_probability_file, "w")
     for rxn in rxnsToComplexes:
@@ -421,9 +421,9 @@ def ReactionProbabilities(organismid, complex_probability_file):
 # The other two files are results from running other functions (in particular the blast function and the roleset probability \
 # marble-picking function).
 #
-def MakeProbabilisticJsonFile(annotation_file, blast_result_file, roleset_probability_file, outfile):
+def MakeProbabilisticJsonFile(annotation_file, blast_result_file, roleset_probability_file, outfile, folder):
     sys.stderr.write("Making probabilistic JSON file %s...\n" %(outfile))
-    targetToRoles = readFilteredOtuRoles()
+    targetToRoles = readFilteredOtuRoles(folder)
     targetToRoleSet = {}
     for target in targetToRoles:
         stri = SEPARATOR.join(sorted(targetToRoles[target]))

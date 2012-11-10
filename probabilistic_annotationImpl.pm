@@ -192,8 +192,8 @@ sub annotation_probabilities
     # The expected names of each file are listed in PYTHON_GLOBALS.py. If possible please
     # have the workspace extractor save any temporary files with those names. If this is not
     # possible I'll change that.
-    my $workspacefolder = "data"
-    my $status = system("python", "Probability_calculation_frontend.py -f $workspacefolder ", $genomeId);
+    my $workspacefolder = "data";
+    my $status = system("python", "Probability_calculation_frontend.py", "-f", "$workspacefolder", "$genomeId");
     if ( ($status >>= 8) != 0 ) {
 	die "Probability calculator failed.";
     }
