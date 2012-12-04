@@ -1,7 +1,13 @@
 #!/usr/bin/python
 
 import os, sys
-import json
+
+try:
+    import json
+except ImportError:
+    # It is assumed that the user has simplejson if < python 2.6
+    import simplejson as json
+
 from CDMI import CDMI_API, CDMI_EntityAPI
 from DataExtractor import *
 from DataParser import *

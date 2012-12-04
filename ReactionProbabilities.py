@@ -4,7 +4,12 @@ from CDMI import CDMI_EntityAPI
 from DataExtractor import getFieldFromEntity, getFieldFromRelationship
 from PYTHON_GLOBALS import *
 
-import json
+try:
+    import json
+except ImportError:
+    # It is assumed that the user has simplejson if < 2.6
+    import simplejson as json
+
 import os
 import sys
 

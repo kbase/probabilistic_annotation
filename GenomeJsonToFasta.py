@@ -1,6 +1,9 @@
 #!/usr/bin/python
 
-import json
+try:
+    import json
+except ImportError:
+    import simplejson as json
 
 def GenomeJsonToFasta(genome_json_file, out_file):
     # Read the existing annotation_file.

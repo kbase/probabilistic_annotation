@@ -1,4 +1,9 @@
-import json
+
+try:
+    import json
+except:
+    import simplejson as json
+
 import os
 import operator
 import sys
