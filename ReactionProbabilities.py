@@ -4,14 +4,18 @@ from CDMI import CDMI_EntityAPI
 from DataExtractor import getFieldFromEntity, getFieldFromRelationship
 from PYTHON_GLOBALS import *
 
+import os
+import sys
+
 try:
     import json
 except ImportError:
     # It is assumed that the user has simplejson if < 2.6
+    # For the path I just assumed the same as the existing CDM script
+    # but that might need to be changed because 2.3.3 does not work with python 2.4
+    sys.path.append('simplejson-2.3.3')
     import simplejson as json
 
-import os
-import sys
 
 def addRxnProbabilitiesToBiochemistryJson(reaction_probability_file, biochemistry_json_file, output_file):
     '''Searches the biochemistry JSON for reaction UUIDs.

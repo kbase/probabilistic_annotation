@@ -6,6 +6,7 @@ try:
     import json
 except ImportError:
     # It is assumed that the user has simplejson if < python 2.6
+    sys.path.append('simplejson-2.3.3')
     import simplejson as json
 
 from CDMI import CDMI_API, CDMI_EntityAPI

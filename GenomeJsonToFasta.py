@@ -3,6 +3,7 @@
 try:
     import json
 except ImportError:
+    sys.path.append('simplejson-2.3.3')
     import simplejson as json
 
 def GenomeJsonToFasta(genome_json_file, out_file):

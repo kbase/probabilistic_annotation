@@ -16,11 +16,17 @@
 # The CDMI_API is for "well-trodden paths" functions
 # CDMI_EntityAPI is for ER functions (all_entities_..., get_Relationship_....)
 from CDMI import CDMI_API, CDMI_EntityAPI
+from PYTHON_GLOBALS import *
+
 import urllib
 import sys
-import simplejson as json
 import operator #for itemgetter
-from PYTHON_GLOBALS import *
+
+try:
+    import json
+except ImportError:
+    sys.path.append('simplejson-2.3.3')
+    import simplejson as json
 
 # Get field "fieldName" from the entity seedEntity, the result of a 
 # get_entity_xxx or an all_entities_xxx call...

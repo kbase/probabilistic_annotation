@@ -1,7 +1,8 @@
 
 try:
     import json
-except:
+except ImportError:
+    sys.path.append('simplejson-2.3.3')
     import simplejson as json
 
 import os
