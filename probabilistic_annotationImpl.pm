@@ -358,13 +358,16 @@ sub annotation_probabilities_id
     if ( -e $jsonFileName) {
 
 	open(FILE, "<${jsonFileName}") or die "Unable to open input JSON file ${jsonFileName} despite it existing???";
+	$jsonString = join("", <FILE>);
+	close(FILE);
     } else {
 	open (my $file, '>', "TEMPORARY_${genome_id}");
 	print $file `perl cs_to_genome_MODIFIED.pl "${genome_id}"`;
 	open(FILE, '<', "TEMPORARY_${genome_id}") or die $! #"Unable to open the temporary JSON file created by cs_to_genome_MODIFIED.pl";
+	$jsonString = join("", <FILE>);
+	close(FILE);
+	unlink("TEMPORARY_${genome_id}");
     }
-    $jsonString = join("", <FILE>);
-    close(FILE);
 
     my $genomeObject = decode_json $jsonString;
 

@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import optparse, os, sqlite3, sys
+import optparse, os, sys
 from DataExtractor import *
 from DataParser import *
 # Common variables...
