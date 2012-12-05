@@ -72,7 +72,7 @@ def runBlast(organismid, query_fasta, folder):
         fid.close()
         sys.stderr.write("BLAST results file %s already exists.\n" %(blast_result_file))
     except IOError:
-        cmd = "blastp -query \"%s\" -db %s -outfmt 6 -evalue 1E-5 -num_threads 8 -out \"%s\"" %(query_fasta, os.path.join(folder, SUBSYSTEM_OTU_FASTA_FILE), blast_result_file)
+        cmd = "blastp -query \"%s\" -db %s -outfmt 6 -evalue 1E-5 -num_threads 1 -out \"%s\"" %(query_fasta, os.path.join(folder, SUBSYSTEM_OTU_FASTA_FILE), blast_result_file)
         sys.stderr.write("Running BLAST with command: %s\n" %(cmd))
         os.system(cmd)
         sys.stderr.write("BLAST command complete\n")
