@@ -1,4 +1,4 @@
-
+#!/usr/bin/python
 try:
     import json
 except ImportError:
@@ -8,6 +8,7 @@ except ImportError:
 import os
 import operator
 import sys
+import re
 
 class probabilityJson:
     def __init__(self, f):
@@ -15,6 +16,19 @@ class probabilityJson:
             raise IOError
         self.json = json.load(open(f, "r"))
         self.genedict = self.makeGeneIdDict()
+        # TC is for transporters.
+        self.ecfinder = re.compile("\(\s*[ET]\.*C\.*\s*[\-0-9]+\.[\-0-9]+\.[\-0-9]+\.[\-0-9]+\s*\)")
+    def improveAnnotationConsistency(self, function):
+        '''Attempt to improve consistency between different sets of roles
+        by fixing two very common problems:
+        1: EC number in one role but not the other, and
+        2: Capitalization issues.
+        '''
+        noec = self.ecfinder.sub("", function)
+        lowercase = noec.lower()
+        # Remove extraneous white space
+        stripped = lowercase.strip()
+        return stripped
     def makeGeneIdDict(self):
         '''Make a dictionary from gene ID to feature object'''
         features=self.json["features"]
@@ -35,10 +49,10 @@ class probabilityJson:
         elif feature["function"] == "":
             return None
         else:
-            return feature["function"]
+            return self.improveAnnotationConsistency(feature["function"])
     def getProbabilisticFunctions(self, fid):
-        '''For a single feature ID, create a dictionary from gene function to 
-        the probabilistic annotations'''
+        '''For a single feature ID, create a dictionary from gene function predicted by
+        probabilitstic annotation to the probability of that function'''
         if fid not in self.genedict:
             raise KeyError("Specified gene ID %s not found in the JSON file" %(fid))
         feature = self.genedict[fid]
@@ -46,10 +60,11 @@ class probabilityJson:
         if "alternativeFunctions" not in feature:
             return None
         else:
-            func2annote={}
+            func2prob={}
             for af in feature["alternativeFunctions"]:
-                func2annote[af[0]] = af[1]
-            return func2annote
+                improvedFunction = self.improveAnnotationConsistency(af[0])
+                func2prob[improvedFunction] = af[1]
+            return func2prob
 
 s = probabilityJson(sys.argv[1])
 ls = s.listPegIds()
@@ -66,7 +81,7 @@ doNotAgree = 0
 agreeAnnoteToProb = {}
 maxDisagreeAnnoteToProb = {}
 disagreeRealToOthers = {}
-
+disagreeRealToMaxAnnote = {}
 for fid in ls:
     probfunc = s.getProbabilisticFunctions(fid)
     realfunc = s.getGeneFunction(fid)
@@ -88,10 +103,15 @@ for fid in ls:
         bothAgree += 1
         agreeAnnoteToProb[realfunc] = probfunc[realfunc]
     else:
+#        print realfunc
+#        print probfunc
+#        print ""
+
         doNotAgree += 1
         mxkey = max(probfunc.iteritems(), key=operator.itemgetter(1))
         maxDisagreeAnnoteToProb[mxkey[0]] = mxkey[1]
         disagreeRealToOthers[realfunc] = "\t".join( [ k + "(" + str(probfunc[k]) + ")" for k in probfunc ] )
+        disagreeRealToMaxAnnote[realfunc] = mxkey[0] + "\t" + str(mxkey[1])
 
 print "NoEither: %d" %(noEither)
 print "realNoProb: %d" %(realNoProb)
@@ -101,8 +121,12 @@ print "probNoReal: %d" %(probNoReal)
 print "bothAgree: %d" %(bothAgree)
 print "doNotAgree: %d" %(doNotAgree)
 
-for func in disagreeRealToOthers:
-    print "%s\t%s" %(func, disagreeRealToOthers[func])
+#for func in disagreeRealToOthers:
+#    print "%s\t%s" %(func, disagreeRealToOthers[func])
+
+for func in disagreeRealToMaxAnnote:
+    print "%s\t%s" %(func, disagreeRealToMaxAnnote[func])
+
 #print "agreeAnnoteToProb:"
 #print agreeAnnoteToProb
 #print "maxDisagreeAnnoteToProb:"
