@@ -2,6 +2,7 @@
 
 from CDMI import CDMI_EntityAPI
 from DataExtractor import getFieldFromEntity, getFieldFromRelationship
+# For the CDMI URL and other constants
 from PYTHON_GLOBALS import *
 
 import os
@@ -10,10 +11,8 @@ import sys
 try:
     import json
 except ImportError:
-    # It is assumed that the user has simplejson if < 2.6
-    # For the path I just assumed the same as the existing CDM script
-    # but that might need to be changed because 2.3.3 does not work with python 2.4
-    sys.path.append('simplejson-2.3.3')
+    # Needed for old version of python such as those on the SEED machines.
+    # Add the simplejson folder to your PYTHONPATH variable or this will fail.
     import simplejson as json
 
 
@@ -23,7 +22,7 @@ def addRxnProbabilitiesToBiochemistryJson(reaction_probability_file, biochemistr
     to modelSEED ID, and another from modelSEED IDs to KBase reaction IDs.
 
     If we managed to get a probability for that reaction, we print that (even if it is 0 - which
-    means that the complex was defined but not found in the organism.) along with the proposed GPR
+    means that the complex was defined but not found in the organism) along with the proposed GPR
     which is just a string.
 
     The probability of the reaction is in the 'probability' field while the GPR is in the 'GPR' field in
@@ -34,7 +33,7 @@ def addRxnProbabilitiesToBiochemistryJson(reaction_probability_file, biochemistr
     rather than due to lack of genetic evidence...'''
 
     if os.path.exists(output_file):
-        sys.stderr.write("Modified biochemistry JSON file %s already exists!\n")
+        sys.stderr.write("Modified biochemistry JSON file %s already exists!\n" %(output_file))
         exit(2)
 
     # KBase ID --> (probability, complex_info, GPR)
@@ -52,7 +51,6 @@ def addRxnProbabilitiesToBiochemistryJson(reaction_probability_file, biochemistr
     for ii in range(len(modelIds)):
         modelToKbase[modelIds[ii]] = kbaseIds[ii]
 
-    # So begins the biochemistry-dependent parts.
     # Different biochemistries will (I think?) have different UUIDs
     # for all the reactions in them... but they will have links set up
     # to the model IDs. At least, I HOPE so.
@@ -75,8 +73,7 @@ def addRxnProbabilitiesToBiochemistryJson(reaction_probability_file, biochemistr
             break
     
     # Now we need to iterate over all of the reactions and add the appropriate probabilities
-    # to each of these...
-    print uuidToModelId
+    # to each of these.
 
     rxnList = resp["reactions"]
     for ii in range(len(rxnList)):
@@ -86,14 +83,10 @@ def addRxnProbabilitiesToBiochemistryJson(reaction_probability_file, biochemistr
         myComplexInfo = ""
         myGPR = ""
         if myuuid in uuidToModelId:
-            print "uuidOK: %s" %(myuuid)
             modelId = uuidToModelId[myuuid]
             if modelId in modelToKbase:
-                print "modelIdOK: %s" %(modelId)
                 kbaseId = modelToKbase[modelId]
-                print kbaseId
                 if kbaseId in kbaseIdToInfo:
-                    print "kbaseIdOK: %s" %(kbaseId)
                     myProbability = kbaseIdToInfo[kbaseId][0]
                     myComplexInfo = kbaseIdToInfo[kbaseId][1]
                     myGPR = kbaseIdToInfo[kbaseId][2]
@@ -102,4 +95,16 @@ def addRxnProbabilitiesToBiochemistryJson(reaction_probability_file, biochemistr
         resp["reactions"][ii]["GPR"]         = myGPR
     json.dump(resp, open(output_file, "w"), indent=4)
 
-addRxnProbabilitiesToBiochemistryJson("kb|g.0/kb|g.0.rxnprobs", "default_biochemistry.json", "RESULT.json")
+if __name__ == "__main__":
+    import optparse
+    usage = "%prog [rxnprobfile] [biochemistry_json_file] [output_file]"
+    description = "Add reaction probabilities, complex information, and putative GPR to all reactions in a biochemistry object"
+    parser = optparse.OptionParser(usage=usage, description=description)
+    (options, args) = parser.parse_args()
+    if len(args) < 3:
+        sys.stderr.write("ERROR: Incorrect usage of function\n")
+        sys.stderr.write("USAGE: %s\n" %(usage))
+        exit(2)       
+    addRxnProbabilitiesToBiochemistryJson(args[0], args[1], args[2])
+
+#addRxnProbabilitiesToBiochemistryJson("kb|g.0/kb|g.0.rxnprobs", "default_biochemistry.json", "RESULT.json")
