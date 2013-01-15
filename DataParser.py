@@ -75,29 +75,43 @@ def writeDlitFids(otu_fids, folder):
     fid.close()
     return
 
-#####################
-# Filtered OTU list #
-#####################
+###########################
+# All FID roles           #
+###########################
 
-def readFilteredOtus(folder):
-    fid = open(os.path.join(folder, SUBSYSTEM_OTU_FIDS_FILE), "r")
-    otu_fids = []
+def readAllFidRoles(folder):
+    fid = open(os.path.join(folder, CONCATINATED_FID_ROLE_FILE), "r")
+    all_fidsToRoles = {}
     for line in fid:
-        spl = line.strip("\r\n")
-        otu_fids.append(spl)
+        spl = line.strip("\r\n").split("\t")
+        roles = spl[1].split(SEPARATOR)
+        if spl[0] in all_fidsToRoles:
+            all_fidsToRoles[spl[0]] += roles
+        else:
+            all_fidsToRoles[spl[0]] = roles
     fid.close()
-    return otu_fids
 
-def writeFilteredOtus(otu_fids, folder):
-    fid = open(os.path.join(folder, SUBSYSTEM_OTU_FIDS_FILE), "w")
-    for f in otu_fids:
-        fid.write("%s\n" %(f))
+    all_rolesToFids = {}
+    for fid in all_fidsToRoles:
+        roles = all_fidsToRoles[fid]
+        for role in roles:
+            if role in all_rolesToFids:
+                all_rolesToFids[role].append(fid)
+            else:
+                all_rolesToFids[role] = [ fid ]
+
+    return all_fidsToRoles, all_rolesToFids
+
+def writeAllFidRoles(otu_fidsToRoles, folder):
+    fid = open(os.path.join(folder, CONCATINATED_FID_ROLE_FILE), "w")
+    for f in otu_fidsToRoles:
+        fid.write("%s\t%s\n" %(f, SEPARATOR.join(otu_fidsToRoles[f])))
     fid.close()
     return
 
-###########################
-# Roles for filtered OTUs #
-###########################
+######################
+# Filtered OTU roles #
+######################
 
 def readFilteredOtuRoles(folder):
     fid = open(os.path.join(folder, SUBSYSTEM_OTU_FID_ROLES_FILE), "r")
@@ -110,7 +124,17 @@ def readFilteredOtuRoles(folder):
         else:
             otu_fidsToRoles[spl[0]] = roles
     fid.close()
-    return otu_fidsToRoles
+
+    otu_rolesToFids = {}
+    for fid in otu_fidsToRoles:
+        roles = otu_fidsToRoles[fid]
+        for role in roles:
+            if role in otu_rolesToFids:
+                otu_rolesToFids[role].append(fid)
+            else:
+                otu_rolesToFids[role] = [ fid ]
+
+    return otu_fidsToRoles, otu_rolesToFids
 
 def writeFilteredOtuRoles(otu_fidsToRoles, folder):
     fid = open(os.path.join(folder, SUBSYSTEM_OTU_FID_ROLES_FILE), "w")

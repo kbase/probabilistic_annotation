@@ -15,8 +15,9 @@ from DataParser import *
 from PYTHON_GLOBALS import *
 
 def GenomeJsonToFasta(organismid):
+    '''Convert a genome JSON object into an amino-acid FASTA file (for BLAST purposes)'''
     genome_json_file = os.path.join(organismid, "%s.json" %(organismid))
-    # Read the existing annotation_file.
+    # If the fasta file already exists dont bother re-creating it.
     fasta_file = os.path.join(organismid, "%s.faa" %(organismid))
     try:
         fid = open(fasta_file, "r")
@@ -43,6 +44,8 @@ def GenomeJsonToFasta(organismid):
 
 # Organismid is a KBase genome id for the organism
 def setUpQueryData(organismid):
+    '''Create a place for the probability calculation results and move in the
+    genome JSON file, then make the call to get a FASTA file ot of it'''
     sys.stderr.write("Creating output directory for organism %s...\n" %(organismid))
     try:
         os.mkdir(organismid)
@@ -64,8 +67,9 @@ def setUpQueryData(organismid):
     fasta_file = GenomeJsonToFasta(organismid)
     return fasta_file, json_file
 
-# BLAST the query vs. the subsystem genes
 def runBlast(organismid, query_fasta, folder):
+    '''A simplistic wrapper to BLAST the query proteins against the
+    subsystem proteins'''
     blast_result_file = os.path.join(organismid, "%s.blastout" %(organismid))
     try:
         fid = open(blast_result_file, "r")
@@ -78,15 +82,13 @@ def runBlast(organismid, query_fasta, folder):
         sys.stderr.write("BLAST command complete\n")
     return blast_result_file
 
-#####################################
-# Marble-picking 1                  #
-# Returns a file with three columns #
-# (query, rolestring, probability)  #
-# rolestring = "\\\" separating all #
-#   roles of a protein              #
-#   (order-independent)             #
-#####################################
 def RolesetProbabilitiesMarble(organismid, blast_result_file, folder):
+    '''Calculate the probabilities of rolesets (i.e. each possible combination of
+    roles implied by the functions of the proteins in subsystems) from the BLAST results.
+
+   Returns a file with three columns(query, rolestring, probability)  
+   rolestring = "\\\" separating all roles of a protein with a single function (order does not matter)
+    '''
     roleset_probability_file = os.path.join(organismid, "%s.rolesetprobs" %(organismid))
     try:
         fid = open(roleset_probability_file, "r")
@@ -163,19 +165,21 @@ def RolesetProbabilitiesMarble(organismid, blast_result_file, folder):
     return roleset_probability_file
         
 
-# At the moment the strategy is to take any set of rolestrings containing the same roles
-# And add their probabilities.
-# So if we have hits to both a bifunctional enzyme with R1 and R2, and
-# hits to a monofunctional enzyme with only R1, R1 ends up with a greater
-# probability than R2.
-#
-# I had tried to normalize to the previous sum but I need to be more careful than that
-# (I'll put it on my TODO list) because if you have e.g.
-# one hit to R1R2 and one hit to R3 then the probability of R1 and R2 will be unfairly
-# brought down due to the normalization scheme...
-#
-# Returns a file with three columns: Query gene ID, role, and probability
 def RolesetProbabilitiesToRoleProbabilities(organismid, roleset_probability_file):
+    '''Compute probability of each role from the rolesets for each query protein.
+    At the moment the strategy is to take any set of rolestrings containing the same roles
+    And add their probabilities.
+    So if we have hits to both a bifunctional enzyme with R1 and R2, and
+    hits to a monofunctional enzyme with only R1, R1 ends up with a greater
+    probability than R2.
+
+    I had tried to normalize to the previous sum but I need to be more careful than that
+    (I'll put it on my TODO list) because if you have e.g.
+    one hit to R1R2 and one hit to R3 then the probability of R1 and R2 will be unfairly
+    brought down due to the normalization scheme...
+
+    Returns a file with three columns: Query gene ID, role, and probability
+    '''
     role_probability_file = os.path.join(organismid, "%s.roleprobs" %(organismid))
     try:
         fid = open(role_probability_file, "r")
@@ -217,17 +221,24 @@ def RolesetProbabilitiesToRoleProbabilities(organismid, roleset_probability_file
     sys.stderr.write("done\n")
     return role_probability_file
 
-# We need to get the probability of each role being present
-# in the CELL, based on the probabilities of each QUERY gene having
-# that particular role.
-#
 # For now to get the probability I just assign this as the MAXIMUM for each role
 # to avoid diluting out by noise.
 #
 # The gene assignments are all genes within DILUTION_PERCENT of the maximum...
 #
-# Returns a file with ust two columns: The role, and its probability.
 def TotalRoleProbabilities(organismid, role_probability_file):
+    '''Given the probability that each gene has each role, estimate the probability that
+    the entire ORGANISM has that role.
+
+    To avoid exploding the probabilities with noise, I just take the maximum probability
+    of any query gene having a function and use that as the probability that the function
+    exists in the cell.
+
+    Returns a file with three columns: each role, its probability, and the estimated set of genes
+    that perform that role. A gene is assigned to a role if it is within DILUTION_PERCENT
+    of the maximum probability. DILUTION_PERCENT is defined in the python_globals.py file.
+
+    '''
     total_role_probability_file = os.path.join(organismid, "%s.cellroleprob" %(organismid))
     try:
         fid = open(total_role_probability_file, "r")
@@ -271,13 +282,22 @@ def TotalRoleProbabilities(organismid, role_probability_file):
 
     return total_role_probability_file
 
-# The output file to this has four columns
-# Complex   |   Probability   | Type   |  Roles_not_in_organism  |  Roles_not_in_subsystems
-# Type: CPLX_FULL (all roles found and utilized)
-#       CPLX_PARTIAL (only some roles found - only those roles that were found were utilized; does not distinguish between not there and no reps for those not found)
-#       CPLX_NOTTHERE (Probability of 0 because the genes aren't there)
-#       CPLX_NOREPS (Probability 0f 0 because there are no representative genes in the subsystems)
 def ComplexProbabilities(organismid, total_role_probability_file, folder):
+    '''Compute the probability of each complex from the probability of each role.
+
+    The complex probability is computed as the minimum probability of roles within that complex.
+    
+    The output file to this has four columns
+    Complex   |   Probability   | Type   |  Roles_not_in_organism  |  Roles_not_in_subsystems
+    
+    Type: 
+
+    CPLX_FULL (all roles found and utilized)
+    CPLX_PARTIAL (only some roles found - only those roles that were found were utilized; does not distinguish between not there and no reps for those not found)
+    CPLX_NOTTHERE (Probability of 0 because the genes aren't there for any of the subunits)
+    CPLX_NOREPS (Probability 0f 0 because there are no representative genes in the subsystems)
+
+    '''
     # 0 - check if the complex probability file already exists
     complex_probability_file = os.path.join(organismid, "%s.complexprob" %(organismid))
 
@@ -360,17 +380,25 @@ def ComplexProbabilities(organismid, total_role_probability_file, folder):
     sys.stderr.write("done\n")
     return complex_probability_file
 
-# The output to this function is a file containing
-# three columns:
-# Reaction   |  Probability  |  RxnType  |  ComplexInfo
-# If the reaction has no complexes it won't even be in this file becuase of the way
-# I set up the call... I could probably change this so that I get a list of ALL reactions
-# and make it easier to catch issues with reaction --> complex links in the database.
-# Some of the infrastructure is already there (with the TYPE).
-#
-# ComplexInfo is information about the complex IDs, their probabilities, and their TYPE
-#   (propogated here to prevent having to deal with 
 def ReactionProbabilities(organismid, complex_probability_file, folder):
+    '''From the probability of complexes estimate the probability of reactions.
+
+    The reaction probability is computed as the maximum probability of complexes that perform
+    that reaction.
+
+    The output to this function is a file containing the following columns:
+    Reaction   |  Probability  |  RxnType  |  ComplexInfo
+
+    If the reaction has no complexes it won't even be in this file becuase of the way
+    I set up the call... I could probably change this so that I get a list of ALL reactions
+    and make it easier to catch issues with reaction --> complex links in the database.
+    Some of the infrastructure is already there (with the TYPE).
+
+    ComplexInfo is information about the complex IDs, their probabilities, and their TYPE
+    (see ComplexProbabilities)
+
+    '''
+
     reaction_probability_file = os.path.join(organismid, "%s.rxnprobs" %(organismid))
     try:
         fid = open(reaction_probability_file, "r")
@@ -415,20 +443,10 @@ def ReactionProbabilities(organismid, complex_probability_file, folder):
     sys.stderr.write("done\n")
     return reaction_probability_file
 
-# MakeProbabilisticJsonFile(annotation_file)
-#
-# annotation_file is one of the annotation files from IRIS
-# which is a JSON file annotate_genome creates.
-#
-# To make the input file (annotation_file):
-#
-# fasta_to_genome "(organism)" (B, A, or E for Bacteria,Archaea or Eukarytes) (genetic code) < fasta > genome_file
-# annotate_genome < genome_file > annotation_file
-#
-# The other two files are results from running other functions (in particular the blast function and the roleset probability \
-# marble-picking function).
-#
 def MakeProbabilisticJsonFile(annotation_file, blast_result_file, roleset_probability_file, outfile, folder):
+    '''Create a "probabilistic annotation" object file from a genome object file. The probabilistic annotation
+    file adds fields for the probability of each role being linked to each gene.'''
+
     sys.stderr.write("Making probabilistic JSON file %s...\n" %(outfile))
     targetToRoles = readFilteredOtuRoles(folder)
     targetToRoleSet = {}

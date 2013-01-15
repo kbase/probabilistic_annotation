@@ -28,12 +28,14 @@ except ImportError:
     sys.path.append('simplejson-2.3.3')
     import simplejson as json
 
-# Get field "fieldName" from the entity seedEntity, the result of a 
-# get_entity_xxx or an all_entities_xxx call...
-#
-# The entities are dictionaries from ID to a dictionary of key-value pairs
-# where keys are whatever you tell it you want.
 def getFieldFromEntity(seedEntity, fieldName):
+    ''' Get field "fieldName" from the entity seedEntity, the result of a 
+    get_entity_xxx or an all_entities_xxx call to the CDM. The function returns
+    a list of entries in field fieldName.
+
+    The entities are dictionaries from ID to a dictionary of key-value pairs
+    where keys are whatever you tell it you want. '''
+
     if seedEntity is None:
         sys.stderr.write("INTERNAL ERROR: Provided seedEntity was None - usually this means you were searching for something that doesnt exist in the database\n")
         raise ValueError
@@ -49,27 +51,27 @@ def getFieldFromEntity(seedEntity, fieldName):
         f.append(seedEntity[entry][fieldName])
     return f
 
-################
-# INPUTS:
-# seedRelationship: The result of one of the get_relationship_xxx functions
-# fieldName: The field you want to extract from the object.
-# objtype: "TO", "REL", or "FROM"
-#
-# OUTPUTS:
-# A list (in the same order as the list from the get_relationship function)
-# of the values with the specified field name.
-#
-# The get_relationship_xxx functions return lists of lists.
-# The first list is a list of all the links
-# The second list has three dictionaries in it: the TO dictionary, the REL dictionary and the FROM dictionary
-#     describing properties on either end of the link and of the link itself...
-#
-#
-# If you want to  maintain duplicicate relationships (many-to-one, one-to-many, many-to-many), this function should be called at
-# least twice (once on each end of the relationship, or once on an end and once in the middle)..
-#
-##################
+
 def getFieldFromRelationship(seedRelationship, fieldName, objtype):
+    '''
+    INPUTS:
+    seedRelationship: The result of one of the get_relationship_xxx functions
+    fieldName: The field you want to extract from the object.
+    objtype: "TO", "REL", or "FROM"
+
+    OUTPUTS:
+    A list (in the same order as the list from the get_relationship function)
+    of the values with the specified field name.
+
+    The get_relationship_xxx functions return lists of lists.
+    The first list is a list of all the links
+    The second list has three dictionaries in it: the TO dictionary, the REL dictionary and the FROM dictionary
+    describing properties on either end of the link and of the link itself...
+
+    If you want to  maintain duplicicate relationships (many-to-one, one-to-many, many-to-many), this function should be called at
+    least twice (once on each end of the relationship, or once on an end and once in the middle)..
+    '''
+
     if seedRelationship is None:
         sys.stderr.write("INTERNAL ERROR: The provided relationship was None - usually this means you were searching for something that doesn't exist in the database.\n")
         raise ValueError
@@ -98,11 +100,9 @@ def getFieldFromRelationship(seedRelationship, fieldName, objtype):
         f.append(entry[objidx][fieldName])
     return f
 
-######
-# Input: Minimum index (MINN) and count (COUNT) of items to extract
-# Output: A list of fids in the specified subsystems
-######
 def subsystemFids(MINN, COUNT):
+    '''Query the CDMI for a list of FIDs in the subsystems'''
+
     cdmi = CDMI_API(URL)
     cdmi_entity = CDMI_EntityAPI(URL)
     # Get Genes that are in Subsystems and in Otus.
@@ -132,6 +132,10 @@ def subsystemFids(MINN, COUNT):
 #
 ######
 def subsystemFids_WORKAROUND(MINN, COUNT):
+    '''Query the CDMI for a list of FIDs in the subsystems, working around a bug
+    in subsystems_to_fids (the fids to subsystems link was not symmetrical - in some
+    cases it was possible to go from fids to subsystems but not back from subsystems to fids)'''
+
     cdmi = CDMI_API(URL)
     cdmi_entity = CDMI_EntityAPI(URL)
     # Our work-around is to go from subsystems to roles to fids and then back
@@ -145,11 +149,9 @@ def subsystemFids_WORKAROUND(MINN, COUNT):
     ssroles = []
     exit(2)
 
-#######
-# Unput: Minimum index (MINN) and count (COUNT) of items to extract
-# Output: List of FIDs with direct literature (dlit) evidence for their function.
-#######
 def getDlitFids(MINN, COUNT):
+    '''Get a list of FIDs with direct literature evidence (dlits) from the CDM'''
+
     cdmi = CDMI_API(URL)
     cdmi_entity = CDMI_EntityAPI(URL)
     pubdict = cdmi_entity.all_entities_Publication(MINN, COUNT, ["id"])
@@ -160,15 +162,10 @@ def getDlitFids(MINN, COUNT):
     fids = getFieldFromRelationship(seq2fids, "id", "to")
     return fids
 
-######
-#
-# Input: 1: A list of fids (fidlist) 
-#        2: A list of representative organisms (otus)
-# Output: A list of FIDs containing only those organisms in the OTUs
-# 
-# fids with no organism are thrown away as are any that don't match an organism in orgidlist
-######
 def filterFidsByOtus(fidlist, otus):
+    '''Given a list of representative organisnm IDs (OTUs) and a list of
+    FIDs, returns only those FIDs found in an OTU.'''
+
     cdmi_entity = CDMI_EntityAPI(URL)
 
     # Identify the organism belonging to each fid
@@ -183,14 +180,91 @@ def filterFidsByOtus(fidlist, otus):
             fids.append(flist[ii])
     return fids
 
-######
-# input: fidlist: A list of FIDs
-# output 1: fidsToRoles: A dictionary from FID to a list of roles
-# output 2: rolesToFids: A dictionary from a role to a list of FIDS (from the original list)
-#
-# fids with no roles are thrown away.
-######
+def filterFidsByOtusBetter(fidsToRoles, rolesToFids, oturepsToMembers):
+    '''Attempt to do a more intelligent filtering of FIDs by OTU.
+
+    Given all FIDs attached to a role in the unfiltered set we do the following:
+    
+    Initialize KEEP
+    For each OTU and each role:
+       If role is found in the representative, add to KEEP and continue;
+       Otherwise, iterate over other genomes.
+           If role is found in one other genome, add to KEEP and continue;
+
+    This process should make our calculation less sensitive to the choice of OTUs...
+
+    '''
+
+    cdmi_entity = CDMI_EntityAPI(URL)
+
+    # Identify the organism belonging to each fid
+    # If this fails to find an organism we don't want it anyway...
+    fidlist = fidsToRoles.keys()
+    orgdict = cdmi_entity.get_relationship_IsOwnedBy(fidlist, [], [], ["id"])
+    fidlist = getFieldFromRelationship(orgdict, "from_link", "rel")
+    orglist = getFieldFromRelationship(orgdict, "id", "to")
+    fidToOrg = {}
+    for ii in range(len(fidlist)):
+        fidToOrg[fidlist[ii]] = orglist[ii]
+    
+    keptFidsToRoles = {}
+    keptRolesToFids = {}
+    # If the OTUs are comprehensive this should be empty.
+    missingRoles = []
+
+    # For each OTU
+    for oturep in oturepsToMembers:
+        # for each role
+        for role in rolesToFids:
+            fidlist = rolesToFids[role]
+            keepFid = None
+            keepRole = None
+            for fid in fidlist:
+                # This can happen due to MOL issues
+                if fid not in fidToOrg:
+                    continue
+                org = fidToOrg[fid]
+                # If the organism is the representative we keep it and go to the next role
+                if org == oturep:
+                    keepFid = fid
+                    keepRole = role
+                    break
+                # Otherwise look at the rest of the list (note that I just pick one without really paying
+                # attention to WHICH one...). We save them in case there are no examples of the role in the
+                # representative organism, but continue on anyway.
+                if org in oturepsToMembers[oturep]:
+                    keepFid = fid
+                    keepRole = role
+            if keepFid is not None:
+                if keepFid in keptFidsToRoles:
+                    keptFidsToRoles[keepFid].append(keepRole)
+                else:
+                    keptFidsToRoles[keepFid] = [ keepRole ]
+                if keepRole in keptRolesToFids:
+                    keptRolesToFids[keepRole].append(keepFid)
+                else:
+                    keptRolesToFids[keepRole] = [ keepFid ]
+
+    missingRoles = list(set(rolesToFids.keys()) - set(keptRolesToFids.keys()))
+
+    print oturepsToMembers
+    print missingRoles
+    print keptRolesToFids
+
+    return keptFidsToRoles, keptRolesToFids, missingRoles
+
+def getOtuGenomeDictionary(MINN, COUNT):
+    '''Obtain a dictionary from OTU representatives to all genomes in the OTU'''
+    cdmi = CDMI_API(URL)
+    # Get list of OTUs
+    otulist = getOtuGenomeIds(MINN, COUNT)
+    otudict = cdmi.otu_members(otulist[0])
+    return otudict
+
 def fidsToRoles(fidlist):
+    '''Given a list of FIDs return a dictionary from FID to the list of roles the encoding gene
+    performs and a dictionary from roles to the FIDs performing them'''
+
     cdmi = CDMI_API(URL)
     cdmi_entity = CDMI_EntityAPI(URL)
     roledict = cdmi_entity.get_relationship_HasFunctional(fidlist, [], [], ["id"])
@@ -218,19 +292,17 @@ def fidsToRoles(fidlist):
         rolesToFids[r] = list(rolesToFids[r])
     return fidsToRoles, rolesToFids
 
-#############
-# Input: A list of feature IDs
-# Output: A dictionary fid --> sequence
-#
-# features with no sequences are discarded
-#############
 def fidsToSequences(fidlist):
+    '''Given a list fo FIDs, returns a dictionary from FID to its amino acid sequence.
+    Features with no amino acid sequence are discarded.'''
     cdmi = CDMI_API(URL)
     fidlist = list(set(fidlist))
     seqs = cdmi.fids_to_protein_sequences(fidlist)
     return seqs
 
 def genomesToPegs(genomes):
+    '''Given a list fogenome IDs, returns a list of FIDs for protein-encoding genes in the specified genomes'''
+
     cdmi_entity = CDMI_EntityAPI(URL)
     fiddict = cdmi_entity.get_relationship_IsOwnerOf(genomes, [], [], ["id", "feature_type"])
     fidlist = getFieldFromRelationship(fiddict, "id", "to")
@@ -243,11 +315,10 @@ def genomesToPegs(genomes):
             pegs.append(fidlist[ii])    
     return pegs
 
-############
-# Input: MINN - Minimum index and COUNT - number of items to extract
-# Output: A dictionary from OTU ID to a list of genome IDs within the OTU...
-############
 def getOtuGenomeIds(MINN, COUNT):
+    '''Query the CDMI for a list of OTU genomes (returns a list of OTUs and a list of only
+    prokaryote OTUs)'''
+
     cdmi_entity = CDMI_EntityAPI(URL)
 
     # Get the requested number of OTU
@@ -310,16 +381,11 @@ def getGenomeNeighborhoodsAndRoles(genomes):
             rolesToFids[roles[ii]] = [ fids[ii] ]
     return tuplist, fidToRoles
 
-#########
-# Get a dictionary from roles to complexes and back
-# Any functions that all form a complex are assumed to be AND-relationships
-#
-# Input: Minimum index (MINN) and count (COUNT)
-# Output: Two dictionaries:
-#    role --> complex
-#    complex --> roles
-#########
 def complexRoleLinks(MINN, COUNT):
+    '''Query the CDM for a list of links from complexes to roles. Returns a dictionary from
+    role to a list of complexes and a dictionary from complexes to a list of roles.
+
+    Only roles listed as "required" are included in the links.'''
     cdmi_entity = CDMI_EntityAPI(URL)
     # Get a list of complexes
     cplxdict = cdmi_entity.all_entities_Complex(MINN, COUNT, ["id"])
@@ -346,10 +412,11 @@ def complexRoleLinks(MINN, COUNT):
             requiredRolesToComplex[role[ii]] = [ cplx[ii] ]
     return complexToRequiredRoles, requiredRolesToComplex
 
-############
-# Get dictionaries from reactions to complexes
-############
 def reactionComplexLinks(MINN, COUNT):
+    '''Query the CDM for a list of links from reactions to complexes. Returns a dictionary
+    from reactions to lists of complexes performing them and from complexes to lists of reactions
+    they perform.'''
+
     cdmi_entity = CDMI_EntityAPI(URL)
 
     # The API was recently changed to use model IDs and to not use the reactions_to_complexes

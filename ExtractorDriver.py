@@ -121,25 +121,26 @@ except IOError:
     f.close()
 
 #############
+# Identify roles for the OTU genes in the organism...
+#############
+sys.stderr.write("Roles for un-filtered list...\n")
+try:
+    all_fidsToRoles, all_rolesToFids = readAllFidRoles(options.folder)
+except IOError:
+    all_fidsToRoles, all_rolesToFids = fidsToRoles(all_fids)
+    writeAllFidRoles(all_fidsToRoles, options.folder)
+
+#############
 # Filter the subsystem FIDs by organism... we only want OTU genes.
 # Unlike the neighborhood analysis, we don't want to include only 
 # prokaryotes here.
 #############
 sys.stderr.write("Filtered list by OTUs...\n")
 try:
-    otu_fids = readFilteredOtus(options.folder)
+    otu_fidsToRoles, otu_rolesToFids = readFilteredOtuRoles(options.folder)
 except IOError:
-    otu_fids = filterFidsByOtus(all_fids, otus)
-    writeFilteredOtus(otu_fids, options.folder)
-
-#############
-# Identify roles for the OTU genes in the organism...
-#############
-sys.stderr.write("Roles for filtered list...\n")
-try:
-    otu_fidsToRoles = readFilteredOtuRoles(options.folder)
-except IOError:
-    otu_fidsToRoles, otuRolesToFids = fidsToRoles(otu_fids)
+    otudict = getOtuGenomeDictionary(MINN, COUNT)
+    otu_fidsToRoles, otu_rolesToFids, missing_roles = filterFidsByOtusBetter(all_fidsToRoles, all_rolesToFids, otudict)
     writeFilteredOtuRoles(otu_fidsToRoles, options.folder)
 
 #############
