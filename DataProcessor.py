@@ -315,7 +315,7 @@ def ComplexProbabilities(organismid, total_role_probability_file, folder):
     complexesToRequiredRoles = readComplexRoles(folder)
     # subsystem roles
     # (used to distinguish between NOTTHERE and NOREPS)
-    otu_fidsToRoles = readFilteredOtuRoles(folder)
+    otu_fidsToRoles, otu_rolesToFids  = readFilteredOtuRoles(folder)
     allroles = set()
     for fid in otu_fidsToRoles:
         for role in otu_fidsToRoles[fid]:
