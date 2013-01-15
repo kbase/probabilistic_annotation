@@ -100,7 +100,7 @@ def RolesetProbabilitiesMarble(organismid, blast_result_file, folder):
     sys.stderr.write("Performing marble-picking on rolesets...")
 
     # Read in the target roles (this function returns the roles as lists!)
-    targetIdToRole = readFilteredOtuRoles(folder)
+    targetIdToRole, targetRoleToId = readFilteredOtuRoles(folder)
 
     # Convert the lists of roles into "rolestrings" (sort the list so that order doesn't matter)
     # in order to deal with the case where some of the hits are multi-functional and others only have
