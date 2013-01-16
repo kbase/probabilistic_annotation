@@ -448,7 +448,7 @@ def MakeProbabilisticJsonFile(annotation_file, blast_result_file, roleset_probab
     file adds fields for the probability of each role being linked to each gene.'''
 
     sys.stderr.write("Making probabilistic JSON file %s...\n" %(outfile))
-    targetToRoles = readFilteredOtuRoles(folder)
+    targetToRoles, rolesToTargets = readFilteredOtuRoles(folder)
     targetToRoleSet = {}
     for target in targetToRoles:
         stri = SEPARATOR.join(sorted(targetToRoles[target]))
