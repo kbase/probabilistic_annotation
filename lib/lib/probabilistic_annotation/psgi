@@ -1,0 +1,21 @@
+use Bio::KBase::probabilistic_annotation::Impl;
+
+use Bio::KBase::probabilistic_annotation::Server;
+
+
+
+my @dispatch;
+
+{
+    my $obj = Bio::KBase::probabilistic_annotation::Impl->new;
+    push(@dispatch, 'ProbabilisticAnnotation' => $obj);
+}
+
+
+my $server = Bio::KBase::probabilistic_annotation::Server->new(instance_dispatch => { @dispatch },
+				allow_get => 0,
+			       );
+
+my $handler = sub { $server->handle_input(@_) };
+
+$handler;
