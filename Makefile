@@ -13,12 +13,14 @@ SERVICE_NAME=probabilistic_annotation
 SERV_SERVER_SPEC 	= ProbabilisticAnnotation.spec
 SERV_SERVER_MODULE 	= ${SERVICE_NAME}
 SERV_SERVICE 		= ${SERVICE_NAME}
-SERV_PSGI_PATH 		= lib/${SERVICE_NAME}.psgi
+# the lib/ prefix is added automatically to this.
+SERV_PSGI_PATH 		= ${SERVICE_NAME}.psgi
 SERV_SERVICE_PORT 	= 7073
 SERV_SERVICE_DIR = $(TARGET)/services/$(SERV_SERVICE)
 SERV_TPAGE = $(KB_RUNTIME)/bin/perl $(KB_RUNTIME)/bin/tpage
+# but the lib/ is NOT added automatically here.
 SERV_TPAGE_ARGS = --define kb_top=$(TARGET) --define kb_runtime=$(KB_RUNTIME) --define kb_service_name=$(SERV_SERVICE) \
-	--define kb_service_port=$(SERV_SERVICE_PORT) --define kb_service_psgi=$(SERV_PSGI_PATH)
+	--define kb_service_port=$(SERV_SERVICE_PORT) --define kb_service_psgi=lib/$(SERV_PSGI_PATH)
 
 all: compile-typespec
 
@@ -62,12 +64,24 @@ test-client:
 	done
 
 # DEPLOYMENT
-deploy: deploy-client deploy-service
+deploy: deploy-dir deploy-client deploy-service
 
-deploy-service: deploy-libs deploy-scripts
+deploy-service: deploy-libs deploy-scripts deploy-service-files
 deploy-client: deploy-libs deploy-scripts deploy-docs
 
 deploy-scripts: deploy-perlscripts deploy-pythonscripts
+
+deploy-dir:
+	if [ ! -d $(SERV_SERVICE_DIR) ] ; then mkdir -p $(SERV_SERVICE_DIR) ; fi
+#        if [ ! -d $(SERV_SERVICE_DIR)/webroot ] ; then mkdir -p $(SERV_SERVICE_DIR)/webroot ; fi
+
+deploy-service-files:
+	tpage $(SERV_TPAGE_ARGS) service/start_service.tt > $(SERV_SERVICE_DIR)/start_service; \
+	chmod +x $(SERV_SERVICE_DIR)/start_service; \
+        tpage $(SERV_TPAGE_ARGS) service/stop_service.tt > $(SERV_SERVICE_DIR)/stop_service; \
+        chmod +x $(SERV_SERVICE_DIR)/stop_service; \
+        tpage $(SERV_TPAGE_ARGS) service/process.tt > $(SERV_SERVICE_DIR)/process.$(SERV_SERVICE); \
+        chmod +x $(SERV_SERVICE_DIR)/process.$(SERV_SERVICE);
 
 deploy-perlscripts:
 	# These three are needed to make these variables appear in the wrapped script
@@ -111,7 +125,7 @@ compile-typespec:
 	compile_typespec \
 	-impl Bio::KBase::${SERVICE_NAME}::Impl \
 	-service Bio::KBase::${SERVICE_NAME}::Server \
-	-psgi lib/${SERVICE_NAME}/psgi \
+	-psgi $(SERV_PSGI_PATH) \
 	-client Bio::KBase::${SERVICE_NAME}::Client \
 	-js javascript/${SERVICE_NAME}/Client \
 	-py biokbase/${SERVICE_NAME}/client \
