@@ -1,1 +1,4 @@
+# Note - make sure the dev branch exists locally first
+# I did a $ git branch -m dev to move my branch from master
+# to dev so that I didn't commit a not-working makefile to master...
 git push ssh://kbase@git.kbase.us/probabilistic_annotation dev
