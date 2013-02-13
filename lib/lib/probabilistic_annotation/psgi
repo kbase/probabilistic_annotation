@@ -1,6 +1,7 @@
 use Bio::KBase::probabilistic_annotation::Impl;
 
 use Bio::KBase::probabilistic_annotation::Server;
+use Plack::Middleware::CrossOrigin;
 
 
 
@@ -18,4 +19,4 @@ my $server = Bio::KBase::probabilistic_annotation::Server->new(instance_dispatch
 
 my $handler = sub { $server->handle_input(@_) };
 
-$handler;
+$handler = Plack::Middleware::CrossOrigin->wrap( $handler, origins => "*", headers => "*");

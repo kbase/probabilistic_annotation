@@ -1,4 +1,4 @@
-package probabilistic_annotationImpl;
+package Bio::KBase::probabilistic_annotation::Impl;
 use strict;
 use Bio::KBase::Exceptions;
 # Use Semantic Versioning (2.0.0-rc.1)
@@ -80,17 +80,17 @@ feature_id is a string
 location is a reference to a list where each element is a region_of_dna
 region_of_dna is a reference to a list containing 4 items:
 	0: a contig_id
-	1: an int
-	2: a string
-	3: an int
+	1: (begin) an int
+	2: (strand) a string
+	3: (length) an int
 feature_type is a string
 alt_func is a reference to a list containing 2 items:
-	0: a string
-	1: a float
+	0: (function) a string
+	1: (probability) a float
 annotation is a reference to a list containing 3 items:
-	0: a string
-	1: a string
-	2: an int
+	0: (comment) a string
+	1: (annotator) a string
+	2: (annotation_time) an int
 
 </pre>
 
@@ -127,17 +127,17 @@ feature_id is a string
 location is a reference to a list where each element is a region_of_dna
 region_of_dna is a reference to a list containing 4 items:
 	0: a contig_id
-	1: an int
-	2: a string
-	3: an int
+	1: (begin) an int
+	2: (strand) a string
+	3: (length) an int
 feature_type is a string
 alt_func is a reference to a list containing 2 items:
-	0: a string
-	1: a float
+	0: (function) a string
+	1: (probability) a float
 annotation is a reference to a list containing 3 items:
-	0: a string
-	1: a string
-	2: an int
+	0: (comment) a string
+	1: (annotator) a string
+	2: (annotation_time) an int
 
 
 =end text
@@ -166,7 +166,7 @@ sub annotation_probabilities
 							       method_name => 'annotation_probabilities');
     }
 
-    my $ctx = $probabilistic_annotationServer::CallContext;
+    my $ctx = $Bio::KBase::probabilistic_annotation::Server::CallContext;
     my($return);
     #BEGIN annotation_probabilities
 
@@ -262,17 +262,17 @@ feature_id is a string
 location is a reference to a list where each element is a region_of_dna
 region_of_dna is a reference to a list containing 4 items:
 	0: a contig_id
-	1: an int
-	2: a string
-	3: an int
+	1: (begin) an int
+	2: (strand) a string
+	3: (length) an int
 feature_type is a string
 alt_func is a reference to a list containing 2 items:
-	0: a string
-	1: a float
+	0: (function) a string
+	1: (probability) a float
 annotation is a reference to a list containing 3 items:
-	0: a string
-	1: a string
-	2: an int
+	0: (comment) a string
+	1: (annotator) a string
+	2: (annotation_time) an int
 
 </pre>
 
@@ -309,17 +309,17 @@ feature_id is a string
 location is a reference to a list where each element is a region_of_dna
 region_of_dna is a reference to a list containing 4 items:
 	0: a contig_id
-	1: an int
-	2: a string
-	3: an int
+	1: (begin) an int
+	2: (strand) a string
+	3: (length) an int
 feature_type is a string
 alt_func is a reference to a list containing 2 items:
-	0: a string
-	1: a float
+	0: (function) a string
+	1: (probability) a float
 annotation is a reference to a list containing 3 items:
-	0: a string
-	1: a string
-	2: an int
+	0: (comment) a string
+	1: (annotator) a string
+	2: (annotation_time) an int
 
 
 =end text
@@ -348,7 +348,7 @@ sub annotation_probabilities_id
 							       method_name => 'annotation_probabilities_id');
     }
 
-    my $ctx = $probabilistic_annotationServer::CallContext;
+    my $ctx = $Bio::KBase::probabilistic_annotation::Server::CallContext;
     my($return);
     #BEGIN annotation_probabilities_id
     # Chris said he's going to wrap the cs_to_genome function in an API routine.
@@ -609,9 +609,9 @@ A region of DNA is maintained as a tuple of four components:
 <pre>
 a reference to a list containing 4 items:
 0: a contig_id
-1: an int
-2: a string
-3: an int
+1: (begin) an int
+2: (strand) a string
+3: (length) an int
 
 </pre>
 
@@ -621,9 +621,9 @@ a reference to a list containing 4 items:
 
 a reference to a list containing 4 items:
 0: a contig_id
-1: an int
-2: a string
-3: an int
+1: (begin) an int
+2: (strand) a string
+3: (length) an int
 
 
 =end text
@@ -675,9 +675,9 @@ a reference to a list where each element is a region_of_dna
 
 <pre>
 a reference to a list containing 3 items:
-0: a string
-1: a string
-2: an int
+0: (comment) a string
+1: (annotator) a string
+2: (annotation_time) an int
 
 </pre>
 
@@ -686,9 +686,9 @@ a reference to a list containing 3 items:
 =begin text
 
 a reference to a list containing 3 items:
-0: a string
-1: a string
-2: an int
+0: (comment) a string
+1: (annotator) a string
+2: (annotation_time) an int
 
 
 =end text
@@ -709,8 +709,8 @@ a reference to a list containing 3 items:
 
 <pre>
 a reference to a list containing 2 items:
-0: a string
-1: a float
+0: (function) a string
+1: (probability) a float
 
 </pre>
 
@@ -719,8 +719,8 @@ a reference to a list containing 2 items:
 =begin text
 
 a reference to a list containing 2 items:
-0: a string
-1: a float
+0: (function) a string
+1: (probability) a float
 
 
 =end text

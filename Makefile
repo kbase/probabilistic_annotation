@@ -6,7 +6,7 @@ TOOLS_DIR      ?= /kb/dev_container/tools
 
 # Include standard makefile
 TOP_DIR = ../..
-#include $(TOP_DIR)/tools/Makefile.common
+include $(TOP_DIR)/tools/Makefile.common
 SRC_PYTHON = $(wildcard scripts/*.py)
 
 SERVICE_NAME=probabilistic_annotation
@@ -21,10 +21,6 @@ SERV_TPAGE_ARGS = --define kb_top=$(TARGET) --define kb_runtime=$(KB_RUNTIME) --
 	--define kb_service_port=$(SERV_SERVICE_PORT) --define kb_service_psgi=$(SERV_PSGI_PATH)
 
 all: compile-typespec
-
-
-$(BIN_DIR)/%: scripts/%.pl 
-	$(TOOLS_DIR)/wrap_perl '$$KB_TOP/modules/$(CURRENT_DIR)/$<' $@
 
 # TESTS
 # Note I don't have any test scripts yet but when I make them they'll go in these locations
@@ -67,33 +63,45 @@ test-client:
 
 # DEPLOYMENT
 deploy: deploy-client deploy-service
-deploy-all: deploy-client deploy-service
 
-deploy-service: deploy-dir deploy-libs deploy-scripts deploy-services
-deploy-client: deploy-dir deploy-libs deploy-scripts deploy-docs
+deploy-service: deploy-libs deploy-scripts
+deploy-client: deploy-libs deploy-scripts deploy-docs
 
-deploy-dir:
-	if [ ! -d $(SERV_SERVICE_DIR) ] ; then mkdir -p $(SERV_SERVICE_DIR) ; fi
-	if [ ! -d $(SERV_SERVICE_DIR)/webroot ] ; then mkdir -p $(SERV_SERVICE_DIR)/webroot ; fi
+deploy-scripts: deploy-perlscripts deploy-pythonscripts
 
-deploy-scripts:
-	# What needs to be done here is all the driver scripts (for now that's just test-impl.pl, which will be renamed)
-	# need to go into $(TARGET)/plbin (since it's a perl script) and they need to be wrapped using wrapperl
-	basefile="test_impl.pl" ; \
-	cp $$basefile $(TARGET)/plbin/$$basefile ; \
-	bash $(TOOLS_DIR)/wrap_perl.sh $(TARGET)/plbin/$$basefile $(TARGET)/bin/$$basefile ;
+deploy-perlscripts:
+	# These three are needed to make these variables appear in the wrapped script
+	export KB_TOP=$(TARGET); \
+        export KB_RUNTIME=$(DEPLOY_RUNTIME); \
+        export KB_PERL_PATH=$(TARGET)/lib bash ; \
+	for src in $(wildcard bin/*.pl) ; do \
+                basefile=`basename $$src`; \
+                base=`basename $$src .pl`; \
+                cp $$src $(TARGET)/plbin ; \
+                bash $(TOOLS_DIR)/wrap_perl.sh "$(TARGET)/plbin/$$basefile" $(TARGET)/bin/$$base ; \
+        done
+
+deploy-pythonscripts:
+	# These three are needed to make these variables appear in the wrapped script
+	export KB_TOP=$(TARGET); \
+        export KB_RUNTIME=$(DEPLOY_RUNTIME); \
+        export KB_PYTHON_PATH=$(TARGET)/lib bash ; \
+	for src in $(wildcard bin/*.py) ; do \
+		basefile=`basename $$src`; \
+		base=`basename $$src .py`; \
+                cp $$src $(TARGET)/pybin ; \
+		bash $(TOOLS_DIR)/wrap_python.sh "$(TARGET)/pybin/$$basefile" $(TARGET)/bin/$$base ; \
+	done
 
 deploy-libs: compile-typespec
+	# lib/ contains basically all of the guts of the code. 
+	# Reference a python module within here with "import biokbase.probabilistic_annotation.[module_name]"
 	rsync -arv lib/. $(TARGET)/lib/.
 
-deploy-services: deploy-basic-service
-
-
 deploy-docs:
-	if [ ! -d docs ] ; then mkdir -p docs ; fi
+	# I have nothing here yet.
 	# The python code doesn't use pod but would need something different to make the nice HTML... I'll deal with this later.
-	#	$(KB_RUNTIME)/bin/pod2html -t "workspaceService" lib/Bio/KBase/workspaceService/Client.pm > docs/workspaceService.html
-	#	cp docs/*html $(SERV_SERVICE_DIR)/webroot/.
+	if [ ! -d docs ] ; then mkdir -p docs ; fi
 
 compile-typespec:
 	mkdir -p lib/biokbase/${SERVICE_NAME}
