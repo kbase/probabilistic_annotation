@@ -4,7 +4,7 @@
 
 import optparse
 import os, sys
-from DataProcessor import *
+from biokbase.probabilistic_annotation.DataProcessor import *
 
 usage="%prog [options] -f filedir organismid"
 description="""Main driver to run probabilistic annotation.

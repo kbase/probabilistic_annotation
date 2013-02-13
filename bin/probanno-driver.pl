@@ -6,7 +6,7 @@
 # service with the genome object as input.
 #
 use strict;
-use probabilistic_annotationImpl;
+use Bio::KBase::probabilistic_annotation::Impl
 #use JSON;
 #use File::Spec;
 
@@ -22,7 +22,7 @@ my $genomeid = $ARGV[0] or die "Usage: test_impl.pl [genomeID]";
 #my $genomeObject = decode_json $jsonString;
 
 # Create a new object that will be computing the probabilities for me.
-my $annoteObject = probabilistic_annotationImpl->new();
+my $annoteObject = ProbabilisticAnnotation->new();
 
 # Call the function - this function will first write the genome object to a JSON file (in our case,
 # the same JSON file as was used to make the genome object), then call the pyhton script that uses it

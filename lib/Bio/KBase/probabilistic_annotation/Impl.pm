@@ -172,30 +172,34 @@ sub annotation_probabilities
 
     # Get the genome ID from the genome object and using it to create a home for our output files.
     my $genomeId = $genomeTO->{"id"};
-    mkdir($genomeId);
+
+    # CHRIS: The folder where the workspace function ultimately dumps the files should be
+    # placed in this variable
+    #
+    # The expected names of each file are listed in PYTHON_GLOBALS.py. If possible please
+    # have the workspace extractor save any temporary files with those names. If this is not
+    # possible I'll change that.
+    my $workspacefolder = "/kb/deployment/data/probabilistic_annotation";
+    mkdir($workspacefolder);
+
+    # The output stuff should also go to a standard place.
+    # Both of these should be changed to point at the workspace's data folder if there is one...
+    my $outputdir = mkdir(File::Spec->catdir("${workspacefolder}", "${genomeId}"));
+
     # Make the JSON string and dump it to a file.
     # ASCII - I'm not sure what the best way to deal with this is but I don't want it to just die
     # if a non-UTF8 character is encountered in the roles (which has happened to me from time to time...)
     my $JSON_STRING = JSON::XS->new->ascii->pretty->encode($genomeTO);
-    my $outfile = File::Spec->catfile("${genomeId}","${genomeId}.json");
+    my $outfile = File::Spec->catfile("${outputdir}","${genomeId}.json");
     open(FILE, ">$outfile") or die "Unable to create file ${outfile} to which to dump the provided genome object to annotation_probabilities";
     print FILE $JSON_STRING;
     close(FILE);
     # System call to probability calculator
 
-    # CHRIS: The folder where the workspace function ultimately dumps the files should be
-    # placed in this variable
-    #
-    # Fow now I'm using a relative path "data" just so you can see what it does.
-    # It will create the folder if it doesn't exist and dump files to it.
-    #
-    # The expected names of each file are listed in PYTHON_GLOBALS.py. If possible please
-    # have the workspace extractor save any temporary files with those names. If this is not
-    # possible I'll change that.
-    my $workspacefolder = "data";
 
-    # This python script must be in the PATH or we will fail.
-    my $status = system("Probability_calculation_frontend.py", "-f", "$workspacefolder", "$genomeId");
+    # This script must be in the PATH or we will fail.
+    # It is a wrapped-up version of Probability_calculation_frontend.py
+    my $status = system("Probability_calculation_frontend", "-f", "$workspacefolder", "$genomeId");
     if ( ($status >>= 8) != 0 ) {
 	die "Probability calculator failed.";
     }
@@ -358,20 +362,23 @@ sub annotation_probabilities_id
     # I've hacked this together until then so we have SOMETHING.
     my $jsonFileName = File::Spec->catfile("${genome_id}", "${genome_id}.json");
     my $jsonString;
+    my $genomeObject;
     if ( -e $jsonFileName) {
 
 	open(FILE, "<${jsonFileName}") or die "Unable to open input JSON file ${jsonFileName} despite it existing???";
+	$jsonString = join("", <FILE>);
+	$genomeObject = decode_json $jsonString;
+	close(FILE);
     } else {
 	open (my $file, '>', "TEMPORARY_${genome_id}");
 	print $file `perl cs_to_genome_MODIFIED.pl "${genome_id}"`;
 	open(FILE, '<', "TEMPORARY_${genome_id}") or die $!; #"Unable to open the temporary JSON file created by cs_to_genome_MODIFIED.pl";
+	$jsonString = join("", <FILE>);
+	$genomeObject = decode_json $jsonString;
+	close(FILE);
+	# Clean up temporary file.
+	unlink $file;
     }
-
-    $jsonString = join("", <FILE>);
-
-    my $genomeObject = decode_json $jsonString;
-
-    close(FILE);
 
     $return = $self->annotation_probabilities($genomeObject);
 
