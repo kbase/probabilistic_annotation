@@ -2,6 +2,7 @@
 # if the directories are not already set:
 DEPLOY_RUNTIME ?= /kb/runtime
 TARGET         ?= /kb/deployment
+TOOLS_DIR      ?= /kb/dev_container/tools
 
 # Include standard makefile
 TOP_DIR = ../..
@@ -19,12 +20,14 @@ SERV_TPAGE = $(KB_RUNTIME)/bin/perl $(KB_RUNTIME)/bin/tpage
 SERV_TPAGE_ARGS = --define kb_top=$(TARGET) --define kb_runtime=$(KB_RUNTIME) --define kb_service_name=$(SERV_SERVICE) \
 	--define kb_service_port=$(SERV_SERVICE_PORT) --define kb_service_psgi=$(SERV_PSGI_PATH)
 
-all: bin compile-typespec
+all: compile-typespec
 
 
 $(BIN_DIR)/%: scripts/%.pl 
 	$(TOOLS_DIR)/wrap_perl '$$KB_TOP/modules/$(CURRENT_DIR)/$<' $@
 
+# TESTS
+# Note I don't have any test scripts yet but when I make them they'll go in these locations
 CLIENT_TESTS = $(wildcard client-tests/*.t)
 SCRIPT_TESTS = $(wildcard script-tests/*.sh)
 SERVER_TESTS = $(wildcard server-tests/*.t)
@@ -62,6 +65,7 @@ test-client:
 		fi \
 	done
 
+# DEPLOYMENT
 deploy: deploy-client deploy-service
 deploy-all: deploy-client deploy-service
 
@@ -73,12 +77,11 @@ deploy-dir:
 	if [ ! -d $(SERV_SERVICE_DIR)/webroot ] ; then mkdir -p $(SERV_SERVICE_DIR)/webroot ; fi
 
 deploy-scripts:
-	export KB_TOP=$(TARGET); \
-	export KB_RUNTIME=$(KB_RUNTIME); \
-	export KB_PYTHON_PATH=$(TARGET)/lib bash ; \
-	for src in $(SRC_PYTHON) ; do \
-		# ??
-	done 
+	# What needs to be done here is all the driver scripts (for now that's just test-impl.pl, which will be renamed)
+	# need to go into $(TARGET)/plbin (since it's a perl script) and they need to be wrapped using wrapperl
+	basefile="test_impl.pl" ; \
+	cp $$basefile $(TARGET)/plbin/$$basefile ; \
+	bash $(TOOLS_DIR)/wrap_perl.sh $(TARGET)/plbin/$$basefile $(TARGET)/bin/$$basefile ;
 
 deploy-libs: compile-typespec
 	rsync -arv lib/. $(TARGET)/lib/.
