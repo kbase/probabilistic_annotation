@@ -14,11 +14,11 @@ from DataExtractor import *
 from DataParser import *
 from PYTHON_GLOBALS import *
 
-def GenomeJsonToFasta(organismid):
+def GenomeJsonToFasta(outputbase, organismid):
     '''Convert a genome JSON object into an amino-acid FASTA file (for BLAST purposes)'''
-    genome_json_file = os.path.join(organismid, "%s.json" %(organismid))
+    genome_json_file = os.path.join(outputbase, organismid, "%s.json" %(organismid))
     # If the fasta file already exists dont bother re-creating it.
-    fasta_file = os.path.join(organismid, "%s.faa" %(organismid))
+    fasta_file = os.path.join(outputbase, organismid, "%s.faa" %(organismid))
     try:
         fid = open(fasta_file, "r")
         fid.close()
@@ -43,7 +43,7 @@ def GenomeJsonToFasta(organismid):
     return fasta_file
 
 # Organismid is a KBase genome id for the organism
-def setUpQueryData(organismid):
+def setUpQueryData(outputbase, organismid):
     '''Create a place for the probability calculation results and move in the
     genome JSON file, then make the call to get a FASTA file ot of it'''
     sys.stderr.write("Creating output directory for organism %s...\n" %(organismid))
@@ -55,22 +55,22 @@ def setUpQueryData(organismid):
         pass
     sys.stderr.write("Creating a genome JSON file for organism %s...\n" %(organismid))
 
-    json_file = os.path.join(organismid, "%s.json" %(organismid))
+    json_file = os.path.join(outputbase, organismid, "%s.json" %(organismid))
     try:
         # As a workaround for now, I should create a JSON file before-hand with the appropriate name and then this check will pass.
         fid = open(json_file, "r")
         fid.close()
         sys.stderr.write("JSON file %s already exists.\n" %(organismid))
     except IOError:
-        sys.stderr.write("INTERNAL ERROR: JSON file %s does not exist but should have been created by the perl script calling this function...\n")
+        sys.stderr.write("INTERNAL ERROR: JSON file %s does not exist but should have been created by the perl script calling this function...\n" %(json_file))
         exit(2)
-    fasta_file = GenomeJsonToFasta(organismid)
+    fasta_file = GenomeJsonToFasta(outputbase, organismid)
     return fasta_file, json_file
 
-def runBlast(organismid, query_fasta, folder):
+def runBlast(outputbase, organismid, query_fasta, folder):
     '''A simplistic wrapper to BLAST the query proteins against the
     subsystem proteins'''
-    blast_result_file = os.path.join(organismid, "%s.blastout" %(organismid))
+    blast_result_file = os.path.join(outputbase, organismid, "%s.blastout" %(organismid))
     try:
         fid = open(blast_result_file, "r")
         fid.close()
@@ -82,14 +82,14 @@ def runBlast(organismid, query_fasta, folder):
         sys.stderr.write("BLAST command complete\n")
     return blast_result_file
 
-def RolesetProbabilitiesMarble(organismid, blast_result_file, folder):
+def RolesetProbabilitiesMarble(outputbase, organismid, blast_result_file, folder):
     '''Calculate the probabilities of rolesets (i.e. each possible combination of
     roles implied by the functions of the proteins in subsystems) from the BLAST results.
 
    Returns a file with three columns(query, rolestring, probability)  
    rolestring = "\\\" separating all roles of a protein with a single function (order does not matter)
     '''
-    roleset_probability_file = os.path.join(organismid, "%s.rolesetprobs" %(organismid))
+    roleset_probability_file = os.path.join(outputbase, organismid, "%s.rolesetprobs" %(organismid))
     try:
         fid = open(roleset_probability_file, "r")
         fid.close()
@@ -165,7 +165,7 @@ def RolesetProbabilitiesMarble(organismid, blast_result_file, folder):
     return roleset_probability_file
         
 
-def RolesetProbabilitiesToRoleProbabilities(organismid, roleset_probability_file):
+def RolesetProbabilitiesToRoleProbabilities(outputbase, organismid, roleset_probability_file):
     '''Compute probability of each role from the rolesets for each query protein.
     At the moment the strategy is to take any set of rolestrings containing the same roles
     And add their probabilities.
@@ -180,7 +180,7 @@ def RolesetProbabilitiesToRoleProbabilities(organismid, roleset_probability_file
 
     Returns a file with three columns: Query gene ID, role, and probability
     '''
-    role_probability_file = os.path.join(organismid, "%s.roleprobs" %(organismid))
+    role_probability_file = os.path.join(outputbase, organismid, "%s.roleprobs" %(organismid))
     try:
         fid = open(role_probability_file, "r")
         fid.close()
@@ -226,7 +226,7 @@ def RolesetProbabilitiesToRoleProbabilities(organismid, roleset_probability_file
 #
 # The gene assignments are all genes within DILUTION_PERCENT of the maximum...
 #
-def TotalRoleProbabilities(organismid, role_probability_file):
+def TotalRoleProbabilities(outputbase, organismid, role_probability_file):
     '''Given the probability that each gene has each role, estimate the probability that
     the entire ORGANISM has that role.
 
@@ -239,7 +239,7 @@ def TotalRoleProbabilities(organismid, role_probability_file):
     of the maximum probability. DILUTION_PERCENT is defined in the python_globals.py file.
 
     '''
-    total_role_probability_file = os.path.join(organismid, "%s.cellroleprob" %(organismid))
+    total_role_probability_file = os.path.join(outputbase, organismid, "%s.cellroleprob" %(organismid))
     try:
         fid = open(total_role_probability_file, "r")
         fid.close()
@@ -282,7 +282,7 @@ def TotalRoleProbabilities(organismid, role_probability_file):
 
     return total_role_probability_file
 
-def ComplexProbabilities(organismid, total_role_probability_file, folder):
+def ComplexProbabilities(outputbase, organismid, total_role_probability_file, folder):
     '''Compute the probability of each complex from the probability of each role.
 
     The complex probability is computed as the minimum probability of roles within that complex.
@@ -299,7 +299,7 @@ def ComplexProbabilities(organismid, total_role_probability_file, folder):
 
     '''
     # 0 - check if the complex probability file already exists
-    complex_probability_file = os.path.join(organismid, "%s.complexprob" %(organismid))
+    complex_probability_file = os.path.join(outputbase, organismid, "%s.complexprob" %(organismid))
 
     try:
         fid = open(complex_probability_file, "r")
@@ -380,7 +380,7 @@ def ComplexProbabilities(organismid, total_role_probability_file, folder):
     sys.stderr.write("done\n")
     return complex_probability_file
 
-def ReactionProbabilities(organismid, complex_probability_file, folder):
+def ReactionProbabilities(outputbase, organismid, complex_probability_file, folder):
     '''From the probability of complexes estimate the probability of reactions.
 
     The reaction probability is computed as the maximum probability of complexes that perform
@@ -399,7 +399,7 @@ def ReactionProbabilities(organismid, complex_probability_file, folder):
 
     '''
 
-    reaction_probability_file = os.path.join(organismid, "%s.rxnprobs" %(organismid))
+    reaction_probability_file = os.path.join(outputbase, organismid, "%s.rxnprobs" %(organismid))
     try:
         fid = open(reaction_probability_file, "r")
         fid.close()

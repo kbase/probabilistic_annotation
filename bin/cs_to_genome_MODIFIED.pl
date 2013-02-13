@@ -1,6 +1,5 @@
 
 use strict;
-use gjoseqlib;
 use Bio::KBase::IDServer::Client;
 use Bio::KBase::CDMI::Client;
 use JSON::XS;

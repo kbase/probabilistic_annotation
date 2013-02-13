@@ -172,6 +172,7 @@ sub annotation_probabilities
 
     # Get the genome ID from the genome object and using it to create a home for our output files.
     my $genomeId = $genomeTO->{"id"};
+#    $genomeId =~ s/\|/_/;
 
     # CHRIS: The folder where the workspace function ultimately dumps the files should be
     # placed in this variable
@@ -184,19 +185,20 @@ sub annotation_probabilities
 
     # The output stuff should also go to a standard place.
     # Both of these should be changed to point at the workspace's data folder if there is one...
-    my $outputdir = mkdir(File::Spec->catdir("${workspacefolder}", "${genomeId}"));
+    my $outputdir = File::Spec->catdir("$workspacefolder", "$genomeId");
+    mkdir($outputdir);
 
     # Make the JSON string and dump it to a file.
     # ASCII - I'm not sure what the best way to deal with this is but I don't want it to just die
     # if a non-UTF8 character is encountered in the roles (which has happened to me from time to time...)
     my $JSON_STRING = JSON::XS->new->ascii->pretty->encode($genomeTO);
-    my $outfile = File::Spec->catfile("${outputdir}","${genomeId}.json");
+    my $outfile = File::Spec->catfile("$outputdir","${genomeId}.json");
+
     open(FILE, ">$outfile") or die "Unable to create file ${outfile} to which to dump the provided genome object to annotation_probabilities";
     print FILE $JSON_STRING;
     close(FILE);
+
     # System call to probability calculator
-
-
     # This script must be in the PATH or we will fail.
     # It is a wrapped-up version of Probability_calculation_frontend.py
     my $status = system("Probability_calculation_frontend", "-f", "$workspacefolder", "$genomeId");
@@ -205,7 +207,7 @@ sub annotation_probabilities
     }
 
     # Read the new JSON file (for the new probability object type)
-    my $infile = File::Spec->catfile("${genomeId}","${genomeId}_prob.json");
+    my $infile = File::Spec->catfile("${outputdir}","${genomeId}_prob.json");
     print "${infile}\n";
     open(FILE, "<$infile") or die "Unable to read file ${infile} which should contain the probabilities from annotation_probabilities";
     $JSON_STRING = join("", <FILE>); 
@@ -360,25 +362,30 @@ sub annotation_probabilities_id
     #my $genomeTO = [package]->cs_to_genome($genome_id);
     #
     # I've hacked this together until then so we have SOMETHING.
-    my $jsonFileName = File::Spec->catfile("${genome_id}", "${genome_id}.json");
-    my $jsonString;
-    my $genomeObject;
-    if ( -e $jsonFileName) {
+    my $workspacefolder = "/kb/deployment/data/probabilistic_annotation";
+    mkdir($workspacefolder);
 
-	open(FILE, "<${jsonFileName}") or die "Unable to open input JSON file ${jsonFileName} despite it existing???";
-	$jsonString = join("", <FILE>);
-	$genomeObject = decode_json $jsonString;
-	close(FILE);
+    # The output stuff should also go to a standard place.
+    # Both of these should be changed to point at the workspace's data folder if there is one...
+    my $outputdir = File::Spec->catdir("$workspacefolder", "$genome_id");
+    mkdir($outputdir);
+
+    my $jsonFileName = File::Spec->catfile("$outputdir", "${genome_id}.json");
+
+    if ( -e $jsonFileName) {
+	open(FILE, '<', "${jsonFileName}") or die "Unable to open input JSON file ${jsonFileName} despite it existing???";
     } else {
+	# FIXME - the MODIFIED script should take the output directory as an argument.
 	open (my $file, '>', "TEMPORARY_${genome_id}");
-	print $file `perl cs_to_genome_MODIFIED.pl "${genome_id}"`;
-	open(FILE, '<', "TEMPORARY_${genome_id}") or die $!; #"Unable to open the temporary JSON file created by cs_to_genome_MODIFIED.pl";
-	$jsonString = join("", <FILE>);
-	$genomeObject = decode_json $jsonString;
-	close(FILE);
-	# Clean up temporary file.
-	unlink $file;
+	# This assumes the cs_to_genome_MODIFIED script has been wrapped up (with wrap_perl) and
+	# that the paths are all set up correctly...
+	print $file `cs_to_genome_MODIFIED "${genome_id}"`;
+	open( FILE, '<', "TEMPORARY_${genome_id}") or die $!; #"Unable to open the temporary JSON file created by cs_to_genome_MODIFIED.pl";
     }
+   
+    my $jsonString = join("", <FILE>);
+    my $genomeObject = decode_json $jsonString;
+    close(FILE);
 
     $return = $self->annotation_probabilities($genomeObject);
 

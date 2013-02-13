@@ -48,8 +48,9 @@ except OSError:
 #except OSError:
 #    pass;
 
-# Run the extractor driver to get the data
-cmd = "python ExtractorDriver.py -f %s" %(options.folder)
+# Run the extractor driver to get the data (tnis requires
+# wrapping with wrap-python)
+cmd = "probanno-ExtractorDriver -f %s" %(options.folder)
 if options.regenerate:
     cmd += cmd + " -r"
 os.system(cmd)
@@ -58,13 +59,13 @@ os.system(cmd)
 # All of the results are saved to [organismid]/[organismid].* where different extensions
 # are different calculated data.
 organismid = args[0]
-fasta_file, json_file = setUpQueryData(organismid)
-blast_result_file = runBlast(organismid, fasta_file, options.folder)
-roleset_probability_file = RolesetProbabilitiesMarble(organismid, blast_result_file, options.folder)
-role_probability_file = RolesetProbabilitiesToRoleProbabilities(organismid, roleset_probability_file)
-total_role_probability_file = TotalRoleProbabilities(organismid, role_probability_file)
-complex_probability_file = ComplexProbabilities(organismid, total_role_probability_file, options.folder)
-reaction_probability_file = ReactionProbabilities(organismid, complex_probability_file, options.folder)
+fasta_file, json_file = setUpQueryData(options.folder, organismid)
+blast_result_file = runBlast(options.folder, organismid, fasta_file, options.folder)
+roleset_probability_file = RolesetProbabilitiesMarble(options.folder, organismid, blast_result_file, options.folder)
+role_probability_file = RolesetProbabilitiesToRoleProbabilities(options.folder, organismid, roleset_probability_file)
+total_role_probability_file = TotalRoleProbabilities(options.folder, organismid, role_probability_file)
+complex_probability_file = ComplexProbabilities(options.folder, organismid, total_role_probability_file, options.folder)
+reaction_probability_file = ReactionProbabilities(options.folder, organismid, complex_probability_file, options.folder)
 
-outfile = os.path.join(organismid, "%s_prob.json" %(organismid))
+outfile = os.path.join(options.folder, organismid, "%s_prob.json" %(organismid))
 MakeProbabilisticJsonFile(json_file, blast_result_file, roleset_probability_file, outfile, options.folder)

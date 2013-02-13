@@ -1,10 +1,10 @@
 #!/usr/bin/python
 
 import optparse, os, sys
-from DataExtractor import *
-from DataParser import *
+from biokbase.probabilistic_annotation.DataExtractor import *
+from biokbase.probabilistic_annotation.DataParser import *
 # Common variables...
-from PYTHON_GLOBALS import *
+from biokbase.probabilistic_annotation.PYTHON_GLOBALS import *
 
 usage="%prog [options]"
 description="""Main driver to get data needed out of the KBase and store it locally.
