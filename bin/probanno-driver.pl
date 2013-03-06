@@ -14,7 +14,15 @@ use Bio::KBase::probabilistic_annotation::Impl;
 # I only do this to get a genome object - in teh future this won't be necessary
 # because I'll either be able to call annotate_genome to get a genome object
 # or to get a genome object for a particular ID in the CDM.
-my $genomeid = $ARGV[0] or die "Usage: test_impl.pl [genomeID]";
+my $usage = "Usage: test_impl.pl [genomeID] [probanno_workspace] [probanno_id]";
+my $genomeid = $ARGV[0] or die $usage;
+my $workspace = $ARGV[1] or die $usage;
+my $probanno_id = $ARGV[2] or die $usage;
+
+my $annotation_probabilities_id_input = { "probanno_workspace" => $workspace,
+					  "probanno"           => $probanno_id,
+					  "genome"             => $genomeid };
+
 #my $jsonFileName = File::Spec->catfile("${genomeid}", "${genomeid}.json");
 #open(FILE, "<${jsonFileName}") or die "Unable to open expected input JSON file ${jsonFileName}";
 #my $jsonString = join("", <FILE>);
@@ -28,6 +36,6 @@ my $annoteObject = Bio::KBase::probabilistic_annotation::Impl->new();
 # the same JSON file as was used to make the genome object), then call the pyhton script that uses it
 # to do its calculations and modifies it by adding probabilities, and finally will read back and return
 # an object containing the probabilities (genomeTO)
-my $genomeTO = $annoteObject->annotation_probabilities_id($genomeid);
+my $genomeTO = $annoteObject->annotation_probabilities_id($annotation_probabilities_id_input);
 
 print "Done!\n";

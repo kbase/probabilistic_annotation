@@ -47,10 +47,10 @@ class ProbabilisticAnnotation:
         if self.timeout < 1:
             raise ValueError('Timeout value must be at least 1 second')
 
-    def annotation_probabilities(self, genomeTO):
+    def annotation_probabilities(self, annotation_probabilities_input):
 
         arg_hash = { 'method': 'ProbabilisticAnnotation.annotation_probabilities',
-                     'params': [genomeTO],
+                     'params': [annotation_probabilities_input],
                      'version': '1.1'
                      }
 
@@ -75,10 +75,10 @@ class ProbabilisticAnnotation:
         else:
             raise ServerError('Unknown', 0, 'An unknown server error occurred')
 
-    def annotation_probabilities_id(self, genome_id):
+    def annotation_probabilities_id(self, annotation_probabilities_ids_input):
 
         arg_hash = { 'method': 'ProbabilisticAnnotation.annotation_probabilities_id',
-                     'params': [genome_id],
+                     'params': [annotation_probabilities_ids_input],
                      'version': '1.1'
                      }
 
