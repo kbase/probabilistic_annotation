@@ -18,6 +18,8 @@ ProbabilisticAnnotation
 #BEGIN_HEADER
 use JSON::XS;
 use File::Spec;
+use Bio::KBase::workspaceService::Impl;
+use Bio::KBase::workspaceService::Helpers qw(auth get_ws_client);
 #END_HEADER
 
 sub new
@@ -54,10 +56,8 @@ sub new
 $annotation_probabilities_input is an annotation_probabilities_input
 $return is a ProbabilisticAnnotation
 annotation_probabilities_input is a reference to a hash where the following keys are defined:
-	probanno_workspace has a value which is a workspace_id
 	probanno has a value which is a probanno_id
 	genomeObj has a value which is a GenomeObject
-workspace_id is a string
 probanno_id is a string
 GenomeObject is a reference to a hash where the following keys are defined:
 	id has a value which is a genome_id
@@ -101,7 +101,6 @@ ProbabilisticAnnotation is a reference to a hash where the following keys are de
 	id has a value which is a probanno_id
 	genome has a value which is a genome_id
 	featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
-	workspace has a value which is a workspace_id
 ProbAnnoFeature is a reference to a hash where the following keys are defined:
 	id has a value which is a feature_id
 	alternative_functions has a value which is a reference to a list where each element is an alt_func
@@ -115,10 +114,8 @@ ProbAnnoFeature is a reference to a hash where the following keys are defined:
 $annotation_probabilities_input is an annotation_probabilities_input
 $return is a ProbabilisticAnnotation
 annotation_probabilities_input is a reference to a hash where the following keys are defined:
-	probanno_workspace has a value which is a workspace_id
 	probanno has a value which is a probanno_id
 	genomeObj has a value which is a GenomeObject
-workspace_id is a string
 probanno_id is a string
 GenomeObject is a reference to a hash where the following keys are defined:
 	id has a value which is a genome_id
@@ -162,7 +159,6 @@ ProbabilisticAnnotation is a reference to a hash where the following keys are de
 	id has a value which is a probanno_id
 	genome has a value which is a genome_id
 	featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
-	workspace has a value which is a workspace_id
 ProbAnnoFeature is a reference to a hash where the following keys are defined:
 	id has a value which is a feature_id
 	alternative_functions has a value which is a reference to a list where each element is an alt_func
@@ -200,28 +196,28 @@ sub annotation_probabilities
 
     # Get the genome ID from the genome object and using it to create a home for our output files.
     my $genomeObject = $annotation_probabilities_input->{"genomeObj"};
-    my $genomeId = $genomeObject->{"id"};
-#    $genomeId =~ s/\|/_/;
+    my $probanno_id = $annotation_probabilities_input->{"probanno"};
+    my $genome_id = $genomeObject->{"id"};
 
-    # CHRIS: The folder where the workspace function ultimately dumps the files should be
-    # placed in this variable
+#    $genome_id =~ s/\|/_/;
+
+    # I've hard-coded this for now because I can't get the references to work through the symlink that the
+    # dev_container generates.
     #
-    # The expected names of each file are listed in PYTHON_GLOBALS.py. If possible please
-    # have the workspace extractor save any temporary files with those names. If this is not
-    # possible I'll change that.
+    # This is on my TODO list to fix.
     my $workspacefolder = "/kb/deployment/data/probabilistic_annotation";
     mkdir($workspacefolder);
 
     # The output stuff should also go to a standard place.
     # Both of these should be changed to point at the workspace's data folder if there is one...
-    my $outputdir = File::Spec->catdir("$workspacefolder", "$genomeId");
+    my $outputdir = File::Spec->catdir("$workspacefolder", "$genome_id");
     mkdir($outputdir);
 
     # Make the JSON string and dump it to a file.
     # ASCII - I'm not sure what the best way to deal with this is but I don't want it to just die
     # if a non-UTF8 character is encountered in the roles (which has happened to me from time to time...)
     my $JSON_STRING = JSON::XS->new->ascii->pretty->encode($genomeObject);
-    my $outfile = File::Spec->catfile("$outputdir","${genomeId}.json");
+    my $outfile = File::Spec->catfile("$outputdir","${genome_id}.json");
 
     open(FILE, ">$outfile") or die "Unable to create file ${outfile} to which to dump the provided genome object to annotation_probabilities";
     print FILE $JSON_STRING;
@@ -230,19 +226,19 @@ sub annotation_probabilities
     # System call to probability calculator
     # This script must be in the PATH or we will fail.
     # It is a wrapped-up version of Probability_calculation_frontend.py
-    my $status = system("Probability_calculation_frontend", "-f", "$workspacefolder", "$genomeId");
+    my $status = system("Probability_calculation_frontend", "-f", "$workspacefolder", "$genome_id", "$probanno_id");
     if ( ($status >>= 8) != 0 ) {
 	die "Probability calculator failed.";
     }
 
     # Read the new JSON file (for the new probability object type)
-    my $infile = File::Spec->catfile("${outputdir}","${genomeId}_prob.json");
+    my $infile = File::Spec->catfile("${outputdir}","${genome_id}_prob.json");
     print "${infile}\n";
     open(FILE, "<$infile") or die "Unable to read file ${infile} which should contain the probabilities from annotation_probabilities";
     $JSON_STRING = join("", <FILE>); 
     close(FILE);
     $return = JSON::XS->new->ascii->decode($JSON_STRING);
-
+    
     #END annotation_probabilities
     my @_bad_returns;
     (ref($return) eq 'HASH') or push(@_bad_returns, "Invalid type for return variable \"return\" (value was \"$return\")");
@@ -271,7 +267,7 @@ sub annotation_probabilities
 $annotation_probabilities_ids_input is an annotation_probabilities_ids_input
 $return is a ProbabilisticAnnotation
 annotation_probabilities_ids_input is a reference to a hash where the following keys are defined:
-	probanno_workspace has a value which is a workspace_id
+	genome_workspace has a value which is a workspace_id
 	probanno has a value which is a probanno_id
 	genome has a value which is a genome_id
 workspace_id is a string
@@ -281,7 +277,6 @@ ProbabilisticAnnotation is a reference to a hash where the following keys are de
 	id has a value which is a probanno_id
 	genome has a value which is a genome_id
 	featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
-	workspace has a value which is a workspace_id
 ProbAnnoFeature is a reference to a hash where the following keys are defined:
 	id has a value which is a feature_id
 	alternative_functions has a value which is a reference to a list where each element is an alt_func
@@ -299,7 +294,7 @@ alt_func is a reference to a list containing 2 items:
 $annotation_probabilities_ids_input is an annotation_probabilities_ids_input
 $return is a ProbabilisticAnnotation
 annotation_probabilities_ids_input is a reference to a hash where the following keys are defined:
-	probanno_workspace has a value which is a workspace_id
+	genome_workspace has a value which is a workspace_id
 	probanno has a value which is a probanno_id
 	genome has a value which is a genome_id
 workspace_id is a string
@@ -309,7 +304,6 @@ ProbabilisticAnnotation is a reference to a hash where the following keys are de
 	id has a value which is a probanno_id
 	genome has a value which is a genome_id
 	featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
-	workspace has a value which is a workspace_id
 ProbAnnoFeature is a reference to a hash where the following keys are defined:
 	id has a value which is a feature_id
 	alternative_functions has a value which is a reference to a list where each element is an alt_func
@@ -348,14 +342,20 @@ sub annotation_probabilities_id
     my $ctx = $Bio::KBase::probabilistic_annotation::Server::CallContext;
     my($return);
     #BEGIN annotation_probabilities_id
-    # Chris said he's going to wrap the cs_to_genome function in an API routine.
-    # When that is ready, it will go here:
-    #my $genomeObject = [package]->cs_to_genome($genome_id);
-    #
-    # I've hacked this together until then so we have SOMETHING.
+
+    # I'm not entirely sure if this is the right approach but attempting to use get_object
+    # directly from the workspace object failed - it told me it couldn't connect to the server.
+    my $serv = get_ws_client();
+    my $servercommand = "get_object";
+
     my $workspacefolder = "/kb/deployment/data/probabilistic_annotation";
     mkdir($workspacefolder);
+
+    # Note - we relegate importing the new object to a workspace to another script (particularly the wrapper script for this API call). 
+    # This script just returns the probanno object to be imported.
     my $genome_id = $annotation_probabilities_ids_input->{"genome"};
+    my $genome_workspace_id = $annotation_probabilities_ids_input->{"genome_workspace"};
+    my $probanno_id = $annotation_probabilities_ids_input->{"probanno"};
 
     # The output stuff should also go to a standard place.
     # Both of these should be changed to point at the workspace's data folder if there is one...
@@ -363,25 +363,19 @@ sub annotation_probabilities_id
     mkdir($outputdir);
 
     my $jsonFileName = File::Spec->catfile("$outputdir", "${genome_id}.json");
-
-    if ( -e $jsonFileName) {
-	open(FILE, '<', "${jsonFileName}") or die "Unable to open input JSON file ${jsonFileName} despite it existing???";
-    } else {
-	# FIXME - the MODIFIED script should take the output directory as an argument.
-	open (my $file, '>', "TEMPORARY_${genome_id}");
-	# This assumes the cs_to_genome_MODIFIED script has been wrapped up (with wrap_perl) and
-	# that the paths are all set up correctly...
-	print $file `cs_to_genome_MODIFIED "${genome_id}"`;
-	open( FILE, '<', "TEMPORARY_${genome_id}") or die $!; #"Unable to open the temporary JSON file created by cs_to_genome_MODIFIED.pl";
-    }
    
-    my $jsonString = join("", <FILE>);
-    my $genomeObject = decode_json $jsonString;
+    # Pull genome from the specified workspace
+    my $objParams = { "id" => $genome_id,
+		      "workspace" => $genome_workspace_id,
+		      "type" => "Genome",
+		      auth => auth() };
 
-    my $annotation_probabilities_input = { "probanno_workspace" => $annotation_probabilities_ids_input->{"probanno_workspace"},
-					   "probanno"           => $annotation_probabilities_ids_input->{"probanno"},
+    # WHY does the workspace unwrap the data when calling kbws but not when calling it through this???
+    # I'm pretty sure I must be doing this wrong... as always.
+    my $genomeObject = $serv->$servercommand($objParams)->{"data"};
+    
+    my $annotation_probabilities_input = { "probanno"           => $probanno_id,
 					   "genomeObj"          => $genomeObject };
-    close(FILE);
 
     $return = $self->annotation_probabilities($annotation_probabilities_input);
 
@@ -1064,7 +1058,6 @@ a reference to a hash where the following keys are defined:
 id has a value which is a probanno_id
 genome has a value which is a genome_id
 featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
-workspace has a value which is a workspace_id
 
 </pre>
 
@@ -1076,7 +1069,6 @@ a reference to a hash where the following keys are defined:
 id has a value which is a probanno_id
 genome has a value which is a genome_id
 featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
-workspace has a value which is a workspace_id
 
 
 =end text
@@ -1104,7 +1096,6 @@ workspace has a value which is a workspace_id
 
 <pre>
 a reference to a hash where the following keys are defined:
-probanno_workspace has a value which is a workspace_id
 probanno has a value which is a probanno_id
 genomeObj has a value which is a GenomeObject
 
@@ -1115,7 +1106,6 @@ genomeObj has a value which is a GenomeObject
 =begin text
 
 a reference to a hash where the following keys are defined:
-probanno_workspace has a value which is a workspace_id
 probanno has a value which is a probanno_id
 genomeObj has a value which is a GenomeObject
 
@@ -1146,7 +1136,7 @@ This genome_id is a CDM genome_id.
 
 <pre>
 a reference to a hash where the following keys are defined:
-probanno_workspace has a value which is a workspace_id
+genome_workspace has a value which is a workspace_id
 probanno has a value which is a probanno_id
 genome has a value which is a genome_id
 
@@ -1157,7 +1147,7 @@ genome has a value which is a genome_id
 =begin text
 
 a reference to a hash where the following keys are defined:
-probanno_workspace has a value which is a workspace_id
+genome_workspace has a value which is a workspace_id
 probanno has a value which is a probanno_id
 genome has a value which is a genome_id
 

@@ -104,7 +104,6 @@ module ProbabilisticAnnotation
 	probanno_id id;
 	genome_id genome;
 	list<ProbAnnoFeature> featureAlternativeFunctions;
-	workspace_id workspace;
     } ProbabilisticAnnotation;
     
     /*********************************************** 
@@ -118,7 +117,6 @@ module ProbabilisticAnnotation
 	 GenomeObject: An already-loaded Genome object. Required.
     */
     typedef structure {
-	workspace_id probanno_workspace;
 	probanno_id probanno;
 	GenomeObject genomeObj;
     } annotation_probabilities_input;
@@ -135,7 +133,7 @@ module ProbabilisticAnnotation
        This genome_id is a CDM genome_id.
     */
     typedef structure {
-	workspace_id probanno_workspace;
+	workspace_id genome_workspace;
 	probanno_id probanno;
 	genome_id genome;
     } annotation_probabilities_ids_input;

@@ -443,7 +443,7 @@ def ReactionProbabilities(outputbase, organismid, complex_probability_file, fold
     sys.stderr.write("done\n")
     return reaction_probability_file
 
-def MakeProbabilisticJsonFile(annotation_file, blast_result_file, roleset_probability_file, outfile, folder):
+def MakeProbabilisticJsonFile(annotation_file, blast_result_file, roleset_probability_file, outfile, folder, genome_id, probanno_id):
     '''Create a "probabilistic annotation" object file from a genome object file. The probabilistic annotation
     file adds fields for the probability of each role being linked to each gene.'''
 
@@ -473,9 +473,8 @@ def MakeProbabilisticJsonFile(annotation_file, blast_result_file, roleset_probab
 
     #FIXME - these should become inputs to this function.
     probanno_json = {}
-    probanno_json["id"] = "DEFAULT"
-    probanno_json["genome_id"] = "DEFAULT"
-    probanno_json["workspace"] = "DEFAULT"
+    probanno_json["id"] = probanno_id
+    probanno_json["genome_id"] = genome_id
     probanno_json["featureAlternativeFunctions"] = []
 
     for ii in range(len(resp["features"])):

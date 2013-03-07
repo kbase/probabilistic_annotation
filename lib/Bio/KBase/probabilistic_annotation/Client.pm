@@ -59,10 +59,8 @@ sub new
 $annotation_probabilities_input is an annotation_probabilities_input
 $return is a ProbabilisticAnnotation
 annotation_probabilities_input is a reference to a hash where the following keys are defined:
-	probanno_workspace has a value which is a workspace_id
 	probanno has a value which is a probanno_id
 	genomeObj has a value which is a GenomeObject
-workspace_id is a string
 probanno_id is a string
 GenomeObject is a reference to a hash where the following keys are defined:
 	id has a value which is a genome_id
@@ -106,7 +104,6 @@ ProbabilisticAnnotation is a reference to a hash where the following keys are de
 	id has a value which is a probanno_id
 	genome has a value which is a genome_id
 	featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
-	workspace has a value which is a workspace_id
 ProbAnnoFeature is a reference to a hash where the following keys are defined:
 	id has a value which is a feature_id
 	alternative_functions has a value which is a reference to a list where each element is an alt_func
@@ -120,10 +117,8 @@ ProbAnnoFeature is a reference to a hash where the following keys are defined:
 $annotation_probabilities_input is an annotation_probabilities_input
 $return is a ProbabilisticAnnotation
 annotation_probabilities_input is a reference to a hash where the following keys are defined:
-	probanno_workspace has a value which is a workspace_id
 	probanno has a value which is a probanno_id
 	genomeObj has a value which is a GenomeObject
-workspace_id is a string
 probanno_id is a string
 GenomeObject is a reference to a hash where the following keys are defined:
 	id has a value which is a genome_id
@@ -167,7 +162,6 @@ ProbabilisticAnnotation is a reference to a hash where the following keys are de
 	id has a value which is a probanno_id
 	genome has a value which is a genome_id
 	featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
-	workspace has a value which is a workspace_id
 ProbAnnoFeature is a reference to a hash where the following keys are defined:
 	id has a value which is a feature_id
 	alternative_functions has a value which is a reference to a list where each element is an alt_func
@@ -244,7 +238,7 @@ sub annotation_probabilities
 $annotation_probabilities_ids_input is an annotation_probabilities_ids_input
 $return is a ProbabilisticAnnotation
 annotation_probabilities_ids_input is a reference to a hash where the following keys are defined:
-	probanno_workspace has a value which is a workspace_id
+	genome_workspace has a value which is a workspace_id
 	probanno has a value which is a probanno_id
 	genome has a value which is a genome_id
 workspace_id is a string
@@ -254,7 +248,6 @@ ProbabilisticAnnotation is a reference to a hash where the following keys are de
 	id has a value which is a probanno_id
 	genome has a value which is a genome_id
 	featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
-	workspace has a value which is a workspace_id
 ProbAnnoFeature is a reference to a hash where the following keys are defined:
 	id has a value which is a feature_id
 	alternative_functions has a value which is a reference to a list where each element is an alt_func
@@ -272,7 +265,7 @@ alt_func is a reference to a list containing 2 items:
 $annotation_probabilities_ids_input is an annotation_probabilities_ids_input
 $return is a ProbabilisticAnnotation
 annotation_probabilities_ids_input is a reference to a hash where the following keys are defined:
-	probanno_workspace has a value which is a workspace_id
+	genome_workspace has a value which is a workspace_id
 	probanno has a value which is a probanno_id
 	genome has a value which is a genome_id
 workspace_id is a string
@@ -282,7 +275,6 @@ ProbabilisticAnnotation is a reference to a hash where the following keys are de
 	id has a value which is a probanno_id
 	genome has a value which is a genome_id
 	featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
-	workspace has a value which is a workspace_id
 ProbAnnoFeature is a reference to a hash where the following keys are defined:
 	id has a value which is a feature_id
 	alternative_functions has a value which is a reference to a list where each element is an alt_func
@@ -1033,7 +1025,6 @@ a reference to a hash where the following keys are defined:
 id has a value which is a probanno_id
 genome has a value which is a genome_id
 featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
-workspace has a value which is a workspace_id
 
 </pre>
 
@@ -1045,7 +1036,6 @@ a reference to a hash where the following keys are defined:
 id has a value which is a probanno_id
 genome has a value which is a genome_id
 featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
-workspace has a value which is a workspace_id
 
 
 =end text
@@ -1073,7 +1063,6 @@ workspace has a value which is a workspace_id
 
 <pre>
 a reference to a hash where the following keys are defined:
-probanno_workspace has a value which is a workspace_id
 probanno has a value which is a probanno_id
 genomeObj has a value which is a GenomeObject
 
@@ -1084,7 +1073,6 @@ genomeObj has a value which is a GenomeObject
 =begin text
 
 a reference to a hash where the following keys are defined:
-probanno_workspace has a value which is a workspace_id
 probanno has a value which is a probanno_id
 genomeObj has a value which is a GenomeObject
 
@@ -1115,7 +1103,7 @@ This genome_id is a CDM genome_id.
 
 <pre>
 a reference to a hash where the following keys are defined:
-probanno_workspace has a value which is a workspace_id
+genome_workspace has a value which is a workspace_id
 probanno has a value which is a probanno_id
 genome has a value which is a genome_id
 
@@ -1126,7 +1114,7 @@ genome has a value which is a genome_id
 =begin text
 
 a reference to a hash where the following keys are defined:
-probanno_workspace has a value which is a workspace_id
+genome_workspace has a value which is a workspace_id
 probanno has a value which is a probanno_id
 genome has a value which is a genome_id
 
