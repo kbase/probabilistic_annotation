@@ -86,28 +86,28 @@ deploy-service-files:
 deploy-perlscripts:
 	# These three are needed to make these variables appear in the wrapped script
 	export KB_TOP=$(TARGET); \
-        export KB_RUNTIME=$(DEPLOY_RUNTIME); \
-        export KB_PERL_PATH=$(TARGET)/lib bash ; \
-	for src in $(wildcard bin/*.pl) ; do \
-                basefile=`basename $$src`; \
-                base=`basename $$src .pl`; \
-                cp $$src $(TARGET)/plbin ; \
-                bash $(TOOLS_DIR)/wrap_perl.sh "$(TARGET)/plbin/$$basefile" $(TARGET)/bin/$$base ; \
-        done
+	export KB_RUNTIME=$(DEPLOY_RUNTIME); \
+	export KB_PERL_PATH=$(TARGET)/lib bash ; \
+	for src in $(wildcard bin/*.pl) $(SRC_PERL) ; do \
+		basefile=`basename $$src`; \
+		base=`basename $$src .pl`; \
+		cp $$src $(TARGET)/plbin ; \
+		bash $(TOOLS_DIR)/wrap_perl.sh "$(TARGET)/plbin/$$basefile" $(TARGET)/bin/$$base ; \
+	done
 
 deploy-pythonscripts:
 	# These three are needed to make these variables appear in the wrapped script
 	export KB_TOP=$(TARGET); \
-        export KB_RUNTIME=$(DEPLOY_RUNTIME); \
-        export KB_PYTHON_PATH=$(TARGET)/lib bash ; \
-	for src in $(wildcard bin/*.py) ; do \
+	export KB_RUNTIME=$(DEPLOY_RUNTIME); \
+	export KB_PYTHON_PATH=$(TARGET)/lib bash ; \
+	for src in $(wildcard bin/*.py) $(SRC_PYTHON) ; do \
 		basefile=`basename $$src`; \
 		base=`basename $$src .py`; \
-                cp $$src $(TARGET)/pybin ; \
+		cp $$src $(TARGET)/pybin ; \
 		bash $(TOOLS_DIR)/wrap_python.sh "$(TARGET)/pybin/$$basefile" $(TARGET)/bin/$$base ; \
 	done
 
-deploy-libs: compile-typespec
+deploy-libs:
 	# lib/ contains basically all of the guts of the code. 
 	# Reference a python module within here with "import biokbase.probabilistic_annotation.[module_name]"
 	rsync -arv lib/. $(TARGET)/lib/.

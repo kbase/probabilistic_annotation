@@ -29,8 +29,8 @@ if ( defined( $opt->{help} ) ) {
 foreach my $arg ( @{$primaryArgs} ) {
     $opt->{$arg} = shift @ARGV;
     if ( !defined( $opt->{$arg} ) ) {
-	print $usage;
-	exit;
+		print $usage;
+		exit;
     }
 }
 
@@ -43,15 +43,22 @@ my $translation = {
     "ProbAnno ID" => "probanno",
     genomews => "genome_workspace",
     workspace => "workspace",
+    overwrite => "overwrite"
 };
 
 # Instantiate parameters for annotate() function.
 my $params = { auth => auth(), };
 foreach my $key ( keys( %{$translation} ) ) {
     if ( defined( $opt->{$key} ) ) {
-	$params->{ $translation->{$key} } = $opt->{$key};
+		$params->{ $translation->{$key} } = $opt->{$key};
     }
 }
 
 # Call the function.
-my $genomeTO = $client->annotation_probabilities_id($params->{genome});
+my $output = $client->annotation_probabilities_id($params);
+if (!defined($output)) {
+	print "Probabilistic annotation failed!\n";
+} else {
+	print "Probabilistic annotation succeeded!\n";
+#	print $output;
+}
