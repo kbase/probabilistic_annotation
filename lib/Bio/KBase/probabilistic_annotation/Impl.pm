@@ -333,8 +333,9 @@ sub annotation_probabilities_id
 
     my @_bad_arguments;
     (ref($annotation_probabilities_ids_input) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument \"annotation_probabilities_ids_input\" (value was \"$annotation_probabilities_ids_input\")");
+    my $badref = ref($annotation_probabilities_ids_input);
     if (@_bad_arguments) {
-	my $msg = "Invalid arguments passed to annotation_probabilities_id:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	my $msg = "Invalid arguments passed to annotation_probabilities_id - got $badref :\n" . join("", map { "\t$_\n" } @_bad_arguments);
 	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
 							       method_name => 'annotation_probabilities_id');
     }

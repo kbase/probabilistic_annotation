@@ -22,7 +22,7 @@ SERV_TPAGE = $(KB_RUNTIME)/bin/perl $(KB_RUNTIME)/bin/tpage
 SERV_TPAGE_ARGS = --define kb_top=$(TARGET) --define kb_runtime=$(KB_RUNTIME) --define kb_service_name=$(SERV_SERVICE) \
 	--define kb_service_port=$(SERV_SERVICE_PORT) --define kb_service_psgi=lib/$(SERV_PSGI_PATH)
 
-all: compile-typespec
+all: deploy
 
 # TESTS
 # Note I don't have any test scripts yet but when I make them they'll go in these locations
@@ -66,10 +66,15 @@ test-client:
 # DEPLOYMENT
 deploy: deploy-dir deploy-client deploy-service
 
-deploy-service: deploy-libs deploy-scripts deploy-service-files
-deploy-client: deploy-libs deploy-scripts deploy-docs
+deploy-service: deploy-libs deploy-scripts deploy-service-files deploy-config
+deploy-client: deploy-libs deploy-scripts deploy-docs deploy-config
 
 deploy-scripts: deploy-perlscripts deploy-pythonscripts
+
+deploy-config:
+	# We need to create a config file if it doesn't exist because auth requires it.
+	# This will evantually become more standardized but for now I want it to "just work".
+	if [ ! -e $(TARGET)/deployment.cfg ]; then touch $(TARGET)/deployment.cfg; fi
 
 deploy-dir:
 	if [ ! -d $(SERV_SERVICE_DIR) ] ; then mkdir -p $(SERV_SERVICE_DIR) ; fi

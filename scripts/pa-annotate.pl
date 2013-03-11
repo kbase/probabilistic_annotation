@@ -7,7 +7,8 @@ use Bio::KBase::probabilistic_annotation::Client;
 use Bio::KBase::workspaceService::Helpers qw(auth workspace workspaceURL);
 
 # Need to make this a helper function.
-my $probannoURL = "http://localhost:7073/";
+#my $probannoURL = "http://localhost:7073/";
+my $probannoURL = "http://140.221.84.212:7073";
 
 # Define usage and options.
 my $primaryArgs = [ "Genome ID", "ProbAnno ID" ];
@@ -53,6 +54,9 @@ foreach my $key ( keys( %{$translation} ) ) {
 		$params->{ $translation->{$key} } = $opt->{$key};
     }
 }
+
+print ref($params);
+print "\n";
 
 # Call the function.
 my $output = $client->annotation_probabilities_id($params);
