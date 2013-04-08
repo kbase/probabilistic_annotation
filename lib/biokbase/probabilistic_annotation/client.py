@@ -75,10 +75,10 @@ class ProbabilisticAnnotation:
         else:
             raise ServerError('Unknown', 0, 'An unknown server error occurred')
 
-    def annotation_probabilities_id(self, annotation_probabilities_ids_input):
+    def annotation_probabilities_id(self, input):
 
         arg_hash = { 'method': 'ProbabilisticAnnotation.annotation_probabilities_id',
-                     'params': [annotation_probabilities_ids_input],
+                     'params': [input],
                      'version': '1.1'
                      }
 

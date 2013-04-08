@@ -226,7 +226,7 @@ sub annotation_probabilities
 
 =head2 annotation_probabilities_id
 
-  $return = $obj->annotation_probabilities_id($annotation_probabilities_ids_input)
+  $output = $obj->annotation_probabilities_id($input)
 
 =over 4
 
@@ -235,26 +235,36 @@ sub annotation_probabilities
 =begin html
 
 <pre>
-$annotation_probabilities_ids_input is an annotation_probabilities_ids_input
-$return is a ProbabilisticAnnotation
-annotation_probabilities_ids_input is a reference to a hash where the following keys are defined:
+$input is an annotation_probabilities_ids_params
+$output is an object_metadata
+annotation_probabilities_ids_params is a reference to a hash where the following keys are defined:
+	genome has a value which is a genome_id
 	genome_workspace has a value which is a workspace_id
 	probanno has a value which is a probanno_id
-	genome has a value which is a genome_id
+	probanno_workspace has a value which is a workspace_id
+	overwrite has a value which is a bool
+	auth has a value which is a string
+genome_id is a string
 workspace_id is a string
 probanno_id is a string
-genome_id is a string
-ProbabilisticAnnotation is a reference to a hash where the following keys are defined:
-	id has a value which is a probanno_id
-	genome has a value which is a genome_id
-	featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
-ProbAnnoFeature is a reference to a hash where the following keys are defined:
-	id has a value which is a feature_id
-	alternative_functions has a value which is a reference to a list where each element is an alt_func
-feature_id is a string
-alt_func is a reference to a list containing 2 items:
-	0: (function) a string
-	1: (probability) a float
+bool is an int
+object_metadata is a reference to a list containing 11 items:
+	0: (id) an object_id
+	1: (type) an object_type
+	2: (moddate) a timestamp
+	3: (instance) an int
+	4: (command) a string
+	5: (lastmodifier) a username
+	6: (owner) a username
+	7: (workspace) a workspace_id
+	8: (ref) a workspace_ref
+	9: (chsum) a string
+	10: (metadata) a reference to a hash where the key is a string and the value is a string
+object_id is a string
+object_type is a string
+timestamp is a string
+username is a string
+workspace_ref is a string
 
 </pre>
 
@@ -262,26 +272,36 @@ alt_func is a reference to a list containing 2 items:
 
 =begin text
 
-$annotation_probabilities_ids_input is an annotation_probabilities_ids_input
-$return is a ProbabilisticAnnotation
-annotation_probabilities_ids_input is a reference to a hash where the following keys are defined:
+$input is an annotation_probabilities_ids_params
+$output is an object_metadata
+annotation_probabilities_ids_params is a reference to a hash where the following keys are defined:
+	genome has a value which is a genome_id
 	genome_workspace has a value which is a workspace_id
 	probanno has a value which is a probanno_id
-	genome has a value which is a genome_id
+	probanno_workspace has a value which is a workspace_id
+	overwrite has a value which is a bool
+	auth has a value which is a string
+genome_id is a string
 workspace_id is a string
 probanno_id is a string
-genome_id is a string
-ProbabilisticAnnotation is a reference to a hash where the following keys are defined:
-	id has a value which is a probanno_id
-	genome has a value which is a genome_id
-	featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
-ProbAnnoFeature is a reference to a hash where the following keys are defined:
-	id has a value which is a feature_id
-	alternative_functions has a value which is a reference to a list where each element is an alt_func
-feature_id is a string
-alt_func is a reference to a list containing 2 items:
-	0: (function) a string
-	1: (probability) a float
+bool is an int
+object_metadata is a reference to a list containing 11 items:
+	0: (id) an object_id
+	1: (type) an object_type
+	2: (moddate) a timestamp
+	3: (instance) an int
+	4: (command) a string
+	5: (lastmodifier) a username
+	6: (owner) a username
+	7: (workspace) a workspace_id
+	8: (ref) a workspace_ref
+	9: (chsum) a string
+	10: (metadata) a reference to a hash where the key is a string and the value is a string
+object_id is a string
+object_type is a string
+timestamp is a string
+username is a string
+workspace_ref is a string
 
 
 =end text
@@ -307,10 +327,10 @@ sub annotation_probabilities_id
 							       "Invalid argument count for function annotation_probabilities_id (received $n, expecting 1)");
     }
     {
-	my($annotation_probabilities_ids_input) = @args;
+	my($input) = @args;
 
 	my @_bad_arguments;
-        (ref($annotation_probabilities_ids_input) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"annotation_probabilities_ids_input\" (value was \"$annotation_probabilities_ids_input\")");
+        (ref($input) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"input\" (value was \"$input\")");
         if (@_bad_arguments) {
 	    my $msg = "Invalid arguments passed to annotation_probabilities_id:\n" . join("", map { "\t$_\n" } @_bad_arguments);
 	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
@@ -395,6 +415,291 @@ sub _validate_version {
 }
 
 =head1 TYPES
+
+
+
+=head2 bool
+
+=over 4
+
+
+
+=item Description
+
+Indicates true or false values (false <= 0, true >=1)
+
+
+=item Definition
+
+=begin html
+
+<pre>
+an int
+</pre>
+
+=end html
+
+=begin text
+
+an int
+
+=end text
+
+=back
+
+
+
+=head2 workspace_id
+
+=over 4
+
+
+
+=item Description
+
+A string identifier for a workspace. Any string consisting of alphanumeric characters and "-" is acceptable.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a string
+</pre>
+
+=end html
+
+=begin text
+
+a string
+
+=end text
+
+=back
+
+
+
+=head2 object_type
+
+=over 4
+
+
+
+=item Description
+
+A string indicating the type of an object stored in a workspace.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a string
+</pre>
+
+=end html
+
+=begin text
+
+a string
+
+=end text
+
+=back
+
+
+
+=head2 object_id
+
+=over 4
+
+
+
+=item Description
+
+ID of an object stored in the workspace.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a string
+</pre>
+
+=end html
+
+=begin text
+
+a string
+
+=end text
+
+=back
+
+
+
+=head2 username
+
+=over 4
+
+
+
+=item Description
+
+Login name of KBase user account to which permissions for workspaces are mapped
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a string
+</pre>
+
+=end html
+
+=begin text
+
+a string
+
+=end text
+
+=back
+
+
+
+=head2 timestamp
+
+=over 4
+
+
+
+=item Description
+
+Exact time for workspace operations. e.g. 2012-12-17T23:24:06
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a string
+</pre>
+
+=end html
+
+=begin text
+
+a string
+
+=end text
+
+=back
+
+
+
+=head2 workspace_ref
+
+=over 4
+
+
+
+=item Description
+
+A permanent reference to an object in a workspace.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a string
+</pre>
+
+=end html
+
+=begin text
+
+a string
+
+=end text
+
+=back
+
+
+
+=head2 object_metadata
+
+=over 4
+
+
+
+=item Description
+
+Meta data associated with an object stored in a workspace.
+
+        object_id id - ID of the object assigned by the user or retreived from the IDserver (e.g. kb|g.0)
+        object_type type - type of the object (e.g. Genome)
+        timestamp moddate - date when the object was modified by the user (e.g. 2012-12-17T23:24:06)
+        int instance - instance of the object, which is equal to the number of times the user has overwritten the object
+        timestamp date_created - time at which the alignment was built/loaded in seconds since the epoch
+        string command - name of the command last used to modify or create the object
+        username lastmodifier - name of the user who last modified the object
+        username owner - name of the user who owns (who created) this object
+        workspace_id workspace - ID of the workspace in which the object is currently stored
+        workspace_ref ref - a 36 character ID that provides permanent undeniable access to this specific instance of this object
+        string chsum - checksum of the associated data object
+        mapping<string,string> metadata - custom metadata entered for data object during save operation
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a list containing 11 items:
+0: (id) an object_id
+1: (type) an object_type
+2: (moddate) a timestamp
+3: (instance) an int
+4: (command) a string
+5: (lastmodifier) a username
+6: (owner) a username
+7: (workspace) a workspace_id
+8: (ref) a workspace_ref
+9: (chsum) a string
+10: (metadata) a reference to a hash where the key is a string and the value is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a list containing 11 items:
+0: (id) an object_id
+1: (type) an object_type
+2: (moddate) a timestamp
+3: (instance) an int
+4: (command) a string
+5: (lastmodifier) a username
+6: (owner) a username
+7: (workspace) a workspace_id
+8: (ref) a workspace_ref
+9: (chsum) a string
+10: (metadata) a reference to a hash where the key is a string and the value is a string
+
+
+=end text
+
+=back
 
 
 
@@ -974,7 +1279,7 @@ alternative_functions has a value which is a reference to a list where each elem
 
 
 
-=head2 workspace_id
+=head2 ProbabilisticAnnotation
 
 =over 4
 
@@ -988,32 +1293,6 @@ Object to carry alternative functions and probabilities for genes in a genome
         genome_id genome - ID of the genome the probabilistic annotation was built for. Required.
         list<ProbAnnoFeature> featureAlternativeFunctions - List of ProbAnnoFeature objects holding alternative functions for features. Required.    
         workspace - ID of the workspace from which the genome ID was taken. Required.
-
-
-=item Definition
-
-=begin html
-
-<pre>
-a string
-</pre>
-
-=end html
-
-=begin text
-
-a string
-
-=end text
-
-=back
-
-
-
-=head2 ProbabilisticAnnotation
-
-=over 4
-
 
 
 =item Definition
@@ -1083,7 +1362,7 @@ genomeObj has a value which is a GenomeObject
 
 
 
-=head2 annotation_probabilities_ids_input
+=head2 annotation_probabilities_ids_params
 
 =over 4
 
@@ -1091,10 +1370,14 @@ genomeObj has a value which is a GenomeObject
 
 =item Description
 
-I will implement getting the genome from the workspace later. For now its a headache that is too much
-beyond all the other stuff I have to change here.
+Input parameters for the "annotation_probabilities_ids" function.
 
-This genome_id is a CDM genome_id.
+       genome_id genome - ID of Genome object
+       workspace_id genome_workspace - ID of workspace where Genome object is stored
+       probanno_id probanno - ID of ProbAnno object
+       workspace_id probanno_workspace - ID workspace where ProbAnno object is saved
+       bool overwrite - True to overwrite existing ProbAnno object with same name
+       string auth - Authentication token of KBase user
 
 
 =item Definition
@@ -1103,9 +1386,12 @@ This genome_id is a CDM genome_id.
 
 <pre>
 a reference to a hash where the following keys are defined:
+genome has a value which is a genome_id
 genome_workspace has a value which is a workspace_id
 probanno has a value which is a probanno_id
-genome has a value which is a genome_id
+probanno_workspace has a value which is a workspace_id
+overwrite has a value which is a bool
+auth has a value which is a string
 
 </pre>
 
@@ -1114,9 +1400,12 @@ genome has a value which is a genome_id
 =begin text
 
 a reference to a hash where the following keys are defined:
+genome has a value which is a genome_id
 genome_workspace has a value which is a workspace_id
 probanno has a value which is a probanno_id
-genome has a value which is a genome_id
+probanno_workspace has a value which is a workspace_id
+overwrite has a value which is a bool
+auth has a value which is a string
 
 
 =end text

@@ -22,7 +22,7 @@ SERV_TPAGE = $(KB_RUNTIME)/bin/perl $(KB_RUNTIME)/bin/tpage
 SERV_TPAGE_ARGS = --define kb_top=$(TARGET) --define kb_runtime=$(KB_RUNTIME) --define kb_service_name=$(SERV_SERVICE) \
 	--define kb_service_port=$(SERV_SERVICE_PORT) --define kb_service_psgi=lib/$(SERV_PSGI_PATH)
 
-all: deploy
+all: compile-typespec
 
 # TESTS
 # Note I don't have any test scripts yet but when I make them they'll go in these locations
