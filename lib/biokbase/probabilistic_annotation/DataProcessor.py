@@ -443,7 +443,7 @@ def ReactionProbabilities(outputbase, organismid, complex_probability_file, fold
     sys.stderr.write("done\n")
     return reaction_probability_file
 
-def MakeProbabilisticJsonFile(annotation_file, blast_result_file, roleset_probability_file, outfile, folder):
+def MakeProbabilisticJsonFile(annotation_file, blast_result_file, roleset_probability_file, outfile, folder, genome_id, probanno_id):
     '''Create a "probabilistic annotation" object file from a genome object file. The probabilistic annotation
     file adds fields for the probability of each role being linked to each gene.'''
 
@@ -470,6 +470,13 @@ def MakeProbabilisticJsonFile(annotation_file, blast_result_file, roleset_probab
 
     # resp["features"] is a list of dictionaries. We want to make our data structure and then add that to the dictionary.
     # I use the ii in range so I can edit the elements without changes being lost.
+
+    #FIXME - these should become inputs to this function.
+    probanno_json = {}
+    probanno_json["id"] = probanno_id
+    probanno_json["genome_id"] = genome_id
+    probanno_json["featureAlternativeFunctions"] = []
+
     for ii in range(len(resp["features"])):
         feature = resp["features"][ii]
         if "id" not in resp:
@@ -482,6 +489,8 @@ def MakeProbabilisticJsonFile(annotation_file, blast_result_file, roleset_probab
 #            sys.stderr.write("No match for ID %s\n" %(queryid))
             continue
         # Get a list of (target ID, BLAST score) pairs for each possible role set from the query's homologs
+        # At the moment we dont' use this...
+        # I'm keeping the code around in case we decide we want the functionality.
         query_rolesetToTargetScores = {}
         for targetprob in queryToTargetProbs[queryid]:
             try:
@@ -493,8 +502,10 @@ def MakeProbabilisticJsonFile(annotation_file, blast_result_file, roleset_probab
                 query_rolesetToTargetScores[targetroleset].append(targetprob)
             else:
                 query_rolesetToTargetScores[targetroleset] = [ targetprob ]
+
         # For each possible roleset, obtain its probability, and the list of (target, BLAST score) pairs
-        new_json_list = []
+        featureAlternativeFunctions = {}
+        alternative_functions = []
         for rolesetprob in queryToRolesetProbs[queryid]:
             roleset = rolesetprob[0]
             rolep = rolesetprob[1]
@@ -502,9 +513,10 @@ def MakeProbabilisticJsonFile(annotation_file, blast_result_file, roleset_probab
                 sys.stderr.write("INTERNAL ERROR: The rolesets for the query genes were not transferred from targets correctly - query roleset %s did not exist in the target homolog list\n" %(roleset))
                 exit(2)
             rlist = [ roleset, rolep ]
-            new_json_list.append(rlist)
-        # Add the new list to the JSON structure
-        resp["features"][ii]["alternativeFunctions"] = new_json_list
+            alternative_functions.append(rlist)
+        featureAlternativeFunctions["alternativeFunctions"] = alternative_functions
+        featureAlternativeFunctions["id"] = queryid
+        probanno_json["featureAlternativeFunctions"].append(featureAlternativeFunctions)
 
-    json.dump(resp, open(outfile, "w"), indent=4)
+    json.dump(probanno_json, open(outfile, "w"), indent=4)
     return

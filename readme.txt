@@ -1,24 +1,31 @@
 This repo contains scripts to compute (roughly) some confidence scores
 for particular sets of roles that each protein in a query organism could play.
 
-There are several ways this can be run:
+The wrapper script for computing probabilistic annotations from a workspace is probanno-driver:
 
-- Using the probanno-driver script with an extant KBase Genome Identifier (e.g. kb|g.0)
-- Using the Perl API (probabilistic_annotationImpl.pm) functions which take either a
-  genomeTO object or a KBase genome ID.
+$ probanno-driver [genome_id] [genome_workspace] [probanno_id] [probanno_workspace]
 
-If you are running the probanno-driver script MAKE SURE you use the following syntax:
+You must have at least r permission in genome_workspace and at least w permission in
+probanno_workspace to successfully run this script.
 
-$ probanno-driver "kb|g.0"
+This script takes a couple hours to run for an average-sized bacterial genome, so
+it should eventually go into the queuing system Chris has set up for gapfill and other
+long-running problems.
 
 The package expects to be able to place its results and intermediate files
-in a standard location (by default,
-/kb/deployment/data/probabilistic_annotation ). Results specific to a genome are saved in 
-/kb/deployment/data/probabilistic_annotation/[genome_id]/ .
+in a standard location: 
 
-These intermediate files take a nontrivial amount of time to generate and many of them are the same for 
+/kb/deployment/data/probabilistic_annotation
+
+Results specific to a genome are saved in:
+
+/kb/deployment/data/probabilistic_annotation/[genome_id]/
+
+The intermediate files in /kb/deployment/data/probabilistic_annotation
+take a nontrivial amount of time to generate and many of them are the same for 
 any given query genome, so I recommend keeping the files around so that
-next time the scripts are run it is much faster. They can be updated whenever KBase is updated.
+next time the scripts are run it is much faster. They can be updated whenever KBase is updated
+by re-running the ExtractorDriver.py script.
 
 The probability algorithm is not yet finalized but it should give reasonable results
 that can be used to test other functions that can depend on it. The results will also get
