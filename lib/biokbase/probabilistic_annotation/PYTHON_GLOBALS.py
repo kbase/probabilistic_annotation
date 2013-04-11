@@ -3,7 +3,8 @@
 import os
 import tempfile
 
-URL="http://bio-data-1.mcs.anl.gov/services/cdmi_api"
+#URL="http://bio-data-1.mcs.anl.gov/services/cdmi_api"
+URL="http://kbase.us/services/cdmi_api"
 
 # This is a character string that isn't found in any roles - I use it to split lists
 # in one-to-many relationships
