@@ -85,7 +85,6 @@ foreach my $key ( keys( %{$translation} ) ) {
 		$params->{ $translation->{$key} } = $opt->{$key};
     }
 }
-print "overwrite=".$opt->{overwrite}."\n";
 
 # Call the function.
 my $output = $client->annotation_probabilities_id($params);

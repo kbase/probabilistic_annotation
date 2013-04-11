@@ -64,27 +64,37 @@ sys.stderr.write("Generating requested data:....\n")
 ############
 # Get lists of OTUs
 ############
-sys.stderr.write("OTU data...\n")
+sys.stderr.write("OTU data...")
 try:
+    if options.verbose:
+        sys.stderr.write("reading from file...")
     otus, prokotus = readOtuData(options.folder)
 except IOError:
+    if options.verbose:
+        sys.stderr.write("failed...generating file...")
     otus, prokotus = getOtuGenomeIds(MINN, COUNT)
 #    otus, prokotus = getOtuGenomeIds(MINN, 1200)
     writeOtuData(otus, prokotus, options.folder)
+sys.stderr.write("done\n")
 
 ############
 # Get a list of subsystem FIDs
 ############
-sys.stderr.write("List of subsystem FIDS...\n")
+sys.stderr.write("List of subsystem FIDS...")
 try:
+    if options.verbose:
+        sys.stderr.write("reading from file...")
     sub_fids = readSubsystemFids(options.folder)
 except IOError:
+    if options.verbose:
+        sys.stderr.write("failed...generating file...")
     sub_fids = subsystemFids(MINN, COUNT)
     # NOTE - This is a TEMPORARY workaround for an issue with
     # the KBase subsystem load. This function WILL BE DELETED
     # and reverted to the call above once that issue is fixed...
 #    sub_fids = subsystemFids_WORKAROUND(MINN, COUNT)
     writeSubsystemFids(sub_fids, options.folder)
+sys.stderr.write("done\n")
 
 ###########
 # ALso get a list of Dlit FIDs
@@ -92,12 +102,17 @@ except IOError:
 # greatly expands the number of roles for which we
 # have representatives.
 ##########
-sys.stderr.write("Getting a list of DLit FIDs...\n")
+sys.stderr.write("Getting a list of DLit FIDs...")
 try:
+    if options.verbose:
+        sys.stderr.write("reading from file...")
     dlit_fids = readDlitFids(options.folder)
 except IOError:
+    if options.verbose:
+        sys.stderr.write("failed...generating file...")
     dlit_fids = getDlitFids(MINN, COUNT)
     writeDlitFids(dlit_fids, options.folder)
+sys.stderr.write("done\n")
 
 ##########
 # Concatinate the two FID lists before filtering
@@ -106,53 +121,73 @@ except IOError:
 # the subsystems... Im not sure the problem would
 # be as bad for these though)
 ##########
-sys.stderr.write("Combining lists of subsystem and DLit FIDS...\n")
+sys.stderr.write("Combining lists of subsystem and DLit FIDS...")
 fn = os.path.join(options.folder, CONCATINATED_FID_FILE)
 try:
+    if options.verbose:
+        sys.stderr.write("reading from file...")
     all_fids = set()
     for line in open(fn, "r"):
         all_fids.add(line.strip("\r\n"))
     all_fids = list(all_fids)
 except IOError:
+    if options.verbose:
+        sys.stderr.write("failed...generating file...")
     all_fids = list(set(sub_fids + dlit_fids))
     f = open(fn, "w")
     for fid in all_fids:
         f.write("%s\n" %(fid))
     f.close()
+sys.stderr.write("done\n")
 
 #############
 # Identify roles for the OTU genes in the organism...
 #############
-sys.stderr.write("Roles for un-filtered list...\n")
+sys.stderr.write("Roles for un-filtered list...")
 try:
+    if options.verbose:
+        sys.stderr.write("reading from file...")
     all_fidsToRoles, all_rolesToFids = readAllFidRoles(options.folder)
 except IOError:
+    if options.verbose:
+        sys.stderr.write("failed...generating file...")
     all_fidsToRoles, all_rolesToFids = fidsToRoles(all_fids)
     writeAllFidRoles(all_fidsToRoles, options.folder)
+sys.stderr.write("done\n")
 
 #############
 # Filter the subsystem FIDs by organism... we only want OTU genes.
 # Unlike the neighborhood analysis, we don't want to include only 
 # prokaryotes here.
 #############
-sys.stderr.write("Filtered list by OTUs...\n")
+sys.stderr.write("Filtered list by OTUs...")
 try:
+    if options.verbose:
+        sys.stderr.write("reading from file...")
     otu_fidsToRoles, otu_rolesToFids = readFilteredOtuRoles(options.folder)
 except IOError:
+    if options.verbose:
+        sys.stderr.write("failed...generating file...")
     otudict = getOtuGenomeDictionary(MINN, COUNT)
     otu_fidsToRoles, otu_rolesToFids, missing_roles = filterFidsByOtusBetter(all_fidsToRoles, all_rolesToFids, otudict)
     writeFilteredOtuRoles(otu_fidsToRoles, options.folder)
+sys.stderr.write("done\n")
 
 #############
 # Generate a FASTA file
 # for the fids in fidsToRoles
 #############
-sys.stderr.write("Subsystem FASTA file...\n")
+sys.stderr.write("Subsystem FASTA file...")
 try:
+    if options.verbose:
+        sys.stderr.write("reading from file...")
     readSubsystemFasta(options.folder)
 except IOError:
+    if options.verbose:
+        sys.stderr.write("failed...generating file...")
     fidsToSeqs = fidsToSequences(otu_fidsToRoles.keys())
     writeSubsystemFasta(fidsToSeqs, options.folder)
+sys.stderr.write("done\n")
 
 #############
 # Get neighborhood info
@@ -186,23 +221,33 @@ except IOError:
 #    Because we need all the roles in a complex to get the probability of that complex.
 #
 ################
-sys.stderr.write("Complexes to roles...\n")
+sys.stderr.write("Complexes to roles...")
 try:
+    if options.verbose:
+        sys.stderr.write("reading from file...")
     complexToRequiredRoles = readComplexRoles(options.folder)
 except IOError:
+    if options.verbose:
+        sys.stderr.write("failed...generating file...")
     complexToRequiredRoles, requiredRolesToComplexes = complexRoleLinks(MINN, COUNT)
     writeComplexRoles(complexToRequiredRoles, options.folder)
+sys.stderr.write("done\n")
 
 ########
 # reaction --> complex
 # Again it is easier to go in this direction since we'll be filtering multiple complexes down to a single reaction.
 #######
 
-sys.stderr.write("Reactions to complexes...\n")
+sys.stderr.write("Reactions to complexes...")
 try:
+    if options.verbose:
+        sys.stderr.write("reading from file...")
     rxnToComplexes = readReactionComplex(options.folder)
 except IOError:
+    if options.verbose:
+        sys.stderr.write("failed...generating file...")
     rxnToComplexes, complexesToReactions = reactionComplexLinks(MINN, COUNT)
     writeReactionComplex(rxnToComplexes, options.folder)
+sys.stderr.write("done\n")
 
 sys.stderr.write("Data gathering done...\n")

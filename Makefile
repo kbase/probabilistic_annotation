@@ -7,7 +7,6 @@ TOOLS_DIR      ?= /kb/dev_container/tools
 # Include standard makefile
 TOP_DIR = ../..
 include $(TOP_DIR)/tools/Makefile.common
-SRC_PYTHON = $(wildcard scripts/*.py)
 
 SERVICE_NAME=probabilistic_annotation
 SERV_SERVER_SPEC 	= ProbabilisticAnnotation.spec
@@ -93,7 +92,7 @@ deploy-perlscripts:
 	export KB_TOP=$(TARGET); \
 	export KB_RUNTIME=$(DEPLOY_RUNTIME); \
 	export KB_PERL_PATH=$(TARGET)/lib bash ; \
-	for src in $(wildcard bin/*.pl) $(SRC_PERL) ; do \
+	for src in $(SRC_PERL) ; do \
 		basefile=`basename $$src`; \
 		base=`basename $$src .pl`; \
 		cp $$src $(TARGET)/plbin ; \
@@ -105,7 +104,7 @@ deploy-pythonscripts:
 	export KB_TOP=$(TARGET); \
 	export KB_RUNTIME=$(DEPLOY_RUNTIME); \
 	export KB_PYTHON_PATH=$(TARGET)/lib bash ; \
-	for src in $(wildcard bin/*.py) $(SRC_PYTHON) ; do \
+	for src in internalScripts/Probability_calculation_frontend.py internalScripts/probanno-ExtractorDriver.py $(SRC_PYTHON) ; do \
 		basefile=`basename $$src`; \
 		base=`basename $$src .py`; \
 		cp $$src $(TARGET)/pybin ; \
