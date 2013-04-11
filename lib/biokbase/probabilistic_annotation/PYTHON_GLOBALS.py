@@ -3,7 +3,6 @@
 import os
 import tempfile
 
-URL="http://kbase.us/services/cdmi_api"
 CDMI_URL="http://kbase.us/services/cdmi_api"
 
 # This is a character string that isn't found in any roles - I use it to split lists

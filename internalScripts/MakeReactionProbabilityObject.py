@@ -1,9 +1,9 @@
 #!/usr/bin/python
 
-from CDMI import CDMI_EntityAPI
-from DataExtractor import getFieldFromEntity, getFieldFromRelationship
+from biokbase.cdmi.client import CDMI_EntityAPI
+from biokbase.probabilistic_annotation.DataExtractor import getFieldFromEntity, getFieldFromRelationship
 # For the CDMI URL and other constants
-from PYTHON_GLOBALS import *
+from biokbase.probabilistic_annotation.PYTHON_GLOBALS import *
 
 import os
 import sys
@@ -39,7 +39,7 @@ def makeReactionProbabilityObject(reaction_probability_file, biochemistry_json_f
         kbaseIdToInfo[spl[0]] = ( spl[1], spl[3], spl[4] )
 
     # Model ID --> Kbase ID
-    cdmi_entity = CDMI_EntityAPI(URL)
+    cdmi_entity = CDMI_EntityAPI(CDMI_URL)
     rxniddict = cdmi_entity.all_entities_Reaction(MINN, COUNT, ["source_id"])
     kbaseIds = getFieldFromEntity(rxniddict, "id")
     modelIds = getFieldFromEntity(rxniddict, "source_id")

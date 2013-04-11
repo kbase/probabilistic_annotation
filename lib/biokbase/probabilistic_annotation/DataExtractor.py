@@ -118,7 +118,6 @@ def subsystemFids(MINN, COUNT):
     counter = (len(ssids) / increment) + 1
     ssfids = []
     while counter != 0:
-        print("start={0} end={1}".format(start, end))
         ssfiddict = cdmi.subsystems_to_fids(ssids[start:end], [])        
         for key in ssfiddict:
             for ssfid in ssfiddict[key]:
@@ -216,7 +215,6 @@ def filterFidsByOtusBetter(fidsToRoles, rolesToFids, oturepsToMembers):
     # Identify the organism belonging to each fid
     # If this fails to find an organism we don't want it anyway...
     fidlist = fidsToRoles.keys()
-    print len(fidlist)
     orgdict = []
      # Break the complete list into smaller sub-lists to avoid timeouts
     start = 0
