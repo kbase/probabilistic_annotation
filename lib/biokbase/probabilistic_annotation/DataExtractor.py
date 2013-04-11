@@ -15,7 +15,8 @@
 
 # The CDMI_API is for "well-trodden paths" functions
 # CDMI_EntityAPI is for ER functions (all_entities_..., get_Relationship_....)
-from CDMI import CDMI_API, CDMI_EntityAPI
+from biokbase.cdmi.client import CDMI_API, CDMI_EntityAPI
+#from CDMI import CDMI_API, CDMI_EntityAPI
 from PYTHON_GLOBALS import *
 
 import urllib
@@ -103,23 +104,38 @@ def getFieldFromRelationship(seedRelationship, fieldName, objtype):
 def subsystemFids(MINN, COUNT):
     '''Query the CDMI for a list of FIDs in the subsystems'''
 
-    cdmi = CDMI_API(URL)
-    cdmi_entity = CDMI_EntityAPI(URL)
+    cdmi = CDMI_API(CDMI_URL)
+    cdmi_entity = CDMI_EntityAPI(CDMI_URL)
     # Get Genes that are in Subsystems and in Otus.
     ssdict = cdmi_entity.all_entities_Subsystem(MINN,COUNT,["id"])
     ssids = getFieldFromEntity(ssdict, "id")
 
     # Now lets get a list of FIDs within those subsystems
-    ssfiddict = cdmi.subsystems_to_fids(ssids, [])
+    # Break the complete list into smaller sub-lists to avoid timeouts
+    start = 0
+    increment = 50
+    end = start + increment - 1
+    counter = (len(ssids) / increment) + 1
     ssfids = []
-    for key in ssfiddict:
-        for ssfid in ssfiddict[key]:
-            ls = ssfiddict[key][ssfid]
-            for arr in ls:
-                if len(arr) > 1:
-                    gl = arr[1]
-                    for l in gl:
-                        ssfids.append(l)
+    while counter != 0:
+        print("start={0} end={1}".format(start, end))
+        ssfiddict = cdmi.subsystems_to_fids(ssids[start:end], [])        
+        for key in ssfiddict:
+            for ssfid in ssfiddict[key]:
+                ls = ssfiddict[key][ssfid]
+                for arr in ls:
+                    if len(arr) > 1:
+                        gl = arr[1]
+                        for l in gl:
+                            ssfids.append(l)
+                            
+        # Move to next sub-list
+        start += increment
+        end += increment
+        if end >= len(ssids):
+            end = len(ssids) - 1
+        counter -= 1
+
     # Uniquify!
     return list(set(ssfids))
 
@@ -136,8 +152,8 @@ def subsystemFids_WORKAROUND(MINN, COUNT):
     in subsystems_to_fids (the fids to subsystems link was not symmetrical - in some
     cases it was possible to go from fids to subsystems but not back from subsystems to fids)'''
 
-    cdmi = CDMI_API(URL)
-    cdmi_entity = CDMI_EntityAPI(URL)
+    cdmi = CDMI_API(CDMI_URL)
+    cdmi_entity = CDMI_EntityAPI(CDMI_URL)
     # Our work-around is to go from subsystems to roles to fids and then back
     # to subsystems.
     # All of these links appear to be intact.
@@ -152,8 +168,8 @@ def subsystemFids_WORKAROUND(MINN, COUNT):
 def getDlitFids(MINN, COUNT):
     '''Get a list of FIDs with direct literature evidence (dlits) from the CDM'''
 
-    cdmi = CDMI_API(URL)
-    cdmi_entity = CDMI_EntityAPI(URL)
+    cdmi = CDMI_API(CDMI_URL)
+    cdmi_entity = CDMI_EntityAPI(CDMI_URL)
     pubdict = cdmi_entity.all_entities_Publication(MINN, COUNT, ["id"])
     pubids = getFieldFromEntity(pubdict, "id")
     pub2seq = cdmi_entity.get_relationship_Concerns(pubids, [], [], ["id"])
@@ -166,7 +182,7 @@ def filterFidsByOtus(fidlist, otus):
     '''Given a list of representative organisnm IDs (OTUs) and a list of
     FIDs, returns only those FIDs found in an OTU.'''
 
-    cdmi_entity = CDMI_EntityAPI(URL)
+    cdmi_entity = CDMI_EntityAPI(CDMI_URL)
 
     # Identify the organism belonging to each fid
     # If this fails to find an organism we don't want it anyway...
@@ -195,12 +211,26 @@ def filterFidsByOtusBetter(fidsToRoles, rolesToFids, oturepsToMembers):
 
     '''
 
-    cdmi_entity = CDMI_EntityAPI(URL)
+    cdmi_entity = CDMI_EntityAPI(CDMI_URL)
 
     # Identify the organism belonging to each fid
     # If this fails to find an organism we don't want it anyway...
     fidlist = fidsToRoles.keys()
-    orgdict = cdmi_entity.get_relationship_IsOwnedBy(fidlist, [], [], ["id"])
+    print len(fidlist)
+    orgdict = []
+     # Break the complete list into smaller sub-lists to avoid timeouts
+    start = 0
+    increment = 100000
+    end = start + increment - 1
+    counter = (len(fidlist) / increment) + 1
+    while counter != 0:
+        od = cdmi_entity.get_relationship_IsOwnedBy(fidlist[start:end], [], [], ["id"])
+        orgdict.extend(od)
+        start += increment
+        end += increment
+        if end >= len(fidlist):
+            end = len(fidlist) - 1
+        counter -= 1
     fidlist = getFieldFromRelationship(orgdict, "from_link", "rel")
     orglist = getFieldFromRelationship(orgdict, "id", "to")
     fidToOrg = {}
@@ -247,15 +277,15 @@ def filterFidsByOtusBetter(fidsToRoles, rolesToFids, oturepsToMembers):
 
     missingRoles = list(set(rolesToFids.keys()) - set(keptRolesToFids.keys()))
 
-    print oturepsToMembers
-    print missingRoles
-    print keptRolesToFids
+#    print oturepsToMembers
+#    print missingRoles
+#    print keptRolesToFids
 
     return keptFidsToRoles, keptRolesToFids, missingRoles
 
 def getOtuGenomeDictionary(MINN, COUNT):
     '''Obtain a dictionary from OTU representatives to all genomes in the OTU'''
-    cdmi = CDMI_API(URL)
+    cdmi = CDMI_API(CDMI_URL)
     # Get list of OTUs
     otulist = getOtuGenomeIds(MINN, COUNT)
     otudict = cdmi.otu_members(otulist[0])
@@ -265,26 +295,41 @@ def fidsToRoles(fidlist):
     '''Given a list of FIDs return a dictionary from FID to the list of roles the encoding gene
     performs and a dictionary from roles to the FIDs performing them'''
 
-    cdmi = CDMI_API(URL)
-    cdmi_entity = CDMI_EntityAPI(URL)
-    roledict = cdmi_entity.get_relationship_HasFunctional(fidlist, [], [], ["id"])
-
-    flist = getFieldFromRelationship(roledict, "from_link", "rel")
-    rolelist = getFieldFromRelationship(roledict, "id", "to")
+    cdmi = CDMI_API(CDMI_URL)
+    cdmi_entity = CDMI_EntityAPI(CDMI_URL)
+    
+    # Break the complete list into smaller sub-lists to avoid timeouts
+    start = 0
+    increment = 100000
+    end = start + increment - 1
+    counter = (len(fidlist) / increment) + 1
     fidsToRoles = {}
     rolesToFids = {}
-    for ii in range(len(flist)):
-        # We have to use sets here because a bug(?) in get_relationship_HasFunctional allows multiple identical
-        # links between fids and roles.
-        # See for example what happens when you call it on g.9647.peg.2332
-        if flist[ii] in fidsToRoles:
-            fidsToRoles[flist[ii]].add(rolelist[ii])
-        else:
-            fidsToRoles[flist[ii]] = set([rolelist[ii]])
-        if rolelist[ii] in rolesToFids:
-            rolesToFids[rolelist[ii]].add(flist[ii])
-        else:
-            rolesToFids[rolelist[ii]] = set([flist[ii]])
+    while counter != 0:
+        roledict = cdmi_entity.get_relationship_HasFunctional(fidlist[start:end], [], [], ["id"])
+    
+        flist = getFieldFromRelationship(roledict, "from_link", "rel")
+        rolelist = getFieldFromRelationship(roledict, "id", "to")
+        for ii in range(len(flist)):
+            # We have to use sets here because a bug(?) in get_relationship_HasFunctional allows multiple identical
+            # links between fids and roles.
+            # See for example what happens when you call it on g.9647.peg.2332
+            if flist[ii] in fidsToRoles:
+                fidsToRoles[flist[ii]].add(rolelist[ii])
+            else:
+                fidsToRoles[flist[ii]] = set([rolelist[ii]])
+            if rolelist[ii] in rolesToFids:
+                rolesToFids[rolelist[ii]].add(flist[ii])
+            else:
+                rolesToFids[rolelist[ii]] = set([flist[ii]])
+                
+        # Move to next sub-list
+        start += increment
+        end += increment
+        if end >= len(fidlist):
+            end = len(fidlist) - 1
+        counter -= 1
+        
     # Convert back to lists to not break other functions.
     for f in fidsToRoles:
         fidsToRoles[f] = list(fidsToRoles[f])
@@ -293,9 +338,9 @@ def fidsToRoles(fidlist):
     return fidsToRoles, rolesToFids
 
 def fidsToSequences(fidlist):
-    '''Given a list fo FIDs, returns a dictionary from FID to its amino acid sequence.
+    '''Given a list of FIDs, returns a dictionary from FID to its amino acid sequence.
     Features with no amino acid sequence are discarded.'''
-    cdmi = CDMI_API(URL)
+    cdmi = CDMI_API(CDMI_URL)
     fidlist = list(set(fidlist))
     seqs = cdmi.fids_to_protein_sequences(fidlist)
     return seqs
@@ -303,7 +348,7 @@ def fidsToSequences(fidlist):
 def genomesToPegs(genomes):
     '''Given a list fogenome IDs, returns a list of FIDs for protein-encoding genes in the specified genomes'''
 
-    cdmi_entity = CDMI_EntityAPI(URL)
+    cdmi_entity = CDMI_EntityAPI(CDMI_URL)
     fiddict = cdmi_entity.get_relationship_IsOwnerOf(genomes, [], [], ["id", "feature_type"])
     fidlist = getFieldFromRelationship(fiddict, "id", "to")
     typelist = getFieldFromRelationship(fiddict, "feature_type", "to")
@@ -319,7 +364,7 @@ def getOtuGenomeIds(MINN, COUNT):
     '''Query the CDMI for a list of OTU genomes (returns a list of OTUs and a list of only
     prokaryote OTUs)'''
 
-    cdmi_entity = CDMI_EntityAPI(URL)
+    cdmi_entity = CDMI_EntityAPI(CDMI_URL)
 
     # Get the requested number of OTU
     otudict = cdmi_entity.all_entities_OTU(MINN, COUNT, ["id"])
@@ -347,7 +392,7 @@ def getOtuGenomeIds(MINN, COUNT):
 # Output 2: A dictionary from fid to roles
 ################
 def getGenomeNeighborhoodsAndRoles(genomes):
-    cdmi_entity = CDMI_EntityAPI(URL)
+    cdmi_entity = CDMI_EntityAPI(CDMI_URL)
 
     pegs = genomesToPegs(genomes)
     # Get contigs
@@ -386,7 +431,7 @@ def complexRoleLinks(MINN, COUNT):
     role to a list of complexes and a dictionary from complexes to a list of roles.
 
     Only roles listed as "required" are included in the links.'''
-    cdmi_entity = CDMI_EntityAPI(URL)
+    cdmi_entity = CDMI_EntityAPI(CDMI_URL)
     # Get a list of complexes
     cplxdict = cdmi_entity.all_entities_Complex(MINN, COUNT, ["id"])
     cplxlist = getFieldFromEntity(cplxdict, "id")
@@ -417,7 +462,7 @@ def reactionComplexLinks(MINN, COUNT):
     from reactions to lists of complexes performing them and from complexes to lists of reactions
     they perform.'''
 
-    cdmi_entity = CDMI_EntityAPI(URL)
+    cdmi_entity = CDMI_EntityAPI(CDMI_URL)
 
     # The API was recently changed to use model IDs and to not use the reactions_to_complexes
     # but use the ER model instead.

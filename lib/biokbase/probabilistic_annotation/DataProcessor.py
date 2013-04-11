@@ -14,6 +14,9 @@ from DataExtractor import *
 from DataParser import *
 from PYTHON_GLOBALS import *
 
+# These two functions could be collapsed into one that gets the genome from the workspace
+# and builds the fasta file.
+
 def GenomeJsonToFasta(outputbase, organismid):
     '''Convert a genome JSON object into an amino-acid FASTA file (for BLAST purposes)'''
     genome_json_file = os.path.join(outputbase, organismid, "%s.json" %(organismid))
