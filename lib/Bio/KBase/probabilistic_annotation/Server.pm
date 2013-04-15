@@ -15,6 +15,7 @@ our $CallContext;
 our %return_counts = (
         'annotation_probabilities' => 1,
         'annotation_probabilities_id' => 1,
+        'generate_data' => 1,
         'version' => 1,
 );
 
@@ -26,6 +27,7 @@ sub _build_valid_methods
     my $methods = {
         'annotation_probabilities' => 1,
         'annotation_probabilities_id' => 1,
+        'generate_data' => 1,
         'version' => 1,
     };
     return $methods;

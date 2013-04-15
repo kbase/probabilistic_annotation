@@ -361,6 +361,98 @@ sub annotation_probabilities_id
 
 
 
+=head2 generate_data
+
+  $success = $obj->generate_data($input)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$input is a generate_data_params
+$success is a bool
+generate_data_params is a reference to a hash where the following keys are defined:
+	folder has a value which is a string
+	regenerate has a value which is a bool
+	delete_only has a value which is a bool
+	verbose has a value which is a bool
+bool is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+$input is a generate_data_params
+$success is a bool
+generate_data_params is a reference to a hash where the following keys are defined:
+	folder has a value which is a string
+	regenerate has a value which is a bool
+	delete_only has a value which is a bool
+	verbose has a value which is a bool
+bool is an int
+
+
+=end text
+
+=item Description
+
+
+
+=back
+
+=cut
+
+sub generate_data
+{
+    my($self, @args) = @_;
+
+# Authentication: none
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function generate_data (received $n, expecting 1)");
+    }
+    {
+	my($input) = @args;
+
+	my @_bad_arguments;
+        (ref($input) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"input\" (value was \"$input\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to generate_data:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'generate_data');
+	}
+    }
+
+    my $result = $self->{client}->call($self->{url}, {
+	method => "ProbabilisticAnnotation.generate_data",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{code},
+					       method_name => 'generate_data',
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method generate_data",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'generate_data',
+				       );
+    }
+}
+
+
+
 sub version {
     my ($self) = @_;
     my $result = $self->{client}->call($self->{url}, {
@@ -372,16 +464,16 @@ sub version {
             Bio::KBase::Exceptions::JSONRPC->throw(
                 error => $result->error_message,
                 code => $result->content->{code},
-                method_name => 'annotation_probabilities_id',
+                method_name => 'generate_data',
             );
         } else {
             return wantarray ? @{$result->result} : $result->result->[0];
         }
     } else {
         Bio::KBase::Exceptions::HTTP->throw(
-            error => "Error invoking method annotation_probabilities_id",
+            error => "Error invoking method generate_data",
             status_line => $self->{client}->status_line,
-            method_name => 'annotation_probabilities_id',
+            method_name => 'generate_data',
         );
     }
 }
@@ -1406,6 +1498,52 @@ probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
 overwrite has a value which is a bool
 auth has a value which is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 generate_data_params
+
+=over 4
+
+
+
+=item Description
+
+Input parameters for the "generate_data" function.
+
+        string folder - Path to folder for generated data files
+        bool regenerate - True to delete and regenerate existing data files
+        bool delete_only - True to only delete existing data files
+        bool verbose - True to enable verbose output
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+folder has a value which is a string
+regenerate has a value which is a bool
+delete_only has a value which is a bool
+verbose has a value which is a bool
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+folder has a value which is a string
+regenerate has a value which is a bool
+delete_only has a value which is a bool
+verbose has a value which is a bool
 
 
 =end text

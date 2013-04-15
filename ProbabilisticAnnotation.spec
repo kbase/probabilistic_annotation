@@ -191,4 +191,20 @@ module ProbabilisticAnnotation
        before running the probabilistic annotation algorithm.
      */
     funcdef annotation_probabilities_id(annotation_probabilities_ids_params input) returns (object_metadata output);
+    
+    /* Input parameters for the "generate_data" function.
+    
+    	string folder - Path to folder for generated data files
+    	bool regenerate - True to delete and regenerate existing data files
+    	bool delete_only - True to only delete existing data files
+    	bool verbose - True to enable verbose output
+    */
+    typedef structure {
+    	string folder;
+    	bool regenerate;
+    	bool delete_only;
+    	bool verbose;
+    } generate_data_params;
+    
+    funcdef generate_data(generate_data_params input) returns(bool success);
 };
