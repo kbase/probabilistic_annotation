@@ -8,6 +8,9 @@ module ProbabilisticAnnotation
 	/* Indicates true or false values (false <= 0, true >=1) */
 	typedef int bool;
     
+	/* A string identifier for a probabilistic annotation object. */
+    typedef string probanno_id;
+    
 	/* A string identifier for a workspace. Any string consisting of alphanumeric characters and "-" is acceptable. */
 	typedef string workspace_id;
 	
@@ -105,47 +108,43 @@ module ProbabilisticAnnotation
 	list<feature> features;
     } GenomeObject;
         
-    /* Data structures to hold a single annotation probability for a single gene
-    
-    feature_id feature - feature the annotation is associated with
-    string function - the name of the functional role being annotated to the feature
-    float probability - the probability that the functional role is associated with the feature
+	/* ************************************************************************************* */
+	/* PROBABILISTIC ANNOTATION DATA TYPES */
+	/* ************************************************************************************* */
 
-    */
-    typedef tuple<feature_id feature, string function,float probability> annotationProbability; 
+    /* Annotation probability for an alternative function
     
-    typedef string probanno_id;
-    typedef tuple<string function, float probability> alt_func;
+    	string function - the name of the functional role being annotated to the feature
+    	float probability - the probability that the functional role is associated with the feature
+	*/    	
+    typedef tuple<string function, float probability> FunctionProbability;
     
-    /*
-        Object to carry alternative functions for each feature
+    /* Alternative functions for each feature
     
-        feature_id id
-        ID of the feature. Required.
-    
-        string function
-        Primary annotated function of the feature in the genome annotation. Required.
-    
-        list<alt_func> alternative_functions
-        List of tuples containing alternative functions and probabilities. Required.
+        feature_id id - ID of feature the annotation is associated with 
+        list<FunctionProbability> alternativeFunctions - list of alternative functions and probabilities
     */
     typedef structure {
-	feature_id id;
-	list<alt_func> alternative_functions;
+		feature_id id;
+		list<FunctionProbability> alternativeFunctions;
     } ProbAnnoFeature;
     
     /* Object to carry alternative functions and probabilities for genes in a genome    
 
-        probanno_id id - ID of the probabilistic annotation object. Required.    
-        genome_id genome - ID of the genome the probabilistic annotation was built for. Required.
-        list<ProbAnnoFeature> featureAlternativeFunctions - List of ProbAnnoFeature objects holding alternative functions for features. Required.    
-	workspace - ID of the workspace from which the genome ID was taken. Required.
+        probanno_id id - ID of the probabilistic annotation object    
+        genome_id genome - ID of the genome the probabilistic annotation was built for
+        workspace_id genome_workspace - ID of the workspace containing genome
+        list<ProbAnnoFeature> featureAlternativeFunctions - list of ProbAnnoFeature objects holding alternative functions for features
+        mapping<feature_id feature, list<FunctionProbability>> rolesetProbabilities - mapping of features to list of FunctionProbability objects
+        list<feature_id> skippedFeatures - list of features in genome with no probability
     */
-
     typedef structure {
-	probanno_id id;
-	genome_id genome;
-	list<ProbAnnoFeature> featureAlternativeFunctions;
+		probanno_id id;
+		genome_id genome;
+		workspace_id genome_workspace;
+		list<ProbAnnoFeature> featureAlternativeFunctions;
+		mapping<feature_id feature, list<FunctionProbability> alternativeFunctions> rolesetProbabilities;
+		list<feature_id> skippedFeatures;
     } ProbabilisticAnnotation;
     
     /*********************************************** 
@@ -176,6 +175,7 @@ module ProbabilisticAnnotation
        probanno_id probanno - ID of ProbAnno object
        workspace_id probanno_workspace - ID workspace where ProbAnno object is saved
        bool overwrite - True to overwrite existing ProbAnno object with same name
+       bool debug - True to keep intermediate files for debug purposes
        string auth - Authentication token of KBase user
     */
     typedef structure {
@@ -184,6 +184,7 @@ module ProbabilisticAnnotation
 		probanno_id probanno;
 		workspace_id probanno_workspace;
 		bool overwrite;
+		bool debug;
 		string auth;
     } annotation_probabilities_ids_params;
 

@@ -4,6 +4,7 @@ import os
 import tempfile
 
 CDMI_URL="http://kbase.us/services/cdmi_api"
+WORKSPACE_URL="http://kbase.us/services/workspace"
 
 # This is a character string that isn't found in any roles - I use it to split lists
 # in one-to-many relationships

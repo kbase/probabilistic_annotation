@@ -103,10 +103,17 @@ annotation is a reference to a list containing 3 items:
 ProbabilisticAnnotation is a reference to a hash where the following keys are defined:
 	id has a value which is a probanno_id
 	genome has a value which is a genome_id
+	genome_workspace has a value which is a workspace_id
 	featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
+	rolesetProbabilities has a value which is a reference to a hash where the key is a feature_id and the value is a reference to a list where each element is a FunctionProbability
+	skippedFeatures has a value which is a reference to a list where each element is a feature_id
+workspace_id is a string
 ProbAnnoFeature is a reference to a hash where the following keys are defined:
 	id has a value which is a feature_id
-	alternative_functions has a value which is a reference to a list where each element is an alt_func
+	alternativeFunctions has a value which is a reference to a list where each element is a FunctionProbability
+FunctionProbability is a reference to a list containing 2 items:
+	0: (function) a string
+	1: (probability) a float
 
 </pre>
 
@@ -161,10 +168,17 @@ annotation is a reference to a list containing 3 items:
 ProbabilisticAnnotation is a reference to a hash where the following keys are defined:
 	id has a value which is a probanno_id
 	genome has a value which is a genome_id
+	genome_workspace has a value which is a workspace_id
 	featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
+	rolesetProbabilities has a value which is a reference to a hash where the key is a feature_id and the value is a reference to a list where each element is a FunctionProbability
+	skippedFeatures has a value which is a reference to a list where each element is a feature_id
+workspace_id is a string
 ProbAnnoFeature is a reference to a hash where the following keys are defined:
 	id has a value which is a feature_id
-	alternative_functions has a value which is a reference to a list where each element is an alt_func
+	alternativeFunctions has a value which is a reference to a list where each element is a FunctionProbability
+FunctionProbability is a reference to a list containing 2 items:
+	0: (function) a string
+	1: (probability) a float
 
 
 =end text
@@ -243,6 +257,7 @@ annotation_probabilities_ids_params is a reference to a hash where the following
 	probanno has a value which is a probanno_id
 	probanno_workspace has a value which is a workspace_id
 	overwrite has a value which is a bool
+	debug has a value which is a bool
 	auth has a value which is a string
 genome_id is a string
 workspace_id is a string
@@ -280,6 +295,7 @@ annotation_probabilities_ids_params is a reference to a hash where the following
 	probanno has a value which is a probanno_id
 	probanno_workspace has a value which is a workspace_id
 	overwrite has a value which is a bool
+	debug has a value which is a bool
 	auth has a value which is a string
 genome_id is a string
 workspace_id is a string
@@ -534,6 +550,37 @@ an int
 =begin text
 
 an int
+
+=end text
+
+=back
+
+
+
+=head2 probanno_id
+
+=over 4
+
+
+
+=item Description
+
+A string identifier for a probabilistic annotation object.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a string
+</pre>
+
+=end html
+
+=begin text
+
+a string
 
 =end text
 
@@ -1224,7 +1271,7 @@ features has a value which is a reference to a list where each element is a feat
 
 
 
-=head2 annotationProbability
+=head2 FunctionProbability
 
 =over 4
 
@@ -1232,71 +1279,10 @@ features has a value which is a reference to a list where each element is a feat
 
 =item Description
 
-Data structures to hold a single annotation probability for a single gene
+Annotation probability for an alternative function
 
-feature_id feature - feature the annotation is associated with
-string function - the name of the functional role being annotated to the feature
-float probability - the probability that the functional role is associated with the feature
-
-
-=item Definition
-
-=begin html
-
-<pre>
-a reference to a list containing 3 items:
-0: (feature) a feature_id
-1: (function) a string
-2: (probability) a float
-
-</pre>
-
-=end html
-
-=begin text
-
-a reference to a list containing 3 items:
-0: (feature) a feature_id
-1: (function) a string
-2: (probability) a float
-
-
-=end text
-
-=back
-
-
-
-=head2 probanno_id
-
-=over 4
-
-
-
-=item Definition
-
-=begin html
-
-<pre>
-a string
-</pre>
-
-=end html
-
-=begin text
-
-a string
-
-=end text
-
-=back
-
-
-
-=head2 alt_func
-
-=over 4
-
+        string function - the name of the functional role being annotated to the feature
+        float probability - the probability that the functional role is associated with the feature
 
 
 =item Definition
@@ -1333,16 +1319,10 @@ a reference to a list containing 2 items:
 
 =item Description
 
-Object to carry alternative functions for each feature
-    
-feature_id id
-ID of the feature. Required.
-    
-string function
-Primary annotated function of the feature in the genome annotation. Required.
-    
-list<alt_func> alternative_functions
-List of tuples containing alternative functions and probabilities. Required.
+Alternative functions for each feature
+
+    feature_id id - ID of feature the annotation is associated with 
+    list<FunctionProbability> alternativeFunctions - list of alternative functions and probabilities
 
 
 =item Definition
@@ -1352,7 +1332,7 @@ List of tuples containing alternative functions and probabilities. Required.
 <pre>
 a reference to a hash where the following keys are defined:
 id has a value which is a feature_id
-alternative_functions has a value which is a reference to a list where each element is an alt_func
+alternativeFunctions has a value which is a reference to a list where each element is a FunctionProbability
 
 </pre>
 
@@ -1362,7 +1342,7 @@ alternative_functions has a value which is a reference to a list where each elem
 
 a reference to a hash where the following keys are defined:
 id has a value which is a feature_id
-alternative_functions has a value which is a reference to a list where each element is an alt_func
+alternativeFunctions has a value which is a reference to a list where each element is a FunctionProbability
 
 
 =end text
@@ -1381,10 +1361,12 @@ alternative_functions has a value which is a reference to a list where each elem
 
 Object to carry alternative functions and probabilities for genes in a genome    
 
-        probanno_id id - ID of the probabilistic annotation object. Required.    
-        genome_id genome - ID of the genome the probabilistic annotation was built for. Required.
-        list<ProbAnnoFeature> featureAlternativeFunctions - List of ProbAnnoFeature objects holding alternative functions for features. Required.    
-        workspace - ID of the workspace from which the genome ID was taken. Required.
+        probanno_id id - ID of the probabilistic annotation object    
+        genome_id genome - ID of the genome the probabilistic annotation was built for
+        workspace_id genome_workspace - ID of the workspace containing genome
+        list<ProbAnnoFeature> featureAlternativeFunctions - list of ProbAnnoFeature objects holding alternative functions for features
+        mapping<feature_id feature, list<FunctionProbability>> rolesetProbabilities - mapping of features to list of FunctionProbability objects
+        list<feature_id> skippedFeatures - list of features in genome with no probability
 
 
 =item Definition
@@ -1395,7 +1377,10 @@ Object to carry alternative functions and probabilities for genes in a genome
 a reference to a hash where the following keys are defined:
 id has a value which is a probanno_id
 genome has a value which is a genome_id
+genome_workspace has a value which is a workspace_id
 featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
+rolesetProbabilities has a value which is a reference to a hash where the key is a feature_id and the value is a reference to a list where each element is a FunctionProbability
+skippedFeatures has a value which is a reference to a list where each element is a feature_id
 
 </pre>
 
@@ -1406,7 +1391,10 @@ featureAlternativeFunctions has a value which is a reference to a list where eac
 a reference to a hash where the following keys are defined:
 id has a value which is a probanno_id
 genome has a value which is a genome_id
+genome_workspace has a value which is a workspace_id
 featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
+rolesetProbabilities has a value which is a reference to a hash where the key is a feature_id and the value is a reference to a list where each element is a FunctionProbability
+skippedFeatures has a value which is a reference to a list where each element is a feature_id
 
 
 =end text
@@ -1469,6 +1457,7 @@ Input parameters for the "annotation_probabilities_ids" function.
        probanno_id probanno - ID of ProbAnno object
        workspace_id probanno_workspace - ID workspace where ProbAnno object is saved
        bool overwrite - True to overwrite existing ProbAnno object with same name
+       bool debug - True to keep intermediate files for debug purposes
        string auth - Authentication token of KBase user
 
 
@@ -1483,6 +1472,7 @@ genome_workspace has a value which is a workspace_id
 probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
 overwrite has a value which is a bool
+debug has a value which is a bool
 auth has a value which is a string
 
 </pre>
@@ -1497,6 +1487,7 @@ genome_workspace has a value which is a workspace_id
 probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
 overwrite has a value which is a bool
+debug has a value which is a bool
 auth has a value which is a string
 
 

@@ -100,10 +100,17 @@ annotation is a reference to a list containing 3 items:
 ProbabilisticAnnotation is a reference to a hash where the following keys are defined:
 	id has a value which is a probanno_id
 	genome has a value which is a genome_id
+	genome_workspace has a value which is a workspace_id
 	featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
+	rolesetProbabilities has a value which is a reference to a hash where the key is a feature_id and the value is a reference to a list where each element is a FunctionProbability
+	skippedFeatures has a value which is a reference to a list where each element is a feature_id
+workspace_id is a string
 ProbAnnoFeature is a reference to a hash where the following keys are defined:
 	id has a value which is a feature_id
-	alternative_functions has a value which is a reference to a list where each element is an alt_func
+	alternativeFunctions has a value which is a reference to a list where each element is a FunctionProbability
+FunctionProbability is a reference to a list containing 2 items:
+	0: (function) a string
+	1: (probability) a float
 
 </pre>
 
@@ -158,10 +165,17 @@ annotation is a reference to a list containing 3 items:
 ProbabilisticAnnotation is a reference to a hash where the following keys are defined:
 	id has a value which is a probanno_id
 	genome has a value which is a genome_id
+	genome_workspace has a value which is a workspace_id
 	featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
+	rolesetProbabilities has a value which is a reference to a hash where the key is a feature_id and the value is a reference to a list where each element is a FunctionProbability
+	skippedFeatures has a value which is a reference to a list where each element is a feature_id
+workspace_id is a string
 ProbAnnoFeature is a reference to a hash where the following keys are defined:
 	id has a value which is a feature_id
-	alternative_functions has a value which is a reference to a list where each element is an alt_func
+	alternativeFunctions has a value which is a reference to a list where each element is a FunctionProbability
+FunctionProbability is a reference to a list containing 2 items:
+	0: (function) a string
+	1: (probability) a float
 
 
 =end text
@@ -273,6 +287,7 @@ annotation_probabilities_ids_params is a reference to a hash where the following
 	probanno has a value which is a probanno_id
 	probanno_workspace has a value which is a workspace_id
 	overwrite has a value which is a bool
+	debug has a value which is a bool
 	auth has a value which is a string
 genome_id is a string
 workspace_id is a string
@@ -310,6 +325,7 @@ annotation_probabilities_ids_params is a reference to a hash where the following
 	probanno has a value which is a probanno_id
 	probanno_workspace has a value which is a workspace_id
 	overwrite has a value which is a bool
+	debug has a value which is a bool
 	auth has a value which is a string
 genome_id is a string
 workspace_id is a string
@@ -364,41 +380,38 @@ sub annotation_probabilities_id
     my($output);
     #BEGIN annotation_probabilities_id
 
-    # Create a workspace client object.
-    my $ws_client = get_ws_client();
-
-    # Get the Genome object from the specified workspace.
-    my $getobj_params = {
-    	id         => $input->{genome},
-    	workspace  => $input->{genome_workspace},
-		type       => "Genome",
-		auth       => $input->{auth}
-	};
-    my $genomeObject = $ws_client->get_object($getobj_params)->{"data"};
-
-	# Call annotation_probabilities() with the Genome object from the workspace.
-    my $annotation_probabilities_input = {
-    	"probanno"   => $input->{probanno},
-		"genomeObj"  => $genomeObject
-	};
-    my $probanno = $self->annotation_probabilities($annotation_probabilities_input);
-
-	# Save the ProbAnno object to the specified workspace.
-	my $metadata = {
-		genome => $input->{genome},
-		genome_workspace => $input->{genome_workspace}
-	};
-	$output = $ws_client->save_object({
-		id => $input->{probanno},
-		type => "ProbAnno",
-		workspace => $input->{probanno_workspace},
-		data => $probanno,
-		command => "pa-annotate",
-		auth => $input->{auth},
-		overwrite => $input->{overwrite},
-		metadata => $metadata
-	});
-
+    # Build command line to bridge to Python script.
+    my $cmdline = "probanno-annotate --genome '".$input->{genome}."' --genomews ".$input->{genome_workspace};
+    $cmdline .= " --probanno '".$input->{probanno}."' --probannows ".$input->{probanno_workspace};
+    $cmdline .= " --auth '".$input->{auth}."'";
+    if ($input->{overwrite}) {
+    	$cmdline .= " --overwrite 1";
+    }
+    if ($input->{debug}) {
+    	$cmdline .= " --debug 1";
+    }
+    if ($input->{verbose}) {
+    	$cmdline .= " --verbose 1";
+    }
+    print STDERR $cmdline."\n";
+    my $status = system($cmdline);
+    print STDERR $status;
+    if ( $status == 0 ) {
+    	# This is lame but needed until I switch to pure python server.
+	    my $ws_client = get_ws_client();
+	    my $getobjmeta_params = {
+	       id         => $input->{probanno},
+	       workspace  => $input->{probanno_workspace},
+	       type       => "ProbAnno",
+	       auth       => $input->{auth}
+       };
+	   $output = $ws_client->get_objectmeta($getobjmeta_params);
+    }
+    else {
+    	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => "Bad return code from python command",
+    		method_name => 'annotation_probabilities_id');	
+    }
+	
     #END annotation_probabilities_id
     my @_bad_returns;
     (ref($output) eq 'ARRAY') or push(@_bad_returns, "Invalid type for return variable \"output\" (value was \"$output\")");
@@ -408,6 +421,103 @@ sub annotation_probabilities_id
 							       method_name => 'annotation_probabilities_id');
     }
     return($output);
+}
+
+
+
+
+=head2 generate_data
+
+  $success = $obj->generate_data($input)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$input is a generate_data_params
+$success is a bool
+generate_data_params is a reference to a hash where the following keys are defined:
+	folder has a value which is a string
+	regenerate has a value which is a bool
+	delete_only has a value which is a bool
+	verbose has a value which is a bool
+bool is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+$input is a generate_data_params
+$success is a bool
+generate_data_params is a reference to a hash where the following keys are defined:
+	folder has a value which is a string
+	regenerate has a value which is a bool
+	delete_only has a value which is a bool
+	verbose has a value which is a bool
+bool is an int
+
+
+=end text
+
+
+
+=item Description
+
+
+
+=back
+
+=cut
+
+sub generate_data
+{
+    my $self = shift;
+    my($input) = @_;
+
+    my @_bad_arguments;
+    (ref($input) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument \"input\" (value was \"$input\")");
+    if (@_bad_arguments) {
+	my $msg = "Invalid arguments passed to generate_data:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'generate_data');
+    }
+
+    my $ctx = $Bio::KBase::probabilistic_annotation::Server::CallContext;
+    my($success);
+    #BEGIN generate_data
+    
+    $success = 1;
+    
+    # Build command line to bridge to Python script.
+    my $cmdline = "probanno-gendata -f ".$input->{folder};
+    if ($input->{delete_only}) {
+    	$cmdline .= " -d";
+    }
+    if ($input->{regenerate}) {
+    	$cmdline .= " -r";
+    }
+    if ($input->{verbose}) {
+    	$cmdline .= " -v";
+    }
+    my $status = system($cmdline);
+    if ( ($status >>= 8) != 0 ) {
+		$success = 0;
+    }
+    
+    #END generate_data
+    my @_bad_returns;
+    (!ref($success)) or push(@_bad_returns, "Invalid type for return variable \"success\" (value was \"$success\")");
+    if (@_bad_returns) {
+	my $msg = "Invalid returns passed to generate_data:\n" . join("", map { "\t$_\n" } @_bad_returns);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'generate_data');
+    }
+    return($success);
 }
 
 
@@ -475,6 +585,37 @@ an int
 =begin text
 
 an int
+
+=end text
+
+=back
+
+
+
+=head2 probanno_id
+
+=over 4
+
+
+
+=item Description
+
+A string identifier for a probabilistic annotation object.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a string
+</pre>
+
+=end html
+
+=begin text
+
+a string
 
 =end text
 
@@ -1165,7 +1306,7 @@ features has a value which is a reference to a list where each element is a feat
 
 
 
-=head2 annotationProbability
+=head2 FunctionProbability
 
 =over 4
 
@@ -1173,71 +1314,10 @@ features has a value which is a reference to a list where each element is a feat
 
 =item Description
 
-Data structures to hold a single annotation probability for a single gene
+Annotation probability for an alternative function
 
-feature_id feature - feature the annotation is associated with
-string function - the name of the functional role being annotated to the feature
-float probability - the probability that the functional role is associated with the feature
-
-
-=item Definition
-
-=begin html
-
-<pre>
-a reference to a list containing 3 items:
-0: (feature) a feature_id
-1: (function) a string
-2: (probability) a float
-
-</pre>
-
-=end html
-
-=begin text
-
-a reference to a list containing 3 items:
-0: (feature) a feature_id
-1: (function) a string
-2: (probability) a float
-
-
-=end text
-
-=back
-
-
-
-=head2 probanno_id
-
-=over 4
-
-
-
-=item Definition
-
-=begin html
-
-<pre>
-a string
-</pre>
-
-=end html
-
-=begin text
-
-a string
-
-=end text
-
-=back
-
-
-
-=head2 alt_func
-
-=over 4
-
+        string function - the name of the functional role being annotated to the feature
+        float probability - the probability that the functional role is associated with the feature
 
 
 =item Definition
@@ -1274,16 +1354,10 @@ a reference to a list containing 2 items:
 
 =item Description
 
-Object to carry alternative functions for each feature
-    
-feature_id id
-ID of the feature. Required.
-    
-string function
-Primary annotated function of the feature in the genome annotation. Required.
-    
-list<alt_func> alternative_functions
-List of tuples containing alternative functions and probabilities. Required.
+Alternative functions for each feature
+
+    feature_id id - ID of feature the annotation is associated with 
+    list<FunctionProbability> alternativeFunctions - list of alternative functions and probabilities
 
 
 =item Definition
@@ -1293,7 +1367,7 @@ List of tuples containing alternative functions and probabilities. Required.
 <pre>
 a reference to a hash where the following keys are defined:
 id has a value which is a feature_id
-alternative_functions has a value which is a reference to a list where each element is an alt_func
+alternativeFunctions has a value which is a reference to a list where each element is a FunctionProbability
 
 </pre>
 
@@ -1303,7 +1377,7 @@ alternative_functions has a value which is a reference to a list where each elem
 
 a reference to a hash where the following keys are defined:
 id has a value which is a feature_id
-alternative_functions has a value which is a reference to a list where each element is an alt_func
+alternativeFunctions has a value which is a reference to a list where each element is a FunctionProbability
 
 
 =end text
@@ -1322,10 +1396,12 @@ alternative_functions has a value which is a reference to a list where each elem
 
 Object to carry alternative functions and probabilities for genes in a genome    
 
-        probanno_id id - ID of the probabilistic annotation object. Required.    
-        genome_id genome - ID of the genome the probabilistic annotation was built for. Required.
-        list<ProbAnnoFeature> featureAlternativeFunctions - List of ProbAnnoFeature objects holding alternative functions for features. Required.    
-        workspace - ID of the workspace from which the genome ID was taken. Required.
+        probanno_id id - ID of the probabilistic annotation object    
+        genome_id genome - ID of the genome the probabilistic annotation was built for
+        workspace_id genome_workspace - ID of the workspace containing genome
+        list<ProbAnnoFeature> featureAlternativeFunctions - list of ProbAnnoFeature objects holding alternative functions for features
+        mapping<feature_id feature, list<FunctionProbability>> rolesetProbabilities - mapping of features to list of FunctionProbability objects
+        list<feature_id> skippedFeatures - list of features in genome with no probability
 
 
 =item Definition
@@ -1336,7 +1412,10 @@ Object to carry alternative functions and probabilities for genes in a genome
 a reference to a hash where the following keys are defined:
 id has a value which is a probanno_id
 genome has a value which is a genome_id
+genome_workspace has a value which is a workspace_id
 featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
+rolesetProbabilities has a value which is a reference to a hash where the key is a feature_id and the value is a reference to a list where each element is a FunctionProbability
+skippedFeatures has a value which is a reference to a list where each element is a feature_id
 
 </pre>
 
@@ -1347,7 +1426,10 @@ featureAlternativeFunctions has a value which is a reference to a list where eac
 a reference to a hash where the following keys are defined:
 id has a value which is a probanno_id
 genome has a value which is a genome_id
+genome_workspace has a value which is a workspace_id
 featureAlternativeFunctions has a value which is a reference to a list where each element is a ProbAnnoFeature
+rolesetProbabilities has a value which is a reference to a hash where the key is a feature_id and the value is a reference to a list where each element is a FunctionProbability
+skippedFeatures has a value which is a reference to a list where each element is a feature_id
 
 
 =end text
@@ -1410,6 +1492,7 @@ Input parameters for the "annotation_probabilities_ids" function.
        probanno_id probanno - ID of ProbAnno object
        workspace_id probanno_workspace - ID workspace where ProbAnno object is saved
        bool overwrite - True to overwrite existing ProbAnno object with same name
+       bool debug - True to keep intermediate files for debug purposes
        string auth - Authentication token of KBase user
 
 
@@ -1424,6 +1507,7 @@ genome_workspace has a value which is a workspace_id
 probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
 overwrite has a value which is a bool
+debug has a value which is a bool
 auth has a value which is a string
 
 </pre>
@@ -1438,7 +1522,54 @@ genome_workspace has a value which is a workspace_id
 probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
 overwrite has a value which is a bool
+debug has a value which is a bool
 auth has a value which is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 generate_data_params
+
+=over 4
+
+
+
+=item Description
+
+Input parameters for the "generate_data" function.
+
+        string folder - Path to folder for generated data files
+        bool regenerate - True to delete and regenerate existing data files
+        bool delete_only - True to only delete existing data files
+        bool verbose - True to enable verbose output
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+folder has a value which is a string
+regenerate has a value which is a bool
+delete_only has a value which is a bool
+verbose has a value which is a bool
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+folder has a value which is a string
+regenerate has a value which is a bool
+delete_only has a value which is a bool
+verbose has a value which is a bool
 
 
 =end text

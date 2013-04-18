@@ -21,6 +21,7 @@ DESCRIPTION
       Generate a probabilistic annotation for a genome.
       
       Options:
+      -d, --debug        Keep intermediate files for debug purposes
       -e, --showerror    Show any errors in execution
       --genomews         ID of workspace where Genome object is stored
       -h, --help         Display this help message, ignore all arguments
@@ -40,9 +41,10 @@ AUTHORS
 my $primaryArgs = [ "Genome ID", "ProbAnno ID" ];
 my ( $opt, $usage ) = describe_options(
     'pa-annotate <' . join( "> <", @{$primaryArgs} ) . '> %o',
-    [ 'probannows:s', 'ID of workspace where ProbAnno object is saved', { "default" => workspace() } ],
+    [ 'probannows|w:s', 'ID of workspace where ProbAnno object is saved', { "default" => workspace() } ],
     [ 'genomews:s', 'ID of workspace where Genome object is stored', { "default" => "KBaseCDMGenomes" } ],
     [ 'overwrite:o', "Set as 1 to overwrite existing ProbAnno object with same name", { "default" => 0 } ],
+    [ 'debug|d', "Set as 1 to keep intermediate files for debug purposes", { "default" => 0 } ],
     [ 'showerror|e', 'Set as 1 to show any errors in execution', { "default" => 0 } ],
     [ 'verbose|v', 'Set as 1 to print verbose messages', { "default" => 0 } ],
     [ 'help|h', 'Show help text' ],
@@ -75,7 +77,8 @@ my $translation = {
     "ProbAnno ID" => "probanno",
     genomews      => "genome_workspace",
     probannows    => "probanno_workspace",
-    overwrite     => "overwrite"
+    overwrite     => "overwrite",
+    debug         => "debug"
 };
 
 # Instantiate parameters for function.
