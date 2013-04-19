@@ -158,7 +158,13 @@ def writeSubsystemFasta(fidsToSeqs, folder):
         fid.write(">%s\n%s\n" %(fids, fidsToSeqs[fids]))
     fid.close()
     # Compile the BLAST database for the fasta file
-    os.system("makeblastdb -in %s -dbtype prot > /dev/null" %(os.path.join(folder, SUBSYSTEM_OTU_FASTA_FILE)))
+    status = os.system("makeblastdb -in %s -dbtype prot > /dev/null" %(os.path.join(folder, SUBSYSTEM_OTU_FASTA_FILE)))
+    # TODO: Throw exceptions for errors
+    if os.WIFEXITED(status):
+        if os.WEXITSTATUS(status) != 0:
+            print("makeblastdb failed with status %d\n" %(os.WEXITSTATUS(status)))
+    if os.WIFSIGNALED(status):
+        print("makeblastdb ended by signal %d\n" %(os.WTERMSIG(status)))
     return
 
 #####################
