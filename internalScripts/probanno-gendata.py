@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#! /usr/bin/python
 
 import optparse, sys
 from biokbase.probabilistic_annotation.MyImpl import generate_data

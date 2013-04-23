@@ -43,7 +43,7 @@ my ( $opt, $usage ) = describe_options(
     'pa-annotate <' . join( "> <", @{$primaryArgs} ) . '> %o',
     [ 'probannows|w:s', 'ID of workspace where ProbAnno object is saved', { "default" => workspace() } ],
     [ 'genomews:s', 'ID of workspace where Genome object is stored', { "default" => "KBaseCDMGenomes" } ],
-    [ 'overwrite:o', "Set as 1 to overwrite existing ProbAnno object with same name", { "default" => 0 } ],
+    [ 'overwrite|o', "Set as 1 to overwrite existing ProbAnno object with same name", { "default" => 0 } ],
     [ 'debug|d', "Set as 1 to keep intermediate files for debug purposes", { "default" => 0 } ],
     [ 'showerror|e', 'Set as 1 to show any errors in execution', { "default" => 0 } ],
     [ 'verbose|v', 'Set as 1 to print verbose messages', { "default" => 0 } ],
