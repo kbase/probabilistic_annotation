@@ -395,8 +395,15 @@ sub annotation_probabilities_id
     }
     print STDERR $cmdline."\n";
     my $status = system($cmdline);
-    print STDERR $status;
-    if ( $status == 0 ) {
+    if ($status == -1) {
+     	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => "probanno-annotate failed to execute",
+    		method_name => 'annotation_probabilities_id');	   	
+    }
+    elsif ($status & 127) {
+     	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => "probanno-annotate failed with signal ".$status&127,
+    		method_name => 'annotation_probabilities_id');	   	    	
+    }
+    elsif ($status >> 8 == 0) {
     	# This is lame but needed until I switch to pure python server.
 	    my $ws_client = get_ws_client();
 	    my $getobjmeta_params = {
@@ -408,7 +415,7 @@ sub annotation_probabilities_id
 	   $output = $ws_client->get_objectmeta($getobjmeta_params);
     }
     else {
-    	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => "Bad return code from python command",
+    	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => "probanno-annotate failed with return code ".$status>>8,
     		method_name => 'annotation_probabilities_id');	
     }
 	
@@ -419,6 +426,171 @@ sub annotation_probabilities_id
 	my $msg = "Invalid returns passed to annotation_probabilities_id:\n" . join("", map { "\t$_\n" } @_bad_returns);
 	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
 							       method_name => 'annotation_probabilities_id');
+    }
+    return($output);
+}
+
+
+
+
+=head2 calculate
+
+  $output = $obj->calculate($input)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$input is a calculate_params
+$output is an object_metadata
+calculate_params is a reference to a hash where the following keys are defined:
+	probanno has a value which is a probanno_id
+	probanno_workspace has a value which is a workspace_id
+	model has a value which is a model_id
+	model_workspace has a value which is a workspace_id
+	overwrite has a value which is a bool
+	debug has a value which is a bool
+	auth has a value which is a string
+probanno_id is a string
+workspace_id is a string
+model_id is a string
+bool is an int
+object_metadata is a reference to a list containing 11 items:
+	0: (id) an object_id
+	1: (type) an object_type
+	2: (moddate) a timestamp
+	3: (instance) an int
+	4: (command) a string
+	5: (lastmodifier) a username
+	6: (owner) a username
+	7: (workspace) a workspace_id
+	8: (ref) a workspace_ref
+	9: (chsum) a string
+	10: (metadata) a reference to a hash where the key is a string and the value is a string
+object_id is a string
+object_type is a string
+timestamp is a string
+username is a string
+workspace_ref is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$input is a calculate_params
+$output is an object_metadata
+calculate_params is a reference to a hash where the following keys are defined:
+	probanno has a value which is a probanno_id
+	probanno_workspace has a value which is a workspace_id
+	model has a value which is a model_id
+	model_workspace has a value which is a workspace_id
+	overwrite has a value which is a bool
+	debug has a value which is a bool
+	auth has a value which is a string
+probanno_id is a string
+workspace_id is a string
+model_id is a string
+bool is an int
+object_metadata is a reference to a list containing 11 items:
+	0: (id) an object_id
+	1: (type) an object_type
+	2: (moddate) a timestamp
+	3: (instance) an int
+	4: (command) a string
+	5: (lastmodifier) a username
+	6: (owner) a username
+	7: (workspace) a workspace_id
+	8: (ref) a workspace_ref
+	9: (chsum) a string
+	10: (metadata) a reference to a hash where the key is a string and the value is a string
+object_id is a string
+object_type is a string
+timestamp is a string
+username is a string
+workspace_ref is a string
+
+
+=end text
+
+
+
+=item Description
+
+
+
+=back
+
+=cut
+
+sub calculate
+{
+    my $self = shift;
+    my($input) = @_;
+
+    my @_bad_arguments;
+    (ref($input) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument \"input\" (value was \"$input\")");
+    if (@_bad_arguments) {
+	my $msg = "Invalid arguments passed to calculate:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'calculate');
+    }
+
+    my $ctx = $Bio::KBase::probabilistic_annotation::Server::CallContext;
+    my($output);
+    #BEGIN calculate
+
+    # Build command line to bridge to Python script.
+    my $cmdline = "probanno-calculate --probanno '".$input->{probanno}."' --probannows ".$input->{probanno_workspace};
+    $cmdline .= " --model '".$input->{model}."' --modelws ".$input->{model_workspace};
+    $cmdline .= " --auth '".$input->{auth}."'";
+    if ($input->{overwrite}) {
+    	$cmdline .= " --overwrite 1";
+    }
+    if ($input->{debug}) {
+    	$cmdline .= " --debug 1";
+    }
+    if ($input->{verbose}) {
+    	$cmdline .= " --verbose 1";
+    }
+
+	# Run the python code.
+    my $status = system($cmdline);
+    if ($status == -1) {
+     	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => "probanno-calculate failed to execute",
+    		method_name => 'calculate');	   	
+    }
+    elsif ($status & 127) {
+     	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => "probanno-calculate failed with signal ".$status&127,
+    		method_name => 'calculate');	   	    	
+    }
+    elsif ($status >> 8 == 0) {
+    	# This is lame but needed until I switch to pure python server.
+	    my $ws_client = get_ws_client();
+	    my $getobjmeta_params = {
+	       id         => $input->{model},
+	       workspace  => $input->{model_workspace},
+	       type       => "Model",
+	       auth       => $input->{auth}
+       };
+	   $output = $ws_client->get_objectmeta($getobjmeta_params);
+    }
+    else {
+    	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => "probanno-calculate failed with return code ".$status>>8,
+    		method_name => 'calculate');	
+    }
+
+    #END calculate
+    my @_bad_returns;
+    (ref($output) eq 'ARRAY') or push(@_bad_returns, "Invalid type for return variable \"output\" (value was \"$output\")");
+    if (@_bad_returns) {
+	my $msg = "Invalid returns passed to calculate:\n" . join("", map { "\t$_\n" } @_bad_returns);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'calculate');
     }
     return($output);
 }
@@ -663,6 +835,37 @@ a string
 =item Description
 
 A string indicating the type of an object stored in a workspace.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a string
+</pre>
+
+=end html
+
+=begin text
+
+a string
+
+=end text
+
+=back
+
+
+
+=head2 model_id
+
+=over 4
+
+
+
+=item Description
+
+A string identifier for a model object.
 
 
 =item Definition
@@ -1521,6 +1724,61 @@ genome has a value which is a genome_id
 genome_workspace has a value which is a workspace_id
 probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
+overwrite has a value which is a bool
+debug has a value which is a bool
+auth has a value which is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 calculate_params
+
+=over 4
+
+
+
+=item Description
+
+Input parameters for the "calculate" function.
+
+            probanno_id probanno - ID of ProbAnno object
+            workspace_id probanno_workspace - ID of workspace where ProbAnno object is stored
+            model_id model - ID of Model object
+            workspace_id model_workspace - ID of workspace where Model object is saved   
+            bool overwrite - True to overwrite existing ProbAnno object with same name
+            bool debug - True to keep intermediate files for debug purposes
+            string auth - Authentication token of KBase user
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+probanno has a value which is a probanno_id
+probanno_workspace has a value which is a workspace_id
+model has a value which is a model_id
+model_workspace has a value which is a workspace_id
+overwrite has a value which is a bool
+debug has a value which is a bool
+auth has a value which is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+probanno has a value which is a probanno_id
+probanno_workspace has a value which is a workspace_id
+model has a value which is a model_id
+model_workspace has a value which is a workspace_id
 overwrite has a value which is a bool
 debug has a value which is a bool
 auth has a value which is a string

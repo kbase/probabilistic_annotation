@@ -3,6 +3,7 @@ from biokbase.probabilistic_annotation.DataExtractor import *
 from biokbase.probabilistic_annotation.DataParser import *
 from biokbase.probabilistic_annotation.PYTHON_GLOBALS import *
 from biokbase.workspaceService.client import *
+from biokbase.fbaModelServices.Client import *
 
 def annotate(params):
     
@@ -245,7 +246,7 @@ def buildProbAnnoObject(params, genomeObject, blastResultFile, queryToRolesetPro
         objectData["featureAlternativeFunctions"].append(featureAlternativeFunctions)
 
     # Store the ProbAnno object in the specified workspace.
-    objectMetadata = { "num_rolesets": len(queryToRolesetProbs),
+    objectMetadata = { "num_rolesets": len(objectData["rolesetProbabilities"]),
                        "num_altfuncs": len(objectData["featureAlternativeFunctions"]),
                        "num_skipped_features": len(objectData["skippedFeatures"]) }
     saveObjectParams = { "type": "ProbAnno", "id": params.probanno, "workspace": params.probanno_workspace,
@@ -255,7 +256,7 @@ def buildProbAnnoObject(params, genomeObject, blastResultFile, queryToRolesetPro
     sys.stderr.write("done\n")
     return metadata
 
-def normalize(params):
+def calculate(params):
     
     # TODO Get this value from configuration variable for data directory
     dataFolder = "data"
@@ -265,28 +266,41 @@ def normalize(params):
     
     # Get the ProbAnno object from the specified workspace.
     getObjectParams = { "type": "ProbAnno", "id": params.probanno, "workspace": params.probanno_workspace, "auth": params.auth }
-    probannoObject = wsClient.get_object(getObjectParams)    
+    probannoObject = wsClient.get_object(getObjectParams)
+    params.genome = probannoObject["data"]["genome"]
+    params.genome_workspace = probannoObject["data"]["genome_workspace"]    
+    sys.stderr.write("%s/%s\n" %(params.genome_workspace, params.genome))
+    
+    # Create a temporary directory for storing intermediate files. Only needed when debug flag is on.
+    if params.debug:
+        workFolder = tempfile.mkdtemp("", "%s-" %(params.genome), dataFolder)
     
     # Calculate per-gene role probabilities.
-    role_probability_file = RolesetProbabilitiesToRoleProbabilities(options.folder, organismid, roleset_probability_file)
-    
+    roleProbs = rolesetProbabilitiesToRoleProbabilities(params, probannoObject["data"]["rolesetProbabilities"], workFolder)
+
     # Calculate whole cell role probabilities.
-    total_role_probability_file = TotalRoleProbabilities(options.folder, organismid, role_probability_file)
+    totalRoleProbs = totalRoleProbabilities(params, roleProbs, workFolder)
     
     # Calculate complex probabilities.
-    complex_probability_file = ComplexProbabilities(options.folder, organismid, total_role_probability_file, options.folder)
+    complexProbs = complexProbabilities(params, totalRoleProbs, workFolder, dataFolder)
     
     # Calculate reaction probabilities.
-    reaction_probability_file = ReactionProbabilities(options.folder, organismid, complex_probability_file, options.folder)
+    reactionProbs = reactionProbabilities(params, complexProbs, workFolder, dataFolder)
+
+    # Create the model with reaction probabilities.
+    metadata = buildModelObject(params, reactionProbs)
+
+#    return metadata
+    return 1
     
     # Calculate compound weights.
     
     # Build probability model and store in specified workspace.
     
-def RolesetProbabilitiesToRoleProbabilities(outputbase, organismid, roleset_probability_file):
+def rolesetProbabilitiesToRoleProbabilities(params, queryToTuplist, workFolder):
     '''Compute probability of each role from the rolesets for each query protein.
     At the moment the strategy is to take any set of rolestrings containing the same roles
-    And add their probabilities.
+    and add their probabilities.
     So if we have hits to both a bifunctional enzyme with R1 and R2, and
     hits to a monofunctional enzyme with only R1, R1 ends up with a greater
     probability than R2.
@@ -296,30 +310,19 @@ def RolesetProbabilitiesToRoleProbabilities(outputbase, organismid, roleset_prob
     one hit to R1R2 and one hit to R3 then the probability of R1 and R2 will be unfairly
     brought down due to the normalization scheme...
 
-    Returns a file with three columns: Query gene ID, role, and probability
-    '''
-#     role_probability_file = os.path.join(outputbase, organismid, "%s.roleprobs" %(organismid))
-#     try:
-#         fid = open(role_probability_file, "r")
-#         fid.close()
-#         sys.stderr.write("Role probability file %s already exists\n" %(role_probability_file))
-#         return role_probability_file
-#     except IOError:
-#         pass
+    Returns an array where each element has three columns: Query gene ID, role, and probability'''
+
     sys.stderr.write("Generating role probabilities from roleset probabilities...")
 
-    # roleset_probability_file - original file that we want to read.
-    # Query --> list of (rolelist, probability)
-    queryToTuplist = readRolesetProbabilityFile(roleset_probability_file)
-
-    fid = open(role_probability_file, "w")
+    roleProbs = []    
     for query in queryToTuplist:
+        # TODO MATT It looks like totalp is not used in this version of the code
         # Get the total probability - needed for re-normalization later.
-        totalp = 0
-        for tup in queryToTuplist[query]:
-            totalp += tup[1]
+#         totalp = 0
+#         for tup in queryToTuplist[query]:
+#             totalp += tup[1]
 
-        # This section actually does the convertsion of probabilities.
+        # This section actually does the conversion of probabilities.
         queryRolesToProbs = {}
         for tup in queryToTuplist[query]:
             rolelist = tup[0].split(SEPARATOR)
@@ -329,22 +332,28 @@ def RolesetProbabilitiesToRoleProbabilities(outputbase, organismid, roleset_prob
                     queryRolesToProbs[role] += tup[1]
                 else:
                     queryRolesToProbs[role] = tup[1]
-        rolesum = 0
 
-        # Write them to a file.
+        # Add them to the array.
         for role in queryRolesToProbs:
-            fid.write("%s\t%s\t%s\n" %(query, role, queryRolesToProbs[role]))
-    fid.close()
+            roleProbs.append( (query, role, queryRolesToProbs[role]) )
+
+    # Save the generated data when debug is turned on.
+    if params.debug:
+        role_probability_file = os.path.join(workFolder, "%s.roleprobs" %(params.genome))
+        fid = open(role_probability_file, "w")
+        for tuple in roleProbs:
+            fid.write("%s\t%s\t%s\n" %(tuple[0], tuple[1], tuple[2]))
+        fid.close()
 
     sys.stderr.write("done\n")
-    return role_probability_file
+    return roleProbs
 
 # For now to get the probability I just assign this as the MAXIMUM for each role
 # to avoid diluting out by noise.
 #
 # The gene assignments are all genes within DILUTION_PERCENT of the maximum...
 #
-def TotalRoleProbabilities(outputbase, organismid, role_probability_file):
+def totalRoleProbabilities(params, roleProbs, workFolder):
     '''Given the probability that each gene has each role, estimate the probability that
     the entire ORGANISM has that role.
 
@@ -355,52 +364,52 @@ def TotalRoleProbabilities(outputbase, organismid, role_probability_file):
     Returns a file with three columns: each role, its probability, and the estimated set of genes
     that perform that role. A gene is assigned to a role if it is within DILUTION_PERCENT
     of the maximum probability. DILUTION_PERCENT is defined in the python_globals.py file.
-
     '''
-    total_role_probability_file = os.path.join(outputbase, organismid, "%s.cellroleprob" %(organismid))
-    try:
-        fid = open(total_role_probability_file, "r")
-        fid.close()
-        sys.stderr.write("Whole-cell role probability file %s already exists\n" %(total_role_probability_file))
-        return total_role_probability_file
-    except IOError:
-        pass
 
     sys.stderr.write("Generating whole-cell role probability file...")
+    
+
+    # Compute maximum probability among all query genes for each role.
     roleToTotalProb = {}
-    for line in open(role_probability_file, "r"):
-        spl = line.strip("\r\n").split("\t")
-        # Compute maximum probability among all query genes for each role.
-        if spl[1] in roleToTotalProb:
-            if float(spl[2]) > roleToTotalProb[spl[1]]:
-                roleToTotalProb[spl[1]] = float(spl[2])
+    for tuple in roleProbs:
+        if tuple[1] in roleToTotalProb:
+            if float(tuple[2]) > roleToTotalProb[tuple[1]]:
+                roleToTotalProb[tuple[1]] = float(tuple[2])
         else:
-            roleToTotalProb[spl[1]] = float(spl[2])
+            roleToTotalProb[tuple[1]] = float(tuple[2])
 
     # Get the genes within DILUTION_PERCENT percent of the maximum
     # probability and assert those (note - DILUTION_PERCENT is defined in the global parameters file)
     # This is a dictionary from role to a list of genes
     roleToGeneList = {}
-    for line in open(role_probability_file, "r"):
-        spl = line.strip("\r\n").split("\t")
-        if spl[1] not in roleToTotalProb:
-            sys.stderr.write("ERROR: Role %s not placed properly in roleToTotalProb dictionary?\n" %(spl[1]))
-            exit(1)
-        if float(spl[2]) >= float(DILUTION_PERCENT)/100.0 * roleToTotalProb[spl[1]]:
-            if spl[1] in roleToGeneList:
-                roleToGeneList[spl[1]].append(spl[0])
+    for tuple in roleProbs:
+        if tuple[1] not in roleToTotalProb:
+            # TODO Throw an exception
+            sys.stderr.write("ERROR: Role %s not placed properly in roleToTotalProb dictionary?\n" %(tuple[1]))
+            return None
+        if float(tuple[2]) >= float(DILUTION_PERCENT)/100.0 * roleToTotalProb[tuple[1]]:
+            if tuple[1] in roleToGeneList:
+                roleToGeneList[tuple[1]].append(tuple[0])
             else:
-                roleToGeneList[spl[1]] = [ spl[0] ]
-            
-    fid = open(total_role_probability_file, "w")
+                roleToGeneList[tuple[1]] = [ tuple[0] ]
+    
+    # Build the array of total role probabilities.     
+    totalRoleProbs = []
     for role in roleToTotalProb:
-        fid.write("%s\t%s\t%s\n" %(role, roleToTotalProb[role], " or ".join(roleToGeneList[role])))
-    fid.close()
+        totalRoleProbs.append( (role, roleToTotalProb[role], " or ".join(roleToGeneList[role])) )   
+
+    # Save the generated data when debug is turned on.
+    if params.debug:
+        total_role_probability_file = os.path.join(workFolder, "%s.cellroleprob" %(params.genome))
+        fid = open(total_role_probability_file, "w")
+        for tuple in totalRoleProbs:
+            fid.write("%s\t%s\t%s\n" %(tuple[0], tuple[1], tuple[2]))
+        fid.close()
+        
     sys.stderr.write("done\n")
+    return totalRoleProbs
 
-    return total_role_probability_file
-
-def ComplexProbabilities(outputbase, organismid, total_role_probability_file, folder):
+def complexProbabilities(params, totalRoleProbs, workFolder, dataFolder):
     '''Compute the probability of each complex from the probability of each role.
 
     The complex probability is computed as the minimum probability of roles within that complex.
@@ -414,26 +423,15 @@ def ComplexProbabilities(outputbase, organismid, total_role_probability_file, fo
     CPLX_PARTIAL (only some roles found - only those roles that were found were utilized; does not distinguish between not there and no reps for those not found)
     CPLX_NOTTHERE (Probability of 0 because the genes aren't there for any of the subunits)
     CPLX_NOREPS (Probability 0f 0 because there are no representative genes in the subsystems)
-
     '''
-    # 0 - check if the complex probability file already exists
-    complex_probability_file = os.path.join(outputbase, organismid, "%s.complexprob" %(organismid))
-
-    try:
-        fid = open(complex_probability_file, "r")
-        fid.close()
-        sys.stderr.write("Complex probability file %s already exists\n" %(complex_probability_file))
-        return complex_probability_file
-    except IOError:
-        pass
 
     sys.stderr.write("Computing complex probabilities...")
-    # 1 - Read required data:
-    # complexes --> roles 
-    complexesToRequiredRoles = readComplexRoles(folder)
-    # subsystem roles
-    # (used to distinguish between NOTTHERE and NOREPS)
-    otu_fidsToRoles, otu_rolesToFids  = readFilteredOtuRoles(folder)
+
+    # Get the mapping from complexes to roles.
+    complexesToRequiredRoles = readComplexRoles(dataFolder)
+    
+    # Get the subsystem roles (used to distinguish between NOTTHERE and NOREPS).
+    otu_fidsToRoles, otu_rolesToFids  = readFilteredOtuRoles(dataFolder)
     allroles = set()
     for fid in otu_fidsToRoles:
         for role in otu_fidsToRoles[fid]:
@@ -442,15 +440,14 @@ def ComplexProbabilities(outputbase, organismid, total_role_probability_file, fo
     # 2: Read the total role --> probability file
     rolesToProbabilities = {}
     rolesToGeneList = {}
-    for line in open(total_role_probability_file, "r"):
-        spl = line.strip("\r\n").split("\t")
-        rolesToProbabilities[spl[0]] = float(spl[1])
-        rolesToGeneList[spl[0]] = spl[2]
+    for tuple in totalRoleProbs:
+        rolesToProbabilities[tuple[0]] = float(tuple[1]) # can skip the float()?
+        rolesToGeneList[tuple[0]] = tuple[2]
 
-    # 3: Iterate over complexes and compute complex probabilities from role probabilities.
+    # Iterate over complexes and compute complex probabilities from role probabilities.
     # Separate out cases where no genes seem to exist in the organism for the reaction from cases
     # where there is a database deficiency.
-    fid = open(complex_probability_file, "w")
+    complexProbs = []
     for cplx in complexesToRequiredRoles:
         allCplxRoles = complexesToRequiredRoles[cplx]
         availRoles = [] # Roles that may have representatives in the query organism
@@ -467,16 +464,19 @@ def ComplexProbabilities(outputbase, organismid, total_role_probability_file, fo
         GPR = ""
         if len(noexistRoles) == len(allCplxRoles):
             TYPE = "CPLX_NOREPS"
-            fid.write("%s\t%1.4f\t%s\t%s\t%s\t%s\n" %(cplx, 0.0, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR))
+            complexProbs.append( (cplx, 0.0, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR) )
+#            fid.write("%s\t%1.4f\t%s\t%s\t%s\t%s\n" %(cplx, 0.0, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR))
             continue
         if len(unavailRoles) == len(allCplxRoles):
             TYPE = "CPLX_NOTTHERE"
-            fid.write("%s\t%1.4f\t%s\t%s\t%s\t%s\n" %(cplx, 0.0, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR))
+            complexProbs.append( (cplx, 0.0, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR) )
+#            fid.write("%s\t%1.4f\t%s\t%s\t%s\t%s\n" %(cplx, 0.0, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR))
             continue
         # Some had no representatives and the rest were not found in the cell
         if len(unavailRoles) + len(noexistRoles) == len(allCplxRoles):
             TYPE = "CPLX_NOREPS_AND_NOTTHERE"
-            fid.write("%s\t%1.4f\t%s\t%s\t%s\t%s\n" %(cplx, 0.0, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR))
+            complexProbs.append( (cplx, 0.0, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR) )
+#            fid.write("%s\t%1.4f\t%s\t%s\t%s\t%s\n" %(cplx, 0.0, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR))
             continue
         # Otherwise at least one of them is available
         if len(availRoles) == len(allCplxRoles):
@@ -492,13 +492,20 @@ def ComplexProbabilities(outputbase, organismid, total_role_probability_file, fo
         for role in availRoles:
             if rolesToProbabilities[role] < minp:
                 minp = rolesToProbabilities[role]
-        fid.write("%s\t%1.4f\t%s\t%s\t%s\t%s\n" %(cplx, minp, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR))
+        complexProbs.append( (cplx, minp, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR) )
+#        fid.write("%s\t%1.4f\t%s\t%s\t%s\t%s\n" %(cplx, minp, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR))
 
-    fid.close()
+    if params.debug:
+        complex_probability_file = os.path.join(workFolder, "%s.complexprob" %(params.genome))
+        fid = open(complex_probability_file, "w")
+        for tuple in complexProbs:
+            fid.write("%s\t%1.4f\t%s\t%s\t%s\t%s\n" %(tuple[0], tuple[1], tuple[2], tuple[3], tuple[4], tuple[5]))
+        fid.close()
+    
     sys.stderr.write("done\n")
-    return complex_probability_file
+    return complexProbs
 
-def ReactionProbabilities(outputbase, organismid, complex_probability_file, folder):
+def reactionProbabilities(params, complexProbs, workFolder, dataFolder):
     '''From the probability of complexes estimate the probability of reactions.
 
     The reaction probability is computed as the maximum probability of complexes that perform
@@ -514,29 +521,19 @@ def ReactionProbabilities(outputbase, organismid, complex_probability_file, fold
 
     ComplexInfo is information about the complex IDs, their probabilities, and their TYPE
     (see ComplexProbabilities)
-
     '''
 
-    reaction_probability_file = os.path.join(outputbase, organismid, "%s.rxnprobs" %(organismid))
-    try:
-        fid = open(reaction_probability_file, "r")
-        fid.close()
-        sys.stderr.write("Reaction probability file %s already exists\n" %(reaction_probability_file))
-        return reaction_probability_file
-    except IOError:
-        pass
-
     sys.stderr.write("Computing reaction probabilities...")
+    
     # Cplx --> {Probability, type, GPR}
     cplxToTuple = {}
-    for line in open(complex_probability_file, "r"):
-        spl = line.strip("\r\n").split("\t")
-        cplxToTuple[spl[0]] = ( float(spl[1]), spl[2], spl[5] )
+    for tuple in complexProbs:
+        cplxToTuple[tuple[0]] = ( tuple[1], tuple[2], tuple[5] )
     
     # Take the MAXIMUM probability of complexes
-    rxnsToComplexes = readReactionComplex(folder)
+    rxnsToComplexes = readReactionComplex(dataFolder)
 
-    fid = open(reaction_probability_file, "w")
+    reactionProbs = []
     for rxn in rxnsToComplexes:
         TYPE = "NOCOMPLEXES"
         rxnComplexes = rxnsToComplexes[rxn]
@@ -554,12 +551,111 @@ def ReactionProbabilities(outputbase, organismid, complex_probability_file, fold
                     GPR = cplxToTuple[cplx][2]
                 elif cplxToTuple[cplx][2] != "":
                     GPR = " or ".join( [ GPR, cplxToTuple[cplx][2] ] )
-        fid.write("%s\t%1.4f\t%s\t%s\t%s\n" %(rxn, maxp, TYPE, complexinfo, GPR))
-    fid.close()
+        reactionProbs.append( (rxn, maxp, TYPE, complexinfo, GPR) )
+
+    if params.debug:
+        reaction_probability_file = os.path.join(workFolder, "%s.rxnprobs" %(params.genome))
+        fid = open(reaction_probability_file, "w")
+        for tuple in reactionProbs:
+            fid.write("%s\t%1.4f\t%s\t%s\t%s\n" %(tuple[0], tuple[1], tuple[2], tuple[3], tuple[4]))
+        fid.close()
 
     # (end of function)
     sys.stderr.write("done\n")
-    return reaction_probability_file
+    return reactionProbs
+
+def buildModelObject(params, reactionProbs):
+    ''' Create a probability model object from the reaction probabilities.'''
+    
+    sys.stderr.write("Building model object...")
+    
+    # Build the list of reaction probabilities.
+    rxnProbList = []
+    for rxn in reactionProbs:
+        rxnProbList.append( (rxn[0], rxn[1], rxn[4]) )
+        
+    # Create a fba modeling service client.
+    fbaModelClient = fbaModelServices(FBAMODEL_URL)
+    
+    # Build a model from the input genome and reaction probabilities.
+    probFbaModelParams = { "genome": params.genome, "genome_workspace": params.genome_workspace,
+                           "model": params.model, "workspace": params.model_workspace,
+                           "reaction_probs": rxnProbList, "default_prob": 0.0,
+                           "overwrite": params.overwrite, "auth": params.auth }
+    metadata = fbaModelClient.genome_to_probfbamodel(probFbaModelParams)
+    
+    sys.stderr.write("done\n")
+    return metadata
+
+def metaboliteWeights(params):
+    
+#     '''
+#     Given a model object with name "model",
+#     computes an S-matrix.
+# 
+#     This function returns three things:
+#     - A sparse matrix object (coo_matrix) from scipy with indexes matching the lists
+#     - A dictionary from metabolite UUIDs to their index in the matrix
+#     - A dictionary from reaction UUIDs to their index in the matrix
+# 
+#     The lists should have the same order as the input model.
+# 
+#     If absval = True, returns the absolute value of the S-matrix (absolute value of every
+#     term in the S matrix) rather than S itself.
+#     
+#     TODO - put in biomass equation too.
+#     '''
+# 
+#     metIdToIdx = {}
+#     rxnIdToIdx = {}
+# 
+#     idx = 0
+#     for compound in model["modelcompounds"]:
+#         metIdToIdx[compound["uuid"]] = idx
+#         idx += 1
+#     
+#     i = []
+#     j = []
+#     data = []
+#     idx = 0
+#     for reaction in model["modelreactions"]:
+#         for reagent in reaction["modelReactionReagents"]:
+#             met_uuid = reagent["modelcompound_uuid"]
+#             coefficient = reagent["coefficient"]
+#             met_idx = metIdToIdx[met_uuid]
+#             i.append(met_idx)
+#             j.append(idx)
+#             if absval:
+#                 coefficient = abs(coefficient)
+#             data.append(coefficient)
+#         rxnIdToIdx[reaction["uuid"]] = idx
+#         idx += 1
+# 
+# 
+#     matrix = sparse.coo_matrix( ( data, ( i, j ) ) )
+#     return matrix, metIdToIdx, rxnIdToIdx
+#     '''
+#     Given an S matrix (sparse) S, and a vector of reaction 
+#     probabilities rxnprobs, calls the scipy least-squares solver
+#     to obtain our best estimate for the metabolite weights
+#     (gamma)
+# 
+#     The reaction weights (probabilities) and metabolite weights
+#     are related by the equation
+#     R = |S|^T * gamma
+# 
+#     where R is the vector of reaction weights, |S| means the absolute value
+#     of S and gamma is the vector of metabolite weights. Solving in the least-squares
+#     sense is the best we can do since S is not a square matrix.
+# 
+#     Returns a list of metabolite weights with the same indexing as the rows of S.
+#     '''
+#     
+#     S_prime = S.transpose(copy=True)
+#     res = linalg.lsqr(S_prime, rxnprobs)
+#     # res[0] is the actual computed value of gamma...
+#     return res[0]
+    return
 
 def generate_data(params):
     

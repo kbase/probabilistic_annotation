@@ -17,6 +17,9 @@ module ProbabilisticAnnotation
 	/* A string indicating the type of an object stored in a workspace. */
 	typedef string object_type;
 	
+	/* A string identifier for a model object. */
+	typedef string model_id;
+	
 	/* ID of an object stored in the workspace. */
 	typedef string object_id;
 	
@@ -193,6 +196,28 @@ module ProbabilisticAnnotation
      */
     funcdef annotation_probabilities_id(annotation_probabilities_ids_params input) returns (object_metadata output);
     
+    /* Input parameters for the "calculate" function.
+    
+		probanno_id probanno - ID of ProbAnno object
+		workspace_id probanno_workspace - ID of workspace where ProbAnno object is stored
+		model_id model - ID of Model object
+		workspace_id model_workspace - ID of workspace where Model object is saved   
+		bool overwrite - True to overwrite existing ProbAnno object with same name
+		bool debug - True to keep intermediate files for debug purposes
+		string auth - Authentication token of KBase user
+    */
+    typedef structure {
+    	probanno_id probanno;
+    	workspace_id probanno_workspace;
+    	model_id model;
+    	workspace_id model_workspace;
+    	bool overwrite;
+    	bool debug;
+    	string auth;
+    } calculate_params;
+    
+	funcdef calculate(calculate_params input) returns(object_metadata output);
+	    	
     /* Input parameters for the "generate_data" function.
     
     	string folder - Path to folder for generated data files

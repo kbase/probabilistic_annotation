@@ -377,6 +377,144 @@ sub annotation_probabilities_id
 
 
 
+=head2 calculate
+
+  $output = $obj->calculate($input)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$input is a calculate_params
+$output is an object_metadata
+calculate_params is a reference to a hash where the following keys are defined:
+	probanno has a value which is a probanno_id
+	probanno_workspace has a value which is a workspace_id
+	model has a value which is a model_id
+	model_workspace has a value which is a workspace_id
+	overwrite has a value which is a bool
+	debug has a value which is a bool
+	auth has a value which is a string
+probanno_id is a string
+workspace_id is a string
+model_id is a string
+bool is an int
+object_metadata is a reference to a list containing 11 items:
+	0: (id) an object_id
+	1: (type) an object_type
+	2: (moddate) a timestamp
+	3: (instance) an int
+	4: (command) a string
+	5: (lastmodifier) a username
+	6: (owner) a username
+	7: (workspace) a workspace_id
+	8: (ref) a workspace_ref
+	9: (chsum) a string
+	10: (metadata) a reference to a hash where the key is a string and the value is a string
+object_id is a string
+object_type is a string
+timestamp is a string
+username is a string
+workspace_ref is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$input is a calculate_params
+$output is an object_metadata
+calculate_params is a reference to a hash where the following keys are defined:
+	probanno has a value which is a probanno_id
+	probanno_workspace has a value which is a workspace_id
+	model has a value which is a model_id
+	model_workspace has a value which is a workspace_id
+	overwrite has a value which is a bool
+	debug has a value which is a bool
+	auth has a value which is a string
+probanno_id is a string
+workspace_id is a string
+model_id is a string
+bool is an int
+object_metadata is a reference to a list containing 11 items:
+	0: (id) an object_id
+	1: (type) an object_type
+	2: (moddate) a timestamp
+	3: (instance) an int
+	4: (command) a string
+	5: (lastmodifier) a username
+	6: (owner) a username
+	7: (workspace) a workspace_id
+	8: (ref) a workspace_ref
+	9: (chsum) a string
+	10: (metadata) a reference to a hash where the key is a string and the value is a string
+object_id is a string
+object_type is a string
+timestamp is a string
+username is a string
+workspace_ref is a string
+
+
+=end text
+
+=item Description
+
+
+
+=back
+
+=cut
+
+sub calculate
+{
+    my($self, @args) = @_;
+
+# Authentication: none
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function calculate (received $n, expecting 1)");
+    }
+    {
+	my($input) = @args;
+
+	my @_bad_arguments;
+        (ref($input) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"input\" (value was \"$input\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to calculate:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'calculate');
+	}
+    }
+
+    my $result = $self->{client}->call($self->{url}, {
+	method => "ProbabilisticAnnotation.calculate",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{code},
+					       method_name => 'calculate',
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method calculate",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'calculate',
+				       );
+    }
+}
+
+
+
 =head2 generate_data
 
   $success = $obj->generate_data($input)
@@ -628,6 +766,37 @@ a string
 =item Description
 
 A string indicating the type of an object stored in a workspace.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a string
+</pre>
+
+=end html
+
+=begin text
+
+a string
+
+=end text
+
+=back
+
+
+
+=head2 model_id
+
+=over 4
+
+
+
+=item Description
+
+A string identifier for a model object.
 
 
 =item Definition
@@ -1486,6 +1655,61 @@ genome has a value which is a genome_id
 genome_workspace has a value which is a workspace_id
 probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
+overwrite has a value which is a bool
+debug has a value which is a bool
+auth has a value which is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 calculate_params
+
+=over 4
+
+
+
+=item Description
+
+Input parameters for the "calculate" function.
+
+            probanno_id probanno - ID of ProbAnno object
+            workspace_id probanno_workspace - ID of workspace where ProbAnno object is stored
+            model_id model - ID of Model object
+            workspace_id model_workspace - ID of workspace where Model object is saved   
+            bool overwrite - True to overwrite existing ProbAnno object with same name
+            bool debug - True to keep intermediate files for debug purposes
+            string auth - Authentication token of KBase user
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+probanno has a value which is a probanno_id
+probanno_workspace has a value which is a workspace_id
+model has a value which is a model_id
+model_workspace has a value which is a workspace_id
+overwrite has a value which is a bool
+debug has a value which is a bool
+auth has a value which is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+probanno has a value which is a probanno_id
+probanno_workspace has a value which is a workspace_id
+model has a value which is a model_id
+model_workspace has a value which is a workspace_id
 overwrite has a value which is a bool
 debug has a value which is a bool
 auth has a value which is a string

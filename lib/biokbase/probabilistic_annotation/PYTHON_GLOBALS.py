@@ -5,6 +5,7 @@ import tempfile
 
 CDMI_URL="http://kbase.us/services/cdmi_api"
 WORKSPACE_URL="http://kbase.us/services/workspace"
+FBAMODEL_URL="http://kbase.us/services/fba_model_services"
 
 # This is a character string that isn't found in any roles - I use it to split lists
 # in one-to-many relationships
