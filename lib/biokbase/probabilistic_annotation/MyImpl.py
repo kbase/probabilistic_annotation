@@ -4,6 +4,10 @@ from biokbase.probabilistic_annotation.DataParser import *
 from biokbase.probabilistic_annotation.PYTHON_GLOBALS import *
 from biokbase.workspaceService.client import *
 from biokbase.fbaModelServices.Client import *
+import scipy
+import scipy.sparse as sparse
+import scipy.sparse.linalg as linalg
+import numpy
 
 def annotate(params):
     
@@ -271,9 +275,8 @@ def calculate(params):
     params.genome_workspace = probannoObject["data"]["genome_workspace"]    
     sys.stderr.write("%s/%s\n" %(params.genome_workspace, params.genome))
     
-    # Create a temporary directory for storing intermediate files. Only needed when debug flag is on.
-    if params.debug:
-        workFolder = tempfile.mkdtemp("", "%s-" %(params.genome), dataFolder)
+    # Create a temporary directory for storing intermediate files. Only used when debug flag is on.
+    workFolder = tempfile.mkdtemp("", "%s-" %(params.genome), dataFolder)
     
     # Calculate per-gene role probabilities.
     roleProbs = rolesetProbabilitiesToRoleProbabilities(params, probannoObject["data"]["rolesetProbabilities"], workFolder)
@@ -587,75 +590,117 @@ def buildModelObject(params, reactionProbs):
     sys.stderr.write("done\n")
     return metadata
 
-def metaboliteWeights(params):
+def normalize(params):
     
-#     '''
-#     Given a model object with name "model",
-#     computes an S-matrix.
-# 
-#     This function returns three things:
-#     - A sparse matrix object (coo_matrix) from scipy with indexes matching the lists
-#     - A dictionary from metabolite UUIDs to their index in the matrix
-#     - A dictionary from reaction UUIDs to their index in the matrix
-# 
-#     The lists should have the same order as the input model.
-# 
-#     If absval = True, returns the absolute value of the S-matrix (absolute value of every
-#     term in the S matrix) rather than S itself.
-#     
-#     TODO - put in biomass equation too.
-#     '''
-# 
-#     metIdToIdx = {}
-#     rxnIdToIdx = {}
-# 
-#     idx = 0
-#     for compound in model["modelcompounds"]:
-#         metIdToIdx[compound["uuid"]] = idx
-#         idx += 1
-#     
-#     i = []
-#     j = []
-#     data = []
-#     idx = 0
-#     for reaction in model["modelreactions"]:
-#         for reagent in reaction["modelReactionReagents"]:
-#             met_uuid = reagent["modelcompound_uuid"]
-#             coefficient = reagent["coefficient"]
-#             met_idx = metIdToIdx[met_uuid]
-#             i.append(met_idx)
-#             j.append(idx)
-#             if absval:
-#                 coefficient = abs(coefficient)
-#             data.append(coefficient)
-#         rxnIdToIdx[reaction["uuid"]] = idx
-#         idx += 1
-# 
-# 
-#     matrix = sparse.coo_matrix( ( data, ( i, j ) ) )
-#     return matrix, metIdToIdx, rxnIdToIdx
-#     '''
-#     Given an S matrix (sparse) S, and a vector of reaction 
-#     probabilities rxnprobs, calls the scipy least-squares solver
-#     to obtain our best estimate for the metabolite weights
-#     (gamma)
-# 
-#     The reaction weights (probabilities) and metabolite weights
-#     are related by the equation
-#     R = |S|^T * gamma
-# 
-#     where R is the vector of reaction weights, |S| means the absolute value
-#     of S and gamma is the vector of metabolite weights. Solving in the least-squares
-#     sense is the best we can do since S is not a square matrix.
-# 
-#     Returns a list of metabolite weights with the same indexing as the rows of S.
-#     '''
-#     
-#     S_prime = S.transpose(copy=True)
-#     res = linalg.lsqr(S_prime, rxnprobs)
-#     # res[0] is the actual computed value of gamma...
-#     return res[0]
-    return
+    # Create a workspace client.
+    wsClient = workspaceService(WORKSPACE_URL)
+    
+    # Get the Model object from the specified workspace.
+    getObjectParams = { "type": "Model", "id": params.model, "workspace": params.model_workspace, "auth": params.auth }
+    modelObject = wsClient.get_object(getObjectParams)
+    
+    # Calculate the metabolite weights and update the Model object.
+    success = metaboliteWeights(params, modelObject["data"])
+    
+    # Save the updated Model object.
+    if success:
+        saveObjectParams = { "type": "Model", "id": params.model, "workspace": params.model_workspace,
+                             "data": modelObject["data"], 
+                             "command": "pa-normalize",  "auth": params.auth }
+        metadata = wsClient.save_object(saveObjectParams)
+    
+    return success
+    
+def metaboliteWeights(params, model):
+    
+    '''
+    Given a model object with name "model",
+    computes an S-matrix.
+ 
+    This function returns three things:
+    - A sparse matrix object (coo_matrix) from scipy with indexes matching the lists
+    - A dictionary from metabolite UUIDs to their index in the matrix
+    - A dictionary from reaction UUIDs to their index in the matrix
+ 
+    The lists should have the same order as the input model.
+ 
+    If absval = True, returns the absolute value of the S-matrix (absolute value of every
+    term in the S matrix) rather than S itself.
+     
+    TODO - put in biomass equation too.
+    '''
+ 
+    metIdToIdx = {}
+    rxnIdToIdx = {}
+ 
+    idx = 0
+    for compound in model["modelcompounds"]:
+        if compound["name"] == "Biomass":
+            print("skipped %s\n" %(compound["uuid"]))
+            continue
+        metIdToIdx[compound["uuid"]] = idx
+        idx += 1
+     
+    i = []
+    j = []
+    data = []
+    probs = []
+    idx = 0
+    numZeroReagents = 0
+    for reaction in model["modelreactions"]:
+        if "modelReactionReagents" not in reaction:
+            numZeroReagents += 1
+            continue
+        for reagent in reaction["modelReactionReagents"]:
+            met_uuid = reagent["modelcompound_uuid"]
+            coefficient = reagent["coefficient"]
+            met_idx = metIdToIdx[met_uuid]
+            i.append(met_idx)
+            j.append(idx)
+            if params.absval:
+                coefficient = abs(coefficient)
+            data.append(coefficient)
+        probs.append(reaction["probability"])
+        rxnIdToIdx[reaction["uuid"]] = idx
+        idx += 1
+ 
+    S_matrix = sparse.coo_matrix( ( data, ( i, j ) ) )
+    
+    for biomass in model["biomasses"]:
+        for cpd in biomass["biomasscompounds"]:
+            print("%s: %d\n" %(cpd["modelcompound_uuid"], metIdToIdx[cpd["modelcompound_uuid"]]))
+                  
+    print("%d model reactions had zero reagents\n" %(numZeroReagents))
+    print("len i=%d len j=%d len data=%d" %(len(i), len(j), len(data)))
+    print("rows=%d, cols=%d" %(S_matrix.shape[0], S_matrix.shape[1]))
+
+    rxnprobs = numpy.array(probs)    
+    '''
+    Given an S matrix (sparse) S, and a vector of reaction 
+    probabilities rxnprobs, calls the scipy least-squares solver
+    to obtain our best estimate for the metabolite weights
+    (gamma)
+ 
+    The reaction weights (probabilities) and metabolite weights
+    are related by the equation
+    R = |S|^T * gamma
+ 
+    where R is the vector of reaction weights, |S| means the absolute value
+    of S and gamma is the vector of metabolite weights. Solving in the least-squares
+    sense is the best we can do since S is not a square matrix.
+ 
+    Returns a list of metabolite weights with the same indexing as the rows of S.
+    '''
+     
+    S_prime = S_matrix.transpose(copy=True)
+    res = linalg.lsqr(S_prime, rxnprobs)
+    
+#    for index in range(len(model["modelcompounds"])):
+    for index in range(len(res[0])):
+        cpd = model["modelcompounds"][index]
+        cpd["weight"] = res[0][index]
+        
+    return True
 
 def generate_data(params):
     

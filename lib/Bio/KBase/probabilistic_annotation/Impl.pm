@@ -598,6 +598,113 @@ sub calculate
 
 
 
+=head2 normalize
+
+  $success = $obj->normalize($input)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$input is a normalize_params
+$success is a bool
+normalize_params is a reference to a hash where the following keys are defined:
+	model has a value which is a model_id
+	model_workspace has a value which is a workspace_id
+	debug has a value which is a bool
+	auth has a value which is a string
+model_id is a string
+workspace_id is a string
+bool is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+$input is a normalize_params
+$success is a bool
+normalize_params is a reference to a hash where the following keys are defined:
+	model has a value which is a model_id
+	model_workspace has a value which is a workspace_id
+	debug has a value which is a bool
+	auth has a value which is a string
+model_id is a string
+workspace_id is a string
+bool is an int
+
+
+=end text
+
+
+
+=item Description
+
+
+
+=back
+
+=cut
+
+sub normalize
+{
+    my $self = shift;
+    my($input) = @_;
+
+    my @_bad_arguments;
+    (ref($input) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument \"input\" (value was \"$input\")");
+    if (@_bad_arguments) {
+	my $msg = "Invalid arguments passed to normalize:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'normalize');
+    }
+
+    my $ctx = $Bio::KBase::probabilistic_annotation::Server::CallContext;
+    my($success);
+    #BEGIN normalize
+    
+    # Build command line to bridge to Python script.
+    my $cmdline = "probanno-normalize --model ".$input->{model}." -modelws ".$input->{model_workspace};
+    $cmdline .= " --auth '".$input->{auth}."'";
+    if ($input->{debug}) {
+    	$cmdline .= " --debug 1";
+    }
+    
+    # Run the python code.
+    my $status = system($cmdline);
+    if ($status == -1) {
+     	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => "probanno-normalize failed to execute",
+    		method_name => 'normalize');	   	
+    }
+    elsif ($status & 127) {
+     	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => "probanno-normalize failed with signal ".$status&127,
+    		method_name => 'normalize');	   	    	
+    }
+    elsif ($status >> 8 == 0) {
+    	$success = 1;
+    }
+    else {
+    	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => "probanno-normalize failed with return code ".$status>>8,
+    		method_name => 'normalize');	
+    }
+    #END normalize
+    my @_bad_returns;
+    (!ref($success)) or push(@_bad_returns, "Invalid type for return variable \"success\" (value was \"$success\")");
+    if (@_bad_returns) {
+	my $msg = "Invalid returns passed to normalize:\n" . join("", map { "\t$_\n" } @_bad_returns);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'normalize');
+    }
+    return($success);
+}
+
+
+
+
 =head2 generate_data
 
   $success = $obj->generate_data($input)
@@ -1780,6 +1887,52 @@ probanno_workspace has a value which is a workspace_id
 model has a value which is a model_id
 model_workspace has a value which is a workspace_id
 overwrite has a value which is a bool
+debug has a value which is a bool
+auth has a value which is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 normalize_params
+
+=over 4
+
+
+
+=item Description
+
+Input parameters for the "normalize" function.
+
+            model_id model - ID of Model object
+            workspace_id model_workspace - ID of workspace where Model object is saved   
+            bool debug - True to keep intermediate files for debug purposes
+            string auth - Authentication token of KBase user
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+model has a value which is a model_id
+model_workspace has a value which is a workspace_id
+debug has a value which is a bool
+auth has a value which is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+model has a value which is a model_id
+model_workspace has a value which is a workspace_id
 debug has a value which is a bool
 auth has a value which is a string
 

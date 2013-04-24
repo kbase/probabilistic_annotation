@@ -515,6 +515,102 @@ sub calculate
 
 
 
+=head2 normalize
+
+  $success = $obj->normalize($input)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$input is a normalize_params
+$success is a bool
+normalize_params is a reference to a hash where the following keys are defined:
+	model has a value which is a model_id
+	model_workspace has a value which is a workspace_id
+	debug has a value which is a bool
+	auth has a value which is a string
+model_id is a string
+workspace_id is a string
+bool is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+$input is a normalize_params
+$success is a bool
+normalize_params is a reference to a hash where the following keys are defined:
+	model has a value which is a model_id
+	model_workspace has a value which is a workspace_id
+	debug has a value which is a bool
+	auth has a value which is a string
+model_id is a string
+workspace_id is a string
+bool is an int
+
+
+=end text
+
+=item Description
+
+
+
+=back
+
+=cut
+
+sub normalize
+{
+    my($self, @args) = @_;
+
+# Authentication: none
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function normalize (received $n, expecting 1)");
+    }
+    {
+	my($input) = @args;
+
+	my @_bad_arguments;
+        (ref($input) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"input\" (value was \"$input\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to normalize:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'normalize');
+	}
+    }
+
+    my $result = $self->{client}->call($self->{url}, {
+	method => "ProbabilisticAnnotation.normalize",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{code},
+					       method_name => 'normalize',
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method normalize",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'normalize',
+				       );
+    }
+}
+
+
+
 =head2 generate_data
 
   $success = $obj->generate_data($input)
@@ -1711,6 +1807,52 @@ probanno_workspace has a value which is a workspace_id
 model has a value which is a model_id
 model_workspace has a value which is a workspace_id
 overwrite has a value which is a bool
+debug has a value which is a bool
+auth has a value which is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 normalize_params
+
+=over 4
+
+
+
+=item Description
+
+Input parameters for the "normalize" function.
+
+            model_id model - ID of Model object
+            workspace_id model_workspace - ID of workspace where Model object is saved   
+            bool debug - True to keep intermediate files for debug purposes
+            string auth - Authentication token of KBase user
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+model has a value which is a model_id
+model_workspace has a value which is a workspace_id
+debug has a value which is a bool
+auth has a value which is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+model has a value which is a model_id
+model_workspace has a value which is a workspace_id
 debug has a value which is a bool
 auth has a value which is a string
 

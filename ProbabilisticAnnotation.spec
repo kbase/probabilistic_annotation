@@ -218,6 +218,22 @@ module ProbabilisticAnnotation
     
 	funcdef calculate(calculate_params input) returns(object_metadata output);
 	    	
+    /* Input parameters for the "normalize" function.
+    
+		model_id model - ID of Model object
+		workspace_id model_workspace - ID of workspace where Model object is saved   
+		bool debug - True to keep intermediate files for debug purposes
+		string auth - Authentication token of KBase user
+    */
+    typedef structure {
+    	model_id model;
+    	workspace_id model_workspace;
+    	bool debug;
+    	string auth;
+    } normalize_params;
+    
+	funcdef normalize(normalize_params input) returns(bool success);
+	    	
     /* Input parameters for the "generate_data" function.
     
     	string folder - Path to folder for generated data files

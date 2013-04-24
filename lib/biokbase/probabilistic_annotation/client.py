@@ -131,6 +131,34 @@ class ProbabilisticAnnotation:
         else:
             raise ServerError('Unknown', 0, 'An unknown server error occurred')
 
+    def normalize(self, input):
+
+        arg_hash = { 'method': 'ProbabilisticAnnotation.normalize',
+                     'params': [input],
+                     'version': '1.1'
+                     }
+
+        body = json.dumps(arg_hash)
+        try:
+            ret = urllib2.urlopen(self.url, body, timeout = self.timeout)
+        except HTTPError as h:
+            if _CT in h.headers and h.headers[_CT] == _AJ:
+        		    err = json.loads(h.read()) 
+        		    if 'error' in err:
+        			     raise ServerError(**err['error'])
+        		    else: 			   #this should never happen... if it does 
+        			     raise h     #  h.read() will return '' in the calling code.
+            else:
+        		    raise h
+        if ret.code != httplib.OK:
+            raise URLError('Received bad response code from server:' + ret.code)
+        resp = json.loads(ret.read())
+
+        if 'result' in resp:
+            return resp['result'][0]
+        else:
+            raise ServerError('Unknown', 0, 'An unknown server error occurred')
+
     def generate_data(self, input):
 
         arg_hash = { 'method': 'ProbabilisticAnnotation.generate_data',
