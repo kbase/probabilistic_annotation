@@ -393,7 +393,8 @@ sub annotation_probabilities_id
     if ($input->{verbose}) {
     	$cmdline .= " --verbose 1";
     }
-    print STDERR $cmdline."\n";
+    
+    # Run the python code.
     my $status = system($cmdline);
     if ($status == -1) {
      	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => "probanno-annotate failed to execute",
@@ -668,7 +669,7 @@ sub normalize
     #BEGIN normalize
     
     # Build command line to bridge to Python script.
-    my $cmdline = "probanno-normalize --model ".$input->{model}." -modelws ".$input->{model_workspace};
+    my $cmdline = "probanno-normalize --model '".$input->{model}."' --modelws ".$input->{model_workspace};
     $cmdline .= " --auth '".$input->{auth}."'";
     if ($input->{debug}) {
     	$cmdline .= " --debug 1";

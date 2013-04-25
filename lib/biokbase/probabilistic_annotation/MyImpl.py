@@ -635,16 +635,13 @@ def metaboliteWeights(params, model):
  
     idx = 0
     for compound in model["modelcompounds"]:
-        if compound["name"] == "Biomass":
-            print("skipped %s\n" %(compound["uuid"]))
-            continue
         metIdToIdx[compound["uuid"]] = idx
         idx += 1
      
     i = []
     j = []
     data = []
-    probs = []
+    costs = []
     idx = 0
     numZeroReagents = 0
     for reaction in model["modelreactions"]:
@@ -660,7 +657,7 @@ def metaboliteWeights(params, model):
             if params.absval:
                 coefficient = abs(coefficient)
             data.append(coefficient)
-        probs.append(reaction["probability"])
+        costs.append(1.0 - reaction["probability"])
         rxnIdToIdx[reaction["uuid"]] = idx
         idx += 1
  
@@ -668,13 +665,13 @@ def metaboliteWeights(params, model):
     
     for biomass in model["biomasses"]:
         for cpd in biomass["biomasscompounds"]:
-            print("%s: %d\n" %(cpd["modelcompound_uuid"], metIdToIdx[cpd["modelcompound_uuid"]]))
+            sys.stderr.write("%s: %d\n" %(cpd["modelcompound_uuid"], metIdToIdx[cpd["modelcompound_uuid"]]))
                   
-    print("%d model reactions had zero reagents\n" %(numZeroReagents))
-    print("len i=%d len j=%d len data=%d" %(len(i), len(j), len(data)))
-    print("rows=%d, cols=%d" %(S_matrix.shape[0], S_matrix.shape[1]))
+    sys.stderr.write("%d model reactions had zero reagents\n" %(numZeroReagents))
+    sys.stderr.write("len i=%d len j=%d len data=%d" %(len(i), len(j), len(data)))
+    sys.stderr.write("S_matrix rows=%d, cols=%d" %(S_matrix.shape[0], S_matrix.shape[1]))
 
-    rxnprobs = numpy.array(probs)    
+    rxncosts = numpy.array(costs)    
     '''
     Given an S matrix (sparse) S, and a vector of reaction 
     probabilities rxnprobs, calls the scipy least-squares solver
@@ -693,7 +690,7 @@ def metaboliteWeights(params, model):
     '''
      
     S_prime = S_matrix.transpose(copy=True)
-    res = linalg.lsqr(S_prime, rxnprobs)
+    res = linalg.lsqr(S_prime, rxncosts)
     
 #    for index in range(len(model["modelcompounds"])):
     for index in range(len(res[0])):

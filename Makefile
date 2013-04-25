@@ -129,12 +129,12 @@ compile-typespec:
 	touch lib/biokbase/${SERVICE_NAME}/__init__.py
 	mkdir -p lib/javascript/${SERVICE_NAME}
 	compile_typespec \
-	-impl Bio::KBase::${SERVICE_NAME}::Impl \
-	-service Bio::KBase::${SERVICE_NAME}::Server \
-	-psgi $(SERV_PSGI_PATH) \
-	-client Bio::KBase::${SERVICE_NAME}::Client \
-	-js javascript/${SERVICE_NAME}/Client \
-	-py biokbase/${SERVICE_NAME}/client \
+	--impl Bio::KBase::${SERVICE_NAME}::Impl \
+	--service Bio::KBase::${SERVICE_NAME}::Server \
+	--psgi $(SERV_PSGI_PATH) \
+	--client Bio::KBase::${SERVICE_NAME}::Client \
+	--js javascript/${SERVICE_NAME}/Client \
+	--py biokbase/${SERVICE_NAME}/Client \
 	${SERV_SERVER_SPEC} lib
 	rm -f lib/${SERVICE_NAME}Impl.py
 	rm -f lib/${SERVICE_NAME}Server.py
