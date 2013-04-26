@@ -40,6 +40,7 @@ my $primaryArgs = [ "Model ID" ];
 my ( $opt, $usage ) = describe_options(
     'pa-normalize <' . join( "> <", @{$primaryArgs} ) . '> %o',
     [ 'modelws|w:s', 'ID of workspace where Model object is saved', { "default" => workspace() } ],
+    [ 'absval|a', 'Set as 1 to use absolute value of compound coefficients', { "default" => 1 } ],
     [ 'debug|d', "Set as 1 to keep intermediate files for debug purposes", { "default" => 0 } ],
     [ 'showerror|e', 'Set as 1 to show any errors in execution', { "default" => 0 } ],
     [ 'verbose|v', 'Set as 1 to print verbose messages', { "default" => 0 } ],
@@ -71,6 +72,7 @@ my $client = get_probanno_client();
 my $translation = {
     "Model ID"    => "model",
     modelws       => "model_workspace",
+    absval        => "absval",
     debug         => "debug"
 };
 

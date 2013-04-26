@@ -9,40 +9,6 @@ import scipy.sparse as sparse
 import scipy.sparse.linalg as linalg
 import numpy
 
-def annotate(params):
-    
-    # TODO Get this value from configuration variable for data directory
-    dataFolder = "data"
-    
-    # Create a workspace client.
-    wsClient = workspaceService(WORKSPACE_URL)
-    
-    # Get the Genome object from the specified workspace.
-    getObjectParams = { "type": "Genome", "id": params.genome, "workspace": params.genome_workspace, "auth": params.auth }
-    genomeObject = wsClient.get_object(getObjectParams)
-    
-    # Create a temporary directory for storing blast input and output files.
-    workFolder = tempfile.mkdtemp("", "%s-" %(params.genome), dataFolder)
-    
-    # Convert Genome object to fasta file.
-    fastaFile = genomeToFasta(params, genomeObject, workFolder)
-    
-    # Run blast using the fasta file.
-    blastResultFile = runBlast(params, fastaFile, workFolder, dataFolder)
-    
-    # Calculate roleset probabilities.
-    rolestringTuples = rolesetProbabilitiesMarble(params, blastResultFile, workFolder, dataFolder)
-    
-    # Build ProbAnno object and store in the specified workspace.
-    metadata = buildProbAnnoObject(params, genomeObject, blastResultFile, rolestringTuples, workFolder, dataFolder, wsClient)
-    
-    # Remove the temporary directory.
-    if params.debug == False:
-        shutil.rmtree(workFolder)
-        
-#    return metadata
-    return 1
-
 def genomeToFasta(params, genomeObject, workFolder):
     '''Convert a Genome object into an amino-acid FASTA file (for BLAST purposes)'''
     
@@ -260,46 +226,6 @@ def buildProbAnnoObject(params, genomeObject, blastResultFile, queryToRolesetPro
     sys.stderr.write("done\n")
     return metadata
 
-def calculate(params):
-    
-    # TODO Get this value from configuration variable for data directory
-    dataFolder = "data"
-    
-    # Create a workspace client.
-    wsClient = workspaceService(WORKSPACE_URL)
-    
-    # Get the ProbAnno object from the specified workspace.
-    getObjectParams = { "type": "ProbAnno", "id": params.probanno, "workspace": params.probanno_workspace, "auth": params.auth }
-    probannoObject = wsClient.get_object(getObjectParams)
-    params.genome = probannoObject["data"]["genome"]
-    params.genome_workspace = probannoObject["data"]["genome_workspace"]    
-    sys.stderr.write("%s/%s\n" %(params.genome_workspace, params.genome))
-    
-    # Create a temporary directory for storing intermediate files. Only used when debug flag is on.
-    workFolder = tempfile.mkdtemp("", "%s-" %(params.genome), dataFolder)
-    
-    # Calculate per-gene role probabilities.
-    roleProbs = rolesetProbabilitiesToRoleProbabilities(params, probannoObject["data"]["rolesetProbabilities"], workFolder)
-
-    # Calculate whole cell role probabilities.
-    totalRoleProbs = totalRoleProbabilities(params, roleProbs, workFolder)
-    
-    # Calculate complex probabilities.
-    complexProbs = complexProbabilities(params, totalRoleProbs, workFolder, dataFolder)
-    
-    # Calculate reaction probabilities.
-    reactionProbs = reactionProbabilities(params, complexProbs, workFolder, dataFolder)
-
-    # Create the model with reaction probabilities.
-    metadata = buildModelObject(params, reactionProbs)
-
-#    return metadata
-    return 1
-    
-    # Calculate compound weights.
-    
-    # Build probability model and store in specified workspace.
-    
 def rolesetProbabilitiesToRoleProbabilities(params, queryToTuplist, workFolder):
     '''Compute probability of each role from the rolesets for each query protein.
     At the moment the strategy is to take any set of rolestrings containing the same roles
@@ -590,27 +516,6 @@ def buildModelObject(params, reactionProbs):
     sys.stderr.write("done\n")
     return metadata
 
-def normalize(params):
-    
-    # Create a workspace client.
-    wsClient = workspaceService(WORKSPACE_URL)
-    
-    # Get the Model object from the specified workspace.
-    getObjectParams = { "type": "Model", "id": params.model, "workspace": params.model_workspace, "auth": params.auth }
-    modelObject = wsClient.get_object(getObjectParams)
-    
-    # Calculate the metabolite weights and update the Model object.
-    success = metaboliteWeights(params, modelObject["data"])
-    
-    # Save the updated Model object.
-    if success:
-        saveObjectParams = { "type": "Model", "id": params.model, "workspace": params.model_workspace,
-                             "data": modelObject["data"], 
-                             "command": "pa-normalize",  "auth": params.auth }
-        metadata = wsClient.save_object(saveObjectParams)
-    
-    return success
-    
 def metaboliteWeights(params, model):
     
     '''
@@ -630,6 +535,7 @@ def metaboliteWeights(params, model):
     TODO - put in biomass equation too.
     '''
  
+    print(params)
     metIdToIdx = {}
     rxnIdToIdx = {}
  
@@ -663,13 +569,13 @@ def metaboliteWeights(params, model):
  
     S_matrix = sparse.coo_matrix( ( data, ( i, j ) ) )
     
-    for biomass in model["biomasses"]:
-        for cpd in biomass["biomasscompounds"]:
-            sys.stderr.write("%s: %d\n" %(cpd["modelcompound_uuid"], metIdToIdx[cpd["modelcompound_uuid"]]))
+#     for biomass in model["biomasses"]:
+#         for cpd in biomass["biomasscompounds"]:
+#             sys.stderr.write("%s: %d\n" %(cpd["modelcompound_uuid"], metIdToIdx[cpd["modelcompound_uuid"]]))
                   
     sys.stderr.write("%d model reactions had zero reagents\n" %(numZeroReagents))
-    sys.stderr.write("len i=%d len j=%d len data=%d" %(len(i), len(j), len(data)))
-    sys.stderr.write("S_matrix rows=%d, cols=%d" %(S_matrix.shape[0], S_matrix.shape[1]))
+    sys.stderr.write("len i=%d len j=%d len data=%d\n" %(len(i), len(j), len(data)))
+    sys.stderr.write("S_matrix rows=%d, cols=%d\n" %(S_matrix.shape[0], S_matrix.shape[1]))
 
     rxncosts = numpy.array(costs)    
     '''
@@ -699,169 +605,6 @@ def metaboliteWeights(params, model):
         
     return True
 
-def generate_data(params):
-    
-    # When regenerating or deleting the data, remove all of the files first.
-    if params.regenerate or params.delete_only:
-        safeRemove(OTU_ID_FILE, params.folder)
-        safeRemove(SUBSYSTEM_FID_FILE, params.folder)
-        safeRemove(DLIT_FID_FILE, params.folder)
-        safeRemove(CONCATINATED_FID_FILE, params.folder)
-        safeRemove(SUBSYSTEM_OTU_FID_ROLES_FILE, params.folder)
-        safeRemove(SUBSYSTEM_OTU_FASTA_FILE, params.folder)
-        safeRemove(SUBSYSTEM_OTU_FASTA_FILE + ".psq", params.folder) 
-        safeRemove(SUBSYSTEM_OTU_FASTA_FILE + ".pin", params.folder)
-        safeRemove(SUBSYSTEM_OTU_FASTA_FILE + ".phr", params.folder)
-        safeRemove(COMPLEXES_ROLES_FILE, params.folder)
-        safeRemove(REACTION_COMPLEXES_FILE, params.folder)
-    
-    # Our job is done if all we want to do is delete files.
-    if params.delete_only:
-        return(1)
-    
-    sys.stderr.write("Generating requested data:....\n")
-    
-    # Get lists of OTUs
-    sys.stderr.write("OTU data...")
-    try:
-        if params.verbose:
-            sys.stderr.write("reading from file...")
-        otus, prokotus = readOtuData(params.folder)
-    except IOError:
-        if params.verbose:
-            sys.stderr.write("failed...generating file...")
-        otus, prokotus = getOtuGenomeIds(MINN, COUNT)
-        writeOtuData(otus, prokotus, params.folder)
-    sys.stderr.write("done\n")
-    
-    # Get a list of subsystem FIDs
-    sys.stderr.write("List of subsystem FIDS...")
-    try:
-        if params.verbose:
-            sys.stderr.write("reading from file...")
-        sub_fids = readSubsystemFids(params.folder)
-    except IOError:
-        if params.verbose:
-            sys.stderr.write("failed...generating file...")
-        sub_fids = subsystemFids(MINN, COUNT)
-        writeSubsystemFids(sub_fids, params.folder)
-    sys.stderr.write("done\n")
-    
-    # Get a list of Dlit FIDSs
-    # We include these because having them greatly expands the
-    # number of roles for which we have representatives.
-    sys.stderr.write("Getting a list of DLit FIDs...")
-    try:
-        if params.verbose:
-            sys.stderr.write("reading from file...")
-        dlit_fids = readDlitFids(params.folder)
-    except IOError:
-        if params.verbose:
-            sys.stderr.write("failed...generating file...")
-        dlit_fids = getDlitFids(MINN, COUNT)
-        writeDlitFids(dlit_fids, params.folder)
-    sys.stderr.write("done\n")
-    
-    # Concatenate the two FID lists before filtering
-    # (Note - doing so after would be possible as well but
-    # can lead to the same kinds of biases as not filtering
-    # the subsystems... I'm not sure the problem would
-    # be as bad for these though)
-    sys.stderr.write("Combining lists of subsystem and DLit FIDS...")
-    fn = os.path.join(params.folder, CONCATINATED_FID_FILE)
-    try:
-        if params.verbose:
-            sys.stderr.write("reading from file...")
-        all_fids = set()
-        for line in open(fn, "r"):
-            all_fids.add(line.strip("\r\n"))
-        all_fids = list(all_fids)
-    except IOError:
-        if params.verbose:
-            sys.stderr.write("failed...generating file...")
-        all_fids = list(set(sub_fids + dlit_fids))
-        f = open(fn, "w")
-        for fid in all_fids:
-            f.write("%s\n" %(fid))
-        f.close()
-    sys.stderr.write("done\n")
-    
-    # Identify roles for the OTU genes
-    sys.stderr.write("Roles for un-filtered list...")
-    try:
-        if params.verbose:
-            sys.stderr.write("reading from file...")
-        all_fidsToRoles, all_rolesToFids = readAllFidRoles(params.folder)
-    except IOError:
-        if params.verbose:
-            sys.stderr.write("failed...generating file...")
-        all_fidsToRoles, all_rolesToFids = fidsToRoles(all_fids)
-        writeAllFidRoles(all_fidsToRoles, params.folder)
-    sys.stderr.write("done\n")
-    
-    # Filter the subsystem FIDs by organism. We only want OTU genes.
-    # Unlike the neighborhood analysis, we don't want to include only 
-    # prokaryotes here.
-    sys.stderr.write("Filtered list by OTUs...")
-    try:
-        if params.verbose:
-            sys.stderr.write("reading from file...")
-        otu_fidsToRoles, otu_rolesToFids = readFilteredOtuRoles(params.folder)
-    except IOError:
-        if params.verbose:
-            sys.stderr.write("failed...generating file...")
-        otudict = getOtuGenomeDictionary(MINN, COUNT)
-        otu_fidsToRoles, otu_rolesToFids, missing_roles = filterFidsByOtusBetter(all_fidsToRoles, all_rolesToFids, otudict)
-        writeFilteredOtuRoles(otu_fidsToRoles, params.folder)
-    sys.stderr.write("done\n")
-    
-    # Generate a FASTA file for the fids in fidsToRoles
-    sys.stderr.write("Subsystem FASTA file...")
-    try:
-        if params.verbose:
-            sys.stderr.write("reading from file...")
-        readSubsystemFasta(params.folder)
-    except IOError:
-        if params.verbose:
-            sys.stderr.write("failed...generating file...")
-        fidsToSeqs = fidsToSequences(otu_fidsToRoles.keys())
-        writeSubsystemFasta(fidsToSeqs, params.folder)
-    sys.stderr.write("done\n")
-    
-    # Complexes --> Roles
-    # Needed to go from annotation likelihoods
-    # to reaction likelihoods
-    # Note that it is easier to go in this direction 
-    #    Because we need all the roles in a complex to get the probability of that complex.
-    sys.stderr.write("Complexes to roles...")
-    try:
-        if params.verbose:
-            sys.stderr.write("reading from file...")
-        complexToRequiredRoles = readComplexRoles(params.folder)
-    except IOError:
-        if params.verbose:
-            sys.stderr.write("failed...generating file...")
-        complexToRequiredRoles, requiredRolesToComplexes = complexRoleLinks(MINN, COUNT)
-        writeComplexRoles(complexToRequiredRoles, params.folder)
-    sys.stderr.write("done\n")
-    
-    # reaction --> complex
-    # Again it is easier to go in this direction since we'll be filtering multiple complexes down to a single reaction.    
-    sys.stderr.write("Reactions to complexes...")
-    try:
-        if params.verbose:
-            sys.stderr.write("reading from file...")
-        rxnToComplexes = readReactionComplex(params.folder)
-    except IOError:
-        if params.verbose:
-            sys.stderr.write("failed...generating file...")
-        rxnToComplexes, complexesToReactions = reactionComplexLinks(MINN, COUNT)
-        writeReactionComplex(rxnToComplexes, params.folder)
-    sys.stderr.write("done\n")
-    
-    sys.stderr.write("Data gathering done...\n")
-    return(1)
-    
 def safeRemove(fname, dirname):
     totalfname = os.path.join(dirname, fname)
     try:

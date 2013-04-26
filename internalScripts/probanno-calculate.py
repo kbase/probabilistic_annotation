@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
 import optparse, sys
-from biokbase.probabilistic_annotation.MyImpl import calculate
+from biokbase.probabilistic_annotation.Impl import ProbabilisticAnnotation
+impl_ProbabilisticAnnotation = ProbabilisticAnnotation(None)
 
 usage="%prog [options]"
 description="""Calculate reaction probabilities"""
@@ -16,7 +17,7 @@ parser.add_option("-v", "--verbose", help="Print verbose output", action="store"
 parser.add_option("-a", "--auth", help="Auth token", action="store", dest="auth", default=None)
 (options, args) = parser.parse_args()
 
-success = calculate(options)
+success = impl_ProbabilisticAnnotation.calculate(options)
 if success:
     exit(0)
 exit(1)

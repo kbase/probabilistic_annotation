@@ -171,7 +171,7 @@ module ProbabilisticAnnotation
      */
     funcdef annotation_probabilities(annotation_probabilities_input) returns (ProbabilisticAnnotation);
 
-    /* Input parameters for the "annotation_probabilities_ids" function.
+    /* Input parameters for the "annotate" function.
 
        genome_id genome - ID of Genome object
        workspace_id genome_workspace - ID of workspace where Genome object is stored
@@ -189,12 +189,12 @@ module ProbabilisticAnnotation
 		bool overwrite;
 		bool debug;
 		string auth;
-    } annotation_probabilities_ids_params;
+    } annotate_params;
 
     /* This function, rather than using an already-loaded genome object, loads a genome from the specified workspace
        before running the probabilistic annotation algorithm.
      */
-    funcdef annotation_probabilities_id(annotation_probabilities_ids_params input) returns (object_metadata output);
+    funcdef annotate(annotate_params input) returns (object_metadata output);
     
     /* Input parameters for the "calculate" function.
     

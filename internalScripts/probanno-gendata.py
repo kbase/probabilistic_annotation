@@ -1,7 +1,8 @@
 #! /usr/bin/python
 
 import optparse, sys
-from biokbase.probabilistic_annotation.MyImpl import generate_data
+from biokbase.probabilistic_annotation.Impl import ProbabilisticAnnotation
+impl_ProbabilisticAnnotation = ProbabilisticAnnotation(None)
 
 usage="%prog [options]"
 description="""Main driver to get data needed out of the KBase and store it locally.
@@ -16,10 +17,10 @@ parser.add_option("-f", "--folder", help="Base directory (folder) in which all o
 (options, args) = parser.parse_args()
 
 if options.folder is None:
-    sys.stderr.write("ERROR: In ExtractorDriver.py - folder (-f) is a required argument\n")
+    sys.stderr.write("ERROR: probanno-gendata.py - folder (-f) is a required argument\n")
     exit(2)
 
-success = generate_data(options)
+success = impl_ProbabilisticAnnotation.generate_data(options)
 if success:
     exit(0)
 exit(1)

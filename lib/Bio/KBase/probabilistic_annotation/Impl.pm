@@ -268,9 +268,9 @@ sub annotation_probabilities
 
 
 
-=head2 annotation_probabilities_id
+=head2 annotate
 
-  $output = $obj->annotation_probabilities_id($input)
+  $output = $obj->annotate($input)
 
 =over 4
 
@@ -279,9 +279,9 @@ sub annotation_probabilities
 =begin html
 
 <pre>
-$input is an annotation_probabilities_ids_params
+$input is an annotate_params
 $output is an object_metadata
-annotation_probabilities_ids_params is a reference to a hash where the following keys are defined:
+annotate_params is a reference to a hash where the following keys are defined:
 	genome has a value which is a genome_id
 	genome_workspace has a value which is a workspace_id
 	probanno has a value which is a probanno_id
@@ -317,9 +317,9 @@ workspace_ref is a string
 
 =begin text
 
-$input is an annotation_probabilities_ids_params
+$input is an annotate_params
 $output is an object_metadata
-annotation_probabilities_ids_params is a reference to a hash where the following keys are defined:
+annotate_params is a reference to a hash where the following keys are defined:
 	genome has a value which is a genome_id
 	genome_workspace has a value which is a workspace_id
 	probanno has a value which is a probanno_id
@@ -363,7 +363,7 @@ before running the probabilistic annotation algorithm.
 
 =cut
 
-sub annotation_probabilities_id
+sub annotate
 {
     my $self = shift;
     my($input) = @_;
@@ -371,15 +371,15 @@ sub annotation_probabilities_id
     my @_bad_arguments;
     (ref($input) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument \"input\" (value was \"$input\")");
     if (@_bad_arguments) {
-	my $msg = "Invalid arguments passed to annotation_probabilities_id:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	my $msg = "Invalid arguments passed to annotate:\n" . join("", map { "\t$_\n" } @_bad_arguments);
 	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'annotation_probabilities_id');
+							       method_name => 'annotate');
     }
 
     my $ctx = $Bio::KBase::probabilistic_annotation::Server::CallContext;
     my($output);
-    #BEGIN annotation_probabilities_id
-
+    #BEGIN annotate
+    
     # Build command line to bridge to Python script.
     my $cmdline = "probanno-annotate --genome '".$input->{genome}."' --genomews ".$input->{genome_workspace};
     $cmdline .= " --probanno '".$input->{probanno}."' --probannows ".$input->{probanno_workspace};
@@ -420,13 +420,13 @@ sub annotation_probabilities_id
     		method_name => 'annotation_probabilities_id');	
     }
 	
-    #END annotation_probabilities_id
+    #END annotate
     my @_bad_returns;
     (ref($output) eq 'ARRAY') or push(@_bad_returns, "Invalid type for return variable \"output\" (value was \"$output\")");
     if (@_bad_returns) {
-	my $msg = "Invalid returns passed to annotation_probabilities_id:\n" . join("", map { "\t$_\n" } @_bad_returns);
+	my $msg = "Invalid returns passed to annotate:\n" . join("", map { "\t$_\n" } @_bad_returns);
 	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'annotation_probabilities_id');
+							       method_name => 'annotate');
     }
     return($output);
 }
@@ -1788,7 +1788,7 @@ genomeObj has a value which is a GenomeObject
 
 
 
-=head2 annotation_probabilities_ids_params
+=head2 annotate_params
 
 =over 4
 
@@ -1796,7 +1796,7 @@ genomeObj has a value which is a GenomeObject
 
 =item Description
 
-Input parameters for the "annotation_probabilities_ids" function.
+Input parameters for the "annotate" function.
 
        genome_id genome - ID of Genome object
        workspace_id genome_workspace - ID of workspace where Genome object is stored

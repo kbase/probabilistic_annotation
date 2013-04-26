@@ -90,7 +90,7 @@ foreach my $key ( keys( %{$translation} ) ) {
 }
 
 # Call the function.
-my $output = $client->annotation_probabilities_id($params);
+my $output = $client->annotate($params);
 if (!defined($output)) {
 	print "Probabilistic annotation failed!\n";
 	exit 1;

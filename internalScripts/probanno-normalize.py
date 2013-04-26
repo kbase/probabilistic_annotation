@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
 import optparse, sys
-from biokbase.probabilistic_annotation.MyImpl import normalize
+from biokbase.probabilistic_annotation.Impl import ProbabilisticAnnotation
+impl_ProbabilisticAnnotation = ProbabilisticAnnotation(None)
 
 usage="%prog [options]"
 description="""Normalize metabolite weights"""
@@ -14,7 +15,7 @@ parser.add_option("-a", "--auth", help="Auth token", action="store", dest="auth"
 parser.add_option("-b", "--absval", help="Absolute value", action="store", dest="absval", default=False)
 (options, args) = parser.parse_args()
 
-success = normalize(options)
+success = impl_ProbabilisticAnnotation.normalize(options)
 if success:
     exit(0)
 exit(1)
