@@ -1,5 +1,6 @@
 #BEGIN_HEADER
 from biokbase.probabilistic_annotation.MyImpl import *
+from biokbase.workspaceService.client import *
 #END_HEADER
 
 '''
@@ -19,6 +20,13 @@ class ProbabilisticAnnotation:
     def __init__(self, config): #config contains contents of config file in hash or 
                                 #None if it couldn't be found
         #BEGIN_CONSTRUCTOR
+        if config == None:
+            self.dataFolder = "data"
+            self.cdmiURL = "http://kbase.us/services/cdmi_api"
+            self.workspaceURL = "http://kbase.us/services/workspace"
+            self.fbaModelURL = "http://localhost:7036"
+        else:
+            self.dataFolder = config["data_folder"]
         #END_CONSTRUCTOR
         pass
 
@@ -39,36 +47,40 @@ class ProbabilisticAnnotation:
         # return variables are: output
         #BEGIN annotation_probabilities_id
         
-        # TODO Get this value from configuration variable for data directory
-        dataFolder = "data"
-        
         # Create a workspace client.
-        wsClient = workspaceService(WORKSPACE_URL)
+        wsClient = workspaceService(self.workspaceURL)
         
+        # Queue a job to run annotate command.
+        jobData = input
+        # Add job_info key to jobData hash -- this will get printed by check job
+        queueJobParams = { "type": "probanno", "auth": input["auth"], "jobdata": jobData }
+        jobid = wsClient.queue_job(queueJobParams)
+        
+        return jobid
+    
         # Get the Genome object from the specified workspace.
-        getObjectParams = { "type": "Genome", "id": input.genome, "workspace": input.genome_workspace, "auth": input.auth }
+        getObjectParams = { "type": "Genome", "id": input["genome"], "workspace": input["genome_workspace"], "auth": input["auth"] }
         genomeObject = wsClient.get_object(getObjectParams)
         
         # Create a temporary directory for storing blast input and output files.
-        workFolder = tempfile.mkdtemp("", "%s-" %(input.genome), dataFolder)
+        workFolder = tempfile.mkdtemp("", "%s-" %(input["genome"]), self.dataFolder)
         
         # Convert Genome object to fasta file.
         fastaFile = genomeToFasta(input, genomeObject, workFolder)
         
         # Run blast using the fasta file.
-        blastResultFile = runBlast(input, fastaFile, workFolder, dataFolder)
+        blastResultFile = runBlast(input, fastaFile, workFolder, self.dataFolder)
         
         # Calculate roleset probabilities.
-        rolestringTuples = rolesetProbabilitiesMarble(input, blastResultFile, workFolder, dataFolder)
+        rolestringTuples = rolesetProbabilitiesMarble(input, blastResultFile, workFolder, self.dataFolder)
         
         # Build ProbAnno object and store in the specified workspace.
-        output = buildProbAnnoObject(input, genomeObject, blastResultFile, rolestringTuples, workFolder, dataFolder, wsClient)
+        output = buildProbAnnoObject(input, genomeObject, blastResultFile, rolestringTuples, workFolder, self.dataFolder, wsClient)
         
         # Remove the temporary directory.
-        if input.debug == False:
+        if input["debug"] == False:
             shutil.rmtree(workFolder)
             
-        return output
         #END annotation_probabilities_id
 
         #At some point might do deeper type checking...
@@ -82,21 +94,18 @@ class ProbabilisticAnnotation:
         # return variables are: output
         #BEGIN calculate
         
-        # TODO Get this value from configuration variable for data directory
-        dataFolder = "data"
-        
         # Create a workspace client.
-        wsClient = workspaceService(WORKSPACE_URL)
+        wsClient = workspaceService(self.workspaceURL)
         
         # Get the ProbAnno object from the specified workspace.
-        getObjectParams = { "type": "ProbAnno", "id": input.probanno, "workspace": input.probanno_workspace, "auth": input.auth }
+        getObjectParams = { "type": "ProbAnno", "id": input["probanno"], "workspace": input["probanno_workspace"], "auth": input["auth"] }
         probannoObject = wsClient.get_object(getObjectParams)
         input.genome = probannoObject["data"]["genome"]
         input.genome_workspace = probannoObject["data"]["genome_workspace"]    
-        sys.stderr.write("%s/%s\n" %(input.genome_workspace, input.genome))
+        sys.stderr.write("%s/%s\n" %(input["genome_workspace"], input["genome"]))
         
         # Create a temporary directory for storing intermediate files. Only used when debug flag is on.
-        workFolder = tempfile.mkdtemp("", "%s-" %(input.genome), dataFolder)
+        workFolder = tempfile.mkdtemp("", "%s-" %(input["genome"]), self.dataFolder)
         
         # Calculate per-gene role probabilities.
         roleProbs = rolesetProbabilitiesToRoleProbabilities(input, probannoObject["data"]["rolesetProbabilities"], workFolder)
@@ -105,15 +114,14 @@ class ProbabilisticAnnotation:
         totalRoleProbs = totalRoleProbabilities(input, roleProbs, workFolder)
         
         # Calculate complex probabilities.
-        complexProbs = complexProbabilities(input, totalRoleProbs, workFolder, dataFolder)
+        complexProbs = complexProbabilities(input, totalRoleProbs, workFolder, self.dataFolder)
         
         # Calculate reaction probabilities.
-        reactionProbs = reactionProbabilities(input, complexProbs, workFolder, dataFolder)
+        reactionProbs = reactionProbabilities(input, complexProbs, workFolder, self.dataFolder)
     
         # Create the model with reaction probabilities.
         output = buildModelObject(input, reactionProbs)
     
-        return output
         #END calculate
 
         #At some point might do deeper type checking...
@@ -130,10 +138,10 @@ class ProbabilisticAnnotation:
         ### MBM need to clean up input parameters and wrapper in MyImpl.
         sys.stderr.write("ready to normalize!\n")
         # Create a workspace client.
-        wsClient = workspaceService(WORKSPACE_URL)
+        wsClient = workspaceService(self.workspaceURL)
         
         # Get the Model object from the specified workspace.
-        getObjectParams = { "type": "Model", "id": input.model, "workspace": input.model_workspace, "auth": input.auth }
+        getObjectParams = { "type": "Model", "id": input["model"], "workspace": input["model_workspace"], "auth": input["auth"] }
         modelObject = wsClient.get_object(getObjectParams)
         
         # Calculate the metabolite weights and update the Model object.
@@ -141,9 +149,9 @@ class ProbabilisticAnnotation:
         
         # Save the updated Model object.
         if success:
-            saveObjectParams = { "type": "Model", "id": input.model, "workspace": input.model_workspace,
+            saveObjectParams = { "type": "Model", "id": input["model"], "workspace": input["model_workspace"],
                                  "data": modelObject["data"], 
-                                 "command": "pa-normalize",  "auth": input.auth }
+                                 "command": "pa-normalize",  "auth": input["auth"] }
             metadata = wsClient.save_object(saveObjectParams)
         
         #END normalize
@@ -159,7 +167,7 @@ class ProbabilisticAnnotation:
         # return variables are: success
         #BEGIN generate_data
         # When regenerating or deleting the data, remove all of the files first.
-        if input.regenerate or input.delete_only:
+        if input["regenerate"] or input["delete_only"]:
             safeRemove(OTU_ID_FILE, input.folder)
             safeRemove(SUBSYSTEM_FID_FILE, input.folder)
             safeRemove(DLIT_FID_FILE, input.folder)
@@ -317,7 +325,7 @@ class ProbabilisticAnnotation:
         sys.stderr.write("done\n")
         
         sys.stderr.write("Data gathering done...\n")
-        return(1)
+        success = True
         #END generate_data
 
         #At some point might do deeper type checking...

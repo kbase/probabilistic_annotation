@@ -10,6 +10,12 @@ module ProbabilisticAnnotation
     
 	/* A string identifier for a probabilistic annotation object. */
     typedef string probanno_id;
+
+	/* A string identifier for a genome. */    
+    typedef string genome_id;
+    
+    /* A string identifier for a feature. */
+    typedef string feature_id;
     
 	/* A string identifier for a workspace. Any string consisting of alphanumeric characters and "-" is acceptable. */
 	typedef string workspace_id;
@@ -50,67 +56,6 @@ module ProbabilisticAnnotation
 	*/
 	typedef tuple<object_id id, object_type type, timestamp moddate, int instance, string command, username lastmodifier, username owner, workspace_id workspace, workspace_ref ref, string chsum, mapping<string,string> metadata> object_metadata;
 
-    /*********************************************************************************
-    Genome object (from CDM) type definition
-    *********************************************************************************/
-
-    /* WARNING: This genome object is NOT THE SAME as the one you get when you load a genome
-    into the workspaces.
-    Rather it is the one you get when you call annotate_genome or cs_to_genome
-    */
-    typedef string md5;
-    typedef list<md5> md5s;
-    typedef string genome_id;
-    typedef string contig_id;
-    typedef string feature_id;
-    typedef string feature_type;
-    
-    /* A region of DNA is maintained as a tuple of four components:
-
-        the contig
-        the beginning position (from 1)
-        the strand
-        the length
-
-        We often speak of "a region".  By "location", we mean a sequence
-        of regions from the same genome (perhaps from distinct contigs).
-    */
-    typedef tuple<contig_id, int begin, string strand,int length> region_of_dna;
-
-    /*
-        a "location" refers to a sequence of regions
-    */
-    typedef list<region_of_dna> location;
-    typedef tuple<string comment, string annotator, int annotation_time> annotation;
-    typedef tuple<string function, float probability> alt_func;
-
-    typedef structure {
-	feature_id id;
-	location location;
-	feature_type type;
-	string function;
-	list<alt_func> alternative_functions;
-	string protein_translation;
-	list<string> aliases;
-	list<annotation> annotations;
-    } feature;
-
-    typedef structure {
-	contig_id id;
-	string dna;
-    } contig;
-
-    typedef structure {
-	genome_id id;
-	string scientific_name;
-	string domain;
-	int genetic_code;
-	string source;
-	string source_id;
-	list<contig> contigs;
-	list<feature> features;
-    } GenomeObject;
-        
 	/* ************************************************************************************* */
 	/* PROBABILISTIC ANNOTATION DATA TYPES */
 	/* ************************************************************************************* */
@@ -119,8 +64,9 @@ module ProbabilisticAnnotation
     
     	string function - the name of the functional role being annotated to the feature
     	float probability - the probability that the functional role is associated with the feature
+    	string functionMD5 - hash to let us know if anything has changed
 	*/    	
-    typedef tuple<string function, float probability> FunctionProbability;
+    typedef tuple<string function, float probability, string functionMD5> FunctionProbability;
     
     /* Alternative functions for each feature
     
@@ -150,26 +96,9 @@ module ProbabilisticAnnotation
 		list<feature_id> skippedFeatures;
     } ProbabilisticAnnotation;
     
-    /*********************************************** 
-                     Function definitions
-    ************************************************/
-
-    /* 
-	 probanno_workspace: Workspace to which to input the final probabilistic annotation. Required.
-	 genome_workspace: Workspace from which the genome object was taken. Required.
-	 probanno: ID with which to save the probanno object. Required.
-	 GenomeObject: An already-loaded Genome object. Required.
-    */
-    typedef structure {
-	probanno_id probanno;
-	GenomeObject genomeObj;
-    } annotation_probabilities_input;
-
-    /*
-     * Given a genome object populated with genes and annotations, this function adds
-     * potential alternative functions with probabilities
-     */
-    funcdef annotation_probabilities(annotation_probabilities_input) returns (ProbabilisticAnnotation);
+	/* ************************************************************************************* */
+	/* FUNCTION DEFINITIONS */
+	/* ************************************************************************************* */
 
     /* Input parameters for the "annotate" function.
 
@@ -194,7 +123,7 @@ module ProbabilisticAnnotation
     /* This function, rather than using an already-loaded genome object, loads a genome from the specified workspace
        before running the probabilistic annotation algorithm.
      */
-    funcdef annotate(annotate_params input) returns (object_metadata output);
+    funcdef annotate(annotate_params input) returns (string jobid);
     
     /* Input parameters for the "calculate" function.
     
