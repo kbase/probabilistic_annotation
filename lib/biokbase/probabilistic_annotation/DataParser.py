@@ -3,6 +3,7 @@
 # Read and write data files
 from PYTHON_GLOBALS import *
 import os
+import hashlib
 import sys
 import math
 
@@ -153,10 +154,34 @@ def readSubsystemFasta(folder):
     return
 
 def writeSubsystemFasta(fidsToSeqs, folder):
+    '''
+    Write a FASTA for all the subsystem OTU genes, sort them,
+    and compute an MD5. Then compile them (using makeblastdb) into a
+    BLAST database.
+
+    The location of the FASTA file is folder/SUBSYSTEM_OTU_FASTA_FILE
+    where SUBSYSTEM_OTU_FASTA_FILE is defined in the config file.
+
+    Returns the MD5 of the FASTA file.
+    '''
     fid = open(os.path.join(folder, SUBSYSTEM_OTU_FASTA_FILE), "w")
-    for fids in fidsToSeqs:
+
+    # Sort the proteins by ID so that if we have the same list multiple times 
+    # we get the same hash for the FASTA file output.
+    for fids in sorted(fidsToSeqs.keys()):
         fid.write(">%s\n%s\n" %(fids, fidsToSeqs[fids]))
     fid.close()
+    # Compute the MD5 hash of the FASTA file
+    f = open(os.path.join(folder, SUBSYSTEM_OTU_FASTA_FILE), "r")
+    md5 = hashlib.md5()
+    block_size = 65536
+    while True:
+        data = f.read(block_size)
+        if not data:
+            break
+        md5.update(data)
+    fasta_md5 = md5.hexdigest()
+
     # Compile the BLAST database for the fasta file
     status = os.system("makeblastdb -in %s -dbtype prot > /dev/null" %(os.path.join(folder, SUBSYSTEM_OTU_FASTA_FILE)))
     # TODO: Throw exceptions for errors
@@ -165,7 +190,8 @@ def writeSubsystemFasta(fidsToSeqs, folder):
             print("makeblastdb failed with status %d\n" %(os.WEXITSTATUS(status)))
     if os.WIFSIGNALED(status):
         print("makeblastdb ended by signal %d\n" %(os.WTERMSIG(status)))
-    return
+
+    return fasta_md5
 
 #####################
 # OTU neighborhoods #
