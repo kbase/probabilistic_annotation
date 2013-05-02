@@ -81,9 +81,11 @@ class ProbabilisticAnnotation:
         # self.ctx is set by the wsgi application class
         # return variables are: output
         #BEGIN calculate
-        
+        '''
+        Calculate model probabilities...
+        '''
         # TODO Get this value from configuration variable for data directory
-        dataFolder = "data"
+        dataFolder = "/kb/deployment/data/probabilistic_annotation"
         
         # Create a workspace client.
         wsClient = workspaceService(WORKSPACE_URL)
@@ -93,6 +95,8 @@ class ProbabilisticAnnotation:
         probannoObject = wsClient.get_object(getObjectParams)
         input.genome = probannoObject["data"]["genome"]
         input.genome_workspace = probannoObject["data"]["genome_workspace"]    
+        input.probanno = probannoObject
+
         sys.stderr.write("%s/%s\n" %(input.genome_workspace, input.genome))
         
         # Create a temporary directory for storing intermediate files. Only used when debug flag is on.
@@ -112,8 +116,22 @@ class ProbabilisticAnnotation:
     
         # Create the model with reaction probabilities.
         output = buildModelObject(input, reactionProbs)
-    
-        return output
+
+        # If we created a reference, add it to the probAnno object and save a new copy in the workspace.
+        # For now the probmodel_uuid field was hard-coded into the Object.pm file as a reference
+        # so we have to call it that.
+        if input.probanno_workspace == "NO_WORKSPACE":
+            probannoObject["probmodel_uuid"] = output["reference"]
+            saveObjectParams = { 
+                "type": "ProbAnno", 
+                "id": input.probanno, 
+                "data" : probannoObject,
+                "workspace": input.probanno_workspace,
+                "command" : "calculate",
+                "auth": input.auth 
+                }
+            wsClient.save_object(saveObjectParams)
+
         #END calculate
 
         #At some point might do deeper type checking...

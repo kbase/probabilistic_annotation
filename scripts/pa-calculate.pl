@@ -27,7 +27,7 @@ DESCRIPTION
       -o, --overwrite    Overwrite existing Model object with same name
       --probannows       ID of workspace where ProbAnno object is stored
       -v, --verbose      Print verbose messages
-      -w, --modelws      ID of workspace where Model object is saved
+      -w, --modelws      ID of workspace where Model object is saved (D: Save as reference only)
 
 EXAMPLES
       Annotate:
@@ -41,7 +41,7 @@ AUTHORS
 my $primaryArgs = [ "ProbAnno ID", "Model ID" ];
 my ( $opt, $usage ) = describe_options(
     'pa-calculate <' . join( "> <", @{$primaryArgs} ) . '> %o',
-    [ 'modelws|w:s', 'ID of workspace where Model object is saved', { "default" => workspace() } ],
+    [ 'modelws|w:s', 'ID of workspace where Model object is saved', { "default" => "NO_WORKSPACE" } ],
     [ 'probannows:s', 'ID of workspace where ProbAnno object is stored', { "default" => workspace() } ],
     [ 'overwrite|o', "Set as 1 to overwrite existing Model object with same name", { "default" => 0 } ],
     [ 'debug|d', "Set as 1 to keep intermediate files for debug purposes", { "default" => 0 } ],
