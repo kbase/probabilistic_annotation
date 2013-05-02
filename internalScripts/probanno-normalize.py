@@ -15,7 +15,9 @@ parser.add_option("-a", "--auth", help="Auth token", action="store", dest="auth"
 parser.add_option("-b", "--absval", help="Absolute value", action="store", dest="absval", default=False)
 (options, args) = parser.parse_args()
 
-success = impl_ProbabilisticAnnotation.normalize(options)
+params = { "model": options.model, "model_workspace": options.model_workspace, "debug": options.debug,
+           "verbose": options.verbose, "auth": options.auth, "absval": options.absval }
+success = impl_ProbabilisticAnnotation.normalize(params)
 if success:
     exit(0)
 exit(1)

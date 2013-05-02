@@ -13,7 +13,6 @@ has 'valid_methods' => (is => 'ro', isa => 'HashRef', lazy => 1,
 our $CallContext;
 
 our %return_counts = (
-        'annotation_probabilities' => 1,
         'annotate' => 1,
         'calculate' => 1,
         'normalize' => 1,
@@ -27,7 +26,6 @@ sub _build_valid_methods
 {
     my($self) = @_;
     my $methods = {
-        'annotation_probabilities' => 1,
         'annotate' => 1,
         'calculate' => 1,
         'normalize' => 1,

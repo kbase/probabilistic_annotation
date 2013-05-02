@@ -17,8 +17,12 @@ parser.add_option("-v", "--verbose", help="Print verbose output", action="store"
 parser.add_option("-a", "--auth", help="Auth token", action="store", dest="auth", default=None)
 (options, args) = parser.parse_args()
 
+params = { "model": options.model, "model_workspace": options.model_workspace,
+           "probanno": options.probanno, "probanno_workspace": options.probanno_workspace,
+           "overwrite": options.overwrite, "debug": options.debug, "auth": options.auth }
 impl_ProbabilisticAnnotation = ProbabilisticAnnotation(None)
 success = impl_ProbabilisticAnnotation.calculate(options)
+
 if success:
     exit(0)
 exit(1)

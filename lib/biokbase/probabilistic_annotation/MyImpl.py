@@ -2,7 +2,6 @@ import os, sys, tempfile, shutil
 from biokbase.probabilistic_annotation.DataExtractor import *
 from biokbase.probabilistic_annotation.DataParser import *
 from biokbase.probabilistic_annotation.PYTHON_GLOBALS import *
-from biokbase.workspaceService.client import *
 from biokbase.fbaModelServices.Client import *
 import scipy
 import scipy.sparse as sparse
@@ -13,7 +12,7 @@ def genomeToFasta(params, genomeObject, workFolder):
     '''Convert a Genome object into an amino-acid FASTA file (for BLAST purposes)'''
     
     # Open the fasta file.
-    fastaFile = os.path.join(workFolder, "%s.faa" %(params.genome))
+    fastaFile = os.path.join(workFolder, "%s.faa" %(params["genome"]))
     try:
         fid = open(fastaFile, "w")
     except IOError:
@@ -24,7 +23,7 @@ def genomeToFasta(params, genomeObject, workFolder):
     # Make sure the Genome object has features.
     # TODO Throw exception if no features in genome
     if "features" not in genomeObject["data"]:
-         sys.stderr.write("""ERROR: The input Genome object %s/%s has no features - did you forget to run annotate_genome?\n""" %(params.genome_workspace, params.genome))
+         sys.stderr.write("""ERROR: The input Genome object %s/%s has no features - did you forget to run annotate_genome?\n""" %(params["genome_workspace"], params["genome"]))
          return None
 
     # Run the list of features to build the fasta file.
@@ -46,7 +45,7 @@ def genomeToFasta(params, genomeObject, workFolder):
 def runBlast(params, queryFile, workFolder, dataFolder):
     '''A simplistic wrapper to BLAST the query proteins against the subsystem proteins'''
     
-    blastResultFile = os.path.join(workFolder, "%s.blastout" %(params.genome))
+    blastResultFile = os.path.join(workFolder, "%s.blastout" %(params["genome"]))
     cmd = "blastp -query \"%s\" -db %s -outfmt 6 -evalue 1E-5 -num_threads 1 -out \"%s\"" %(queryFile, os.path.join(dataFolder, SUBSYSTEM_OTU_FASTA_FILE), blastResultFile)
     sys.stderr.write("Started BLAST with command: %s\n" %(cmd))
     status = os.system(cmd)
@@ -128,8 +127,8 @@ def rolesetProbabilitiesMarble(params, blastResultFile, workFolder, dataFolder):
                 rolestringTuples[query] = [ (stri, p) ]
 
     # Save the generated data when debug is turned on.
-    if params.debug:
-        rolesetProbabilityFile = os.path.join(workFolder, "%s.rolesetprobs" %(params.genome))
+    if params["debug"]:
+        rolesetProbabilityFile = os.path.join(workFolder, "%s.rolesetprobs" %(params["genome"]))
         fid = open(rolesetProbabilityFile, "w")
 #        for f, p in rolestringTuples.iteritems():
         for query in rolestringTuples:
@@ -145,7 +144,7 @@ def buildProbAnnoObject(params, genomeObject, blastResultFile, queryToRolesetPro
     '''Create a "probabilistic annotation" object file from a Genome object file. The probabilistic annotation
     object adds fields for the probability of each role being linked to each gene.'''
 
-    sys.stderr.write("Building ProbAnno object for genome %s..." %(params.genome))
+    sys.stderr.write("Building ProbAnno object for genome %s..." %(params["genome"]))
     targetToRoles, rolesToTargets = readFilteredOtuRoles(dataFolder)
     targetToRoleSet = {}
     for target in targetToRoles:
@@ -163,9 +162,9 @@ def buildProbAnnoObject(params, genomeObject, blastResultFile, queryToRolesetPro
     # then add that to the dictionary.  I use the ii in range so I can edit the elements without changes being lost.
 
     objectData = {}
-    objectData["id"] = params.probanno
-    objectData["genome"] = params.genome
-    objectData["genome_workspace"] = params.genome_workspace;
+    objectData["id"] = params["probanno"]
+    objectData["genome"] = params["genome"]
+    objectData["genome_workspace"] = params["genome_workspace"];
     objectData["rolesetProbabilities"] = queryToRolesetProbs;
     objectData["featureAlternativeFunctions"] = []
     objectData["skippedFeatures"] = []
@@ -219,8 +218,8 @@ def buildProbAnnoObject(params, genomeObject, blastResultFile, queryToRolesetPro
     objectMetadata = { "num_rolesets": len(objectData["rolesetProbabilities"]),
                        "num_altfuncs": len(objectData["featureAlternativeFunctions"]),
                        "num_skipped_features": len(objectData["skippedFeatures"]) }
-    saveObjectParams = { "type": "ProbAnno", "id": params.probanno, "workspace": params.probanno_workspace,
-                         "auth": params.auth, "data": objectData, "metadata": objectMetadata, "command": "pa-annotate" }
+    saveObjectParams = { "type": "ProbAnno", "id": params["probanno"], "workspace": params["probanno_workspace"],
+                         "auth": params["auth"], "data": objectData, "metadata": objectMetadata, "command": "pa-annotate" }
     metadata = wsClient.save_object(saveObjectParams)
     
     sys.stderr.write("done\n")
@@ -267,8 +266,8 @@ def rolesetProbabilitiesToRoleProbabilities(params, queryToTuplist, workFolder):
             roleProbs.append( (query, role, queryRolesToProbs[role]) )
 
     # Save the generated data when debug is turned on.
-    if params.debug:
-        role_probability_file = os.path.join(workFolder, "%s.roleprobs" %(params.genome))
+    if params["debug"]:
+        role_probability_file = os.path.join(workFolder, "%s.roleprobs" %(params["genome']))
         fid = open(role_probability_file, "w")
         for tuple in roleProbs:
             fid.write("%s\t%s\t%s\n" %(tuple[0], tuple[1], tuple[2]))
@@ -328,8 +327,8 @@ def totalRoleProbabilities(params, roleProbs, workFolder):
         totalRoleProbs.append( (role, roleToTotalProb[role], " or ".join(roleToGeneList[role])) )   
 
     # Save the generated data when debug is turned on.
-    if params.debug:
-        total_role_probability_file = os.path.join(workFolder, "%s.cellroleprob" %(params.genome))
+    if params["debug"]:
+        total_role_probability_file = os.path.join(workFolder, "%s.cellroleprob" %(params["genome"]))
         fid = open(total_role_probability_file, "w")
         for tuple in totalRoleProbs:
             fid.write("%s\t%s\t%s\n" %(tuple[0], tuple[1], tuple[2]))
@@ -424,7 +423,7 @@ def complexProbabilities(params, totalRoleProbs, workFolder, dataFolder):
         complexProbs.append( (cplx, minp, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR) )
 #        fid.write("%s\t%1.4f\t%s\t%s\t%s\t%s\n" %(cplx, minp, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR))
 
-    if params.debug:
+    if param["debug"]:
         complex_probability_file = os.path.join(workFolder, "%s.complexprob" %(params.genome))
         fid = open(complex_probability_file, "w")
         for tuple in complexProbs:
@@ -482,8 +481,8 @@ def reactionProbabilities(params, complexProbs, workFolder, dataFolder):
                     GPR = " or ".join( [ GPR, cplxToTuple[cplx][2] ] )
         reactionProbs.append( (rxn, maxp, TYPE, complexinfo, GPR) )
 
-    if params.debug:
-        reaction_probability_file = os.path.join(workFolder, "%s.rxnprobs" %(params.genome))
+    if params["debug"]:
+        reaction_probability_file = os.path.join(workFolder, "%s.rxnprobs" %(params["genome"]))
         fid = open(reaction_probability_file, "w")
         for tuple in reactionProbs:
             fid.write("%s\t%1.4f\t%s\t%s\t%s\n" %(tuple[0], tuple[1], tuple[2], tuple[3], tuple[4]))
@@ -507,10 +506,10 @@ def buildModelObject(params, reactionProbs):
     fbaModelClient = fbaModelServices(FBAMODEL_URL)
     
     # Build a model from the input genome and reaction probabilities.
-    probFbaModelParams = { "genome": params.genome, "genome_workspace": params.genome_workspace,
-                           "model": params.model, "workspace": params.model_workspace,
+    probFbaModelParams = { "genome": params["genome"], "genome_workspace": params["genome_workspace"],
+                           "model": params["model"], "workspace": params["model_workspace"],
                            "reaction_probs": rxnProbList, "default_prob": 0.0,
-                           "overwrite": params.overwrite, "auth": params.auth }
+                           "overwrite": params["overwrite"], "auth": params["auth"] }
     metadata = fbaModelClient.genome_to_probfbamodel(probFbaModelParams)
     
     sys.stderr.write("done\n")
@@ -560,7 +559,7 @@ def metaboliteWeights(params, model):
             met_idx = metIdToIdx[met_uuid]
             i.append(met_idx)
             j.append(idx)
-            if params.absval:
+            if params["absval"]:
                 coefficient = abs(coefficient)
             data.append(coefficient)
         costs.append(1.0 - reaction["probability"])
