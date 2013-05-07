@@ -1,20 +1,17 @@
 #!/usr/bin/python
 
 # Read and write data files
-from PYTHON_GLOBALS import *
-import os
-import sys
-import math
+import os, sys, math
 
-PSEUDOCOUNT=40
-MIN_EVALUE = 1E-200 #E values of less than 1E-200 are treated as 1E-200 to avoid log of 0 issues.
+# E values of less than 1E-200 are treated as 1E-200 to avoid log of 0 issues.
+MIN_EVALUE = 1E-200
 
 ###########
 #  OTUs   #
 ###########
 
-def readOtuData(folder):
-    fid = open(os.path.join(folder, OTU_ID_FILE), "r")
+def readOtuData(config):
+    fid = open(os.path.join(config["data_folder_path"], config["otu_id_file"]), "r")
     otus = []
     prokotus = []
     for line in fid:
@@ -25,8 +22,8 @@ def readOtuData(folder):
     fid.close()
     return otus, prokotus
 
-def writeOtuData(otus, prokotus, folder):
-    fid = open(os.path.join(folder, OTU_ID_FILE), "w")
+def writeOtuData(otus, prokotus, config):
+    fid = open(os.path.join(config["data_folder_path"], config["otu_id_file"]), "w")
     for otu in otus:
         if otu in prokotus:
             fid.write("%s\t%d\n" %(otu, 1))
@@ -39,8 +36,8 @@ def writeOtuData(otus, prokotus, folder):
 # Subsystem FIDs #
 ##################
 
-def readSubsystemFids(folder):
-    fid = open(os.path.join(folder, SUBSYSTEM_FID_FILE), "r")
+def readSubsystemFids(config):
+    fid = open(os.path.join(config["data_folder_path"], config["subsystem_fid_file"]), "r")
     sub_fids = []
     for line in fid:
         spl = line.strip("\r\n")
@@ -48,8 +45,8 @@ def readSubsystemFids(folder):
     fid.close()
     return sub_fids
 
-def writeSubsystemFids(sub_fids, folder):
-    fid = open(os.path.join(folder, SUBSYSTEM_FID_FILE), "w")
+def writeSubsystemFids(sub_fids, config):
+    fid = open(os.path.join(config["data_folder_path"], config["subsystem_fid_file"]), "w")
     for f in sub_fids:
         fid.write("%s\n" %(f))
     fid.close()
@@ -59,8 +56,8 @@ def writeSubsystemFids(sub_fids, folder):
 # OTU FIDs       #
 ##################
 
-def readDlitFids(folder):
-    fid = open(os.path.join(folder, DLIT_FID_FILE), "r")
+def readDlitFids(config):
+    fid = open(os.path.join(config["data_folder_path"], config["dlit_fid_file"]), "r")
     otu_fids = []
     for line in fid:
         spl = line.strip("\r\n")
@@ -68,8 +65,8 @@ def readDlitFids(folder):
     fid.close()
     return otu_fids
 
-def writeDlitFids(otu_fids, folder):
-    fid = open(os.path.join(folder, DLIT_FID_FILE), "w")
+def writeDlitFids(otu_fids, config):
+    fid = open(os.path.join(config["data_folder_path"], config["dlit_fid_file"]), "w")
     for f in otu_fids:
         fid.write("%s\n" %(f))
     fid.close()
@@ -79,12 +76,12 @@ def writeDlitFids(otu_fids, folder):
 # All FID roles           #
 ###########################
 
-def readAllFidRoles(folder):
-    fid = open(os.path.join(folder, CONCATINATED_FID_ROLE_FILE), "r")
+def readAllFidRoles(config):
+    fid = open(os.path.join(config["data_folder_path"], config["concatenated_fid_role_file"]), "r")
     all_fidsToRoles = {}
     for line in fid:
         spl = line.strip("\r\n").split("\t")
-        roles = spl[1].split(SEPARATOR)
+        roles = spl[1].split(config["separator"])
         if spl[0] in all_fidsToRoles:
             all_fidsToRoles[spl[0]] += roles
         else:
@@ -102,10 +99,10 @@ def readAllFidRoles(folder):
 
     return all_fidsToRoles, all_rolesToFids
 
-def writeAllFidRoles(otu_fidsToRoles, folder):
-    fid = open(os.path.join(folder, CONCATINATED_FID_ROLE_FILE), "w")
+def writeAllFidRoles(otu_fidsToRoles, config):
+    fid = open(os.path.join(config["data_folder_path"], config["concatenated_fid_role_file"]), "w")
     for f in otu_fidsToRoles:
-        fid.write("%s\t%s\n" %(f, SEPARATOR.join(otu_fidsToRoles[f])))
+        fid.write("%s\t%s\n" %(f, config["separator"].join(otu_fidsToRoles[f])))
     fid.close()
     return
 
@@ -113,12 +110,12 @@ def writeAllFidRoles(otu_fidsToRoles, folder):
 # Filtered OTU roles #
 ######################
 
-def readFilteredOtuRoles(folder):
-    fid = open(os.path.join(folder, SUBSYSTEM_OTU_FID_ROLES_FILE), "r")
+def readFilteredOtuRoles(config):
+    fid = open(os.path.join(config["data_folder_path"], config["subsystem_otu_fid_roles_file"]), "r")
     otu_fidsToRoles = {}
     for line in fid:
         spl = line.strip("\r\n").split("\t")
-        roles = spl[1].split(SEPARATOR)
+        roles = spl[1].split(config["separator"])
         if spl[0] in otu_fidsToRoles:
             otu_fidsToRoles[spl[0]] += roles
         else:
@@ -136,10 +133,10 @@ def readFilteredOtuRoles(folder):
 
     return otu_fidsToRoles, otu_rolesToFids
 
-def writeFilteredOtuRoles(otu_fidsToRoles, folder):
-    fid = open(os.path.join(folder, SUBSYSTEM_OTU_FID_ROLES_FILE), "w")
+def writeFilteredOtuRoles(otu_fidsToRoles, config):
+    fid = open(os.path.join(config["data_folder_path"], config["subsystem_otu_fid_roles_file"]), "w")
     for f in otu_fidsToRoles:
-        fid.write("%s\t%s\n" %(f, SEPARATOR.join(otu_fidsToRoles[f])))
+        fid.write("%s\t%s\n" %(f, config["separator"].join(otu_fidsToRoles[f])))
     fid.close()
     return
 
@@ -147,18 +144,18 @@ def writeFilteredOtuRoles(otu_fidsToRoles, folder):
 # Subsystem FASTA file #
 ########################
 
-def readSubsystemFasta(folder):
-    fid = open(os.path.join(folder, SUBSYSTEM_OTU_FASTA_FILE), "r")
+def readSubsystemFasta(config):
+    fid = open(os.path.join(config["data_folder_path"], config["subsystem_otu_fasta_file"]), "r")
     fid.close()
     return
 
-def writeSubsystemFasta(fidsToSeqs, folder):
-    fid = open(os.path.join(folder, SUBSYSTEM_OTU_FASTA_FILE), "w")
+def writeSubsystemFasta(fidsToSeqs, config):
+    fid = open(os.path.join(config["data_folder_path"], config["subsystem_otu_fasta_file"]), "w")
     for fids in fidsToSeqs:
         fid.write(">%s\n%s\n" %(fids, fidsToSeqs[fids]))
     fid.close()
     # Compile the BLAST database for the fasta file
-    status = os.system("makeblastdb -in %s -dbtype prot > /dev/null" %(os.path.join(folder, SUBSYSTEM_OTU_FASTA_FILE)))
+    status = os.system("makeblastdb -in %s -dbtype prot > /dev/null" %(os.path.join(config["data_folder_path"], config["subsystem_otu_fasta_file"])))
     # TODO: Throw exceptions for errors
     if os.WIFEXITED(status):
         if os.WEXITSTATUS(status) != 0:
@@ -210,13 +207,13 @@ def writeSubsystemFasta(fidsToSeqs, folder):
 # Complex --> roles #
 #####################
 
-def readComplexRoles(folder):
-    fid = open(os.path.join(folder, COMPLEXES_ROLES_FILE), "r")
+def readComplexRoles(config):
+    fid = open(os.path.join(config["data_folder_path"], config["complexes_roles_file"]), "r")
     complexToRequiredRoles = {}
     for line in fid:
         spl = line.strip("\r\n").split("\t")
         complexes = spl[0]
-        roles = spl[1].split(SEPARATOR)
+        roles = spl[1].split(config["separator"])
         # This shouldn't be necessary but just to be safe...
         if complexes in complexToRequiredRoles:
             complexToRequiredRoles[complexes] += roles
@@ -225,10 +222,10 @@ def readComplexRoles(folder):
     fid.close()
     return complexToRequiredRoles
 
-def writeComplexRoles(complexToRequiredRoles, folder):
-    fid = open(os.path.join(folder, COMPLEXES_ROLES_FILE), "w")
+def writeComplexRoles(complexToRequiredRoles, config):
+    fid = open(os.path.join(config["data_folder_path"], config["complexes_roles_file"]), "w")
     for complexes in complexToRequiredRoles:
-        fid.write("%s\t%s\n" %(complexes, SEPARATOR.join(complexToRequiredRoles[complexes])))
+        fid.write("%s\t%s\n" %(complexes, config["separator"].join(complexToRequiredRoles[complexes])))
     fid.close()
     return
 
@@ -236,13 +233,13 @@ def writeComplexRoles(complexToRequiredRoles, folder):
 # Reaction --> complex  #
 #########################
 
-def readReactionComplex(folder):
-    fid = open(os.path.join(folder, REACTION_COMPLEXES_FILE), "r")
+def readReactionComplex(config):
+    fid = open(os.path.join(config["data_folder_path"], config["reaction_complexes_file"]), "r")
     rxnToComplexes = {}
     for line in fid:
         spl = line.strip("\r\n").split("\t")
         rxn = spl[0]
-        cplxlist = spl[1].split(SEPARATOR)
+        cplxlist = spl[1].split(config["separator"])
         # This shouldn't be necessary but just to be safe...
         if rxn in rxnToComplexes:
             rxnToComplexes[rxn] += cplxlist
@@ -251,10 +248,10 @@ def readReactionComplex(folder):
     fid.close()
     return rxnToComplexes
 
-def writeReactionComplex(rxnToComplexes, folder):
-    fid = open(os.path.join(folder, REACTION_COMPLEXES_FILE), "w")
+def writeReactionComplex(rxnToComplexes, config):
+    fid = open(os.path.join(config["data_folder_path"], config["reaction_complexes_file"]), "w")
     for rxn in rxnToComplexes:
-        fid.write("%s\t%s\n" %(rxn, SEPARATOR.join(rxnToComplexes[rxn])))
+        fid.write("%s\t%s\n" %(rxn, config["separator"].join(rxnToComplexes[rxn])))
     fid.close()
     return
 

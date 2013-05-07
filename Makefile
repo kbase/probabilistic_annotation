@@ -123,14 +123,17 @@ deploy-docs:
 	# The python code doesn't use pod but would need something different to make the nice HTML... I'll deal with this later.
 	if [ ! -d docs ] ; then mkdir -p docs ; fi
 
+#	--impl Bio::KBase::${SERVICE_NAME}::Impl \
+#	--service Bio::KBase::${SERVICE_NAME}::Server \
+
 compile-typespec:
 	mkdir -p lib/biokbase/${SERVICE_NAME}
 	touch lib/biokbase/__init__.py
 	touch lib/biokbase/${SERVICE_NAME}/__init__.py
 	mkdir -p lib/javascript/${SERVICE_NAME}
 	compile_typespec \
-	--impl Bio::KBase::${SERVICE_NAME}::Impl \
-	--service Bio::KBase::${SERVICE_NAME}::Server \
+	--pyimpl biokbase.${SERVICE_NAME}.Impl \
+	--pyserver biokbase.${SERVICE_NAME}.Server \
 	--psgi $(SERV_PSGI_PATH) \
 	--client Bio::KBase::${SERVICE_NAME}::Client \
 	--js javascript/${SERVICE_NAME}/Client \

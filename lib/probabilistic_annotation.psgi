@@ -1,6 +1,6 @@
-use Bio::KBase::probabilistic_annotation::Impl;
+use ProbabilisticAnnotationImpl;
 
-use Bio::KBase::probabilistic_annotation::Server;
+use ProbabilisticAnnotationServer;
 use Plack::Middleware::CrossOrigin;
 
 
@@ -8,12 +8,12 @@ use Plack::Middleware::CrossOrigin;
 my @dispatch;
 
 {
-    my $obj = Bio::KBase::probabilistic_annotation::Impl->new;
+    my $obj = ProbabilisticAnnotationImpl->new;
     push(@dispatch, 'ProbabilisticAnnotation' => $obj);
 }
 
 
-my $server = Bio::KBase::probabilistic_annotation::Server->new(instance_dispatch => { @dispatch },
+my $server = ProbabilisticAnnotationServer->new(instance_dispatch => { @dispatch },
 				allow_get => 0,
 			       );
 
