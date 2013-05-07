@@ -120,9 +120,6 @@ module ProbabilisticAnnotation
 		string auth;
     } annotate_params;
 
-    /* This function, rather than using an already-loaded genome object, loads a genome from the specified workspace
-       before running the probabilistic annotation algorithm.
-     */
     funcdef annotate(annotate_params input) returns (string jobid);
     
     /* Input parameters for the "calculate" function.

@@ -736,7 +736,6 @@ class ProbabilisticAnnotation:
             workFolder = None
         
         # Calculate per-gene role probabilities.
-        print input, genome, workFolder
         roleProbs = self.rolesetProbabilitiesToRoleProbabilities(input, genome, probannoObject["data"]["rolesetProbabilities"], workFolder)
     
         # Calculate whole cell role probabilities.

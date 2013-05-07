@@ -18,7 +18,7 @@ SYNOPSIS
       pa-annotate <Genome ID> <ProbAnno ID> [OPTIONS]
 
 DESCRIPTION
-      Generate a probabilistic annotation for a genome.
+      Submit a job to generate a probabilistic annotation for a genome. 
       
       Options:
       -d, --debug        Keep intermediate files for debug purposes
@@ -31,7 +31,7 @@ DESCRIPTION
 
 EXAMPLES
       Annotate:
-      > pa-annotate kb\|g.0 kb.g.0
+      > pa-annotate kb\|g.0 kb\|g.0
       
 AUTHORS
       Matt Benedict, Mike Mundy
@@ -95,7 +95,6 @@ if (!defined($output)) {
 	print "Probabilistic annotation failed!\n";
 	exit 1;
 } else {
-	print "Probabilistic annotation successfully generated in workspace:\n";
-	printObjectMeta($output);
+	print "Probabilistic annotation job ".$output." successfully submitted\n";
 }
 exit 0;
