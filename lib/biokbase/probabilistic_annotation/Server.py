@@ -143,15 +143,9 @@ class Application:
 
     def __init__(self):
         self.rpc_service = JSONRPCServiceCustom()
-        self.rpc_service.add(impl_ProbabilisticAnnotation.annotation_probabilities, name = 'ProbabilisticAnnotation.annotation_probabilities',
-                             types = [dict])
-        self.rpc_service.add(impl_ProbabilisticAnnotation.annotation_probabilities_id, name = 'ProbabilisticAnnotation.annotation_probabilities_id',
+        self.rpc_service.add(impl_ProbabilisticAnnotation.annotate, name = 'ProbabilisticAnnotation.annotate',
                              types = [dict])
         self.rpc_service.add(impl_ProbabilisticAnnotation.calculate, name = 'ProbabilisticAnnotation.calculate',
-                             types = [dict])
-        self.rpc_service.add(impl_ProbabilisticAnnotation.normalize, name = 'ProbabilisticAnnotation.normalize',
-                             types = [dict])
-        self.rpc_service.add(impl_ProbabilisticAnnotation.generate_data, name = 'ProbabilisticAnnotation.generate_data',
                              types = [dict])
 
 
@@ -162,7 +156,6 @@ class Application:
                 'authenticated' : None,
                 'token' : None }
 
-        sys.stderr.write("Got to the server\n")
         try:
             body_size = int( environ.get('CONTENT_LENGTH',0))
         except (ValueError):
