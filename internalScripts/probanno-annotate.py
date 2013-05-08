@@ -1,8 +1,7 @@
 #!/usr/bin/python
 
 import optparse, sys
-from biokbase.probabilistic_annotation.Impl import ProbabilisticAnnotation
-impl_ProbabilisticAnnotation = ProbabilisticAnnotation(None)
+from biokbase.probabilistic_annotation.Client import *
 
 usage="%prog [options]"
 description="""Build a probabilistic annotation object"""
@@ -15,12 +14,14 @@ parser.add_option("-o", "--overwrite", help="Overwrite existing probanno object"
 parser.add_option("-d", "--debug", help="Save generated data for debug purposes", action="store", dest="debug", default=False)
 parser.add_option("-v", "--verbose", help="Print verbose output", action="store", dest="verbose", default=False)
 parser.add_option("-a", "--auth", help="Auth token", action="store", dest="auth", default=None)
+parser.add_option("-u", "--url", help="Server url", action="store", dest="url", default="http://localhost:7073")
 (options, args) = parser.parse_args()
 
 params = { "genome": options.genome, "genome_workspace": options.genome_workspace,
            "probanno": options.probanno, "probanno_workspace": options.probanno_workspace,
            "overwrite": options.overwrite, "debug": options.debug, "auth": options.auth }
-success = impl_ProbabilisticAnnotation.annotate(params)
-if success:
-    exit(0)
-exit(1)
+
+client = ProbabilisticAnnotation(options.url)
+jobid = client.annotate(params)
+print("Job %s submitted" %(jobid))
+exit(0)

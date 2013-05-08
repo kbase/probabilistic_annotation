@@ -1,10 +1,13 @@
 #BEGIN_HEADER
-#from biokbase.probabilistic_annotation.MyImpl import *
 import sys, sys, tempfile, shutil
+from os import environ
 from biokbase.probabilistic_annotation.DataExtractor import *
 from biokbase.probabilistic_annotation.DataParser import *
 from biokbase.workspaceService.client import *
 from biokbase.fbaModelServices.Client import *
+
+# Temporary for testing
+from random import randint
 #END_HEADER
 
 '''
@@ -20,7 +23,38 @@ class ProbabilisticAnnotation:
 
     #BEGIN_CLASS_HEADER
     
-    def genomeToFasta(params, genomeObject, workFolder):
+    def runAnnotate(self, input):
+        '''Run an annotate job.'''
+        
+        # Create a workspace client.
+        wsClient = workspaceService(self.config["workspace_url"])
+        
+        # Get the Genome object from the specified workspace.
+        getObjectParams = { "type": "Genome", "id": input["genome"], "workspace": input["genome_workspace"], "auth": input["auth"] }
+        genomeObject = wsClient.get_object(getObjectParams)
+        
+        # Create a temporary directory for storing blast input and output files.
+        workFolder = tempfile.mkdtemp("", "%s-" %(input["genome"]), self.config["work_folder_path"])
+        
+        # Convert Genome object to fasta file.
+        fastaFile = self.genomeToFasta(input, genomeObject, workFolder)
+        
+        # Run blast using the fasta file.
+        blastResultFile = self.runBlast(input, fastaFile, workFolder)
+        
+        # Calculate roleset probabilities.
+        rolestringTuples = self.rolesetProbabilitiesMarble(input, blastResultFile, workFolder)
+        
+        # Build ProbAnno object and store in the specified workspace.
+        output = self.buildProbAnnoObject(input, genomeObject, blastResultFile, rolestringTuples, workFolder, wsClient)
+        
+        # Remove the temporary directory.
+        if input["debug"] == False:
+            shutil.rmtree(workFolder)
+
+        return
+        
+    def genomeToFasta(self, params, genomeObject, workFolder):
         '''Convert a Genome object into an amino-acid FASTA file (for BLAST purposes)'''
         
         # Open the fasta file.
@@ -54,11 +88,11 @@ class ProbabilisticAnnotation:
             
         return fastaFile
         
-    def runBlast(params, queryFile, workFolder, dataFolder):
+    def runBlast(self, params, queryFile, workFolder):
         '''A simplistic wrapper to BLAST the query proteins against the subsystem proteins'''
         
         blastResultFile = os.path.join(workFolder, "%s.blastout" %(params["genome"]))
-        cmd = "blastp -query \"%s\" -db %s -outfmt 6 -evalue 1E-5 -num_threads 1 -out \"%s\"" %(queryFile, os.path.join(dataFolder, SUBSYSTEM_OTU_FASTA_FILE), blastResultFile)
+        cmd = "blastp -query \"%s\" -db %s -outfmt 6 -evalue 1E-5 -num_threads 1 -out \"%s\"" %(queryFile, os.path.join(self.config["data_folder_path"], self.config["subsystem_otu_fasta_file"]), blastResultFile)
         sys.stderr.write("Started BLAST with command: %s\n" %(cmd))
         status = os.system(cmd)
         sys.stderr.write("Ended BLAST with command: %s\n" %(cmd))
@@ -67,7 +101,7 @@ class ProbabilisticAnnotation:
             sys.stderr.write("BLAST command failed")
         return blastResultFile
     
-    def rolesetProbabilitiesMarble(params, blastResultFile, workFolder, dataFolder):
+    def rolesetProbabilitiesMarble(self, params, blastResultFile, workFolder):
         '''Calculate the probabilities of rolesets (i.e. each possible combination of
         roles implied by the functions of the proteins in subsystems) from the BLAST results.
     
@@ -78,14 +112,14 @@ class ProbabilisticAnnotation:
         sys.stderr.write("Performing marble-picking on rolesets...")
     
         # Read in the target roles (this function returns the roles as lists!)
-        targetIdToRole, targetRoleToId = readFilteredOtuRoles(dataFolder)
+        targetIdToRole, targetRoleToId = readFilteredOtuRoles(self.config)
     
         # Convert the lists of roles into "rolestrings" (sort the list so that order doesn't matter)
         # in order to deal with the case where some of the hits are multi-functional and others only have
         # a single function...
         targetIdToRoleString = {}
         for target in targetIdToRole:
-            stri = SEPARATOR.join(sorted(targetIdToRole[target]))
+            stri = self.config["separator"].join(sorted(targetIdToRole[target]))
             targetIdToRoleString[target] = stri
     
         # Query --> [ (target1, score 1), (target 2, score 2), ... ]
@@ -126,7 +160,7 @@ class ProbabilisticAnnotation:
             # Now lets iterate over all of them and calculate the probability
             # Probability = sum(S(X)^2)/(sum(S(X)^2 + PC*maxscore))
             # Lets get the denominator first
-            denom = PSEUDOCOUNT*maxscore
+            denom = float(self.config["pseudo_count"]) * maxscore
             for stri in rolestringToScore:
                 denom += rolestringToScore[stri]
     
@@ -151,16 +185,15 @@ class ProbabilisticAnnotation:
         sys.stderr.write("done\n")
         return rolestringTuples
             
-    #def MakeProbabilisticJsonFile(annotation_file, blast_result_file, roleset_probability_file, outfile, folder, genome_id, probanno_id):
-    def buildProbAnnoObject(params, genomeObject, blastResultFile, queryToRolesetProbs, workFolder, dataFolder, wsClient):
+    def buildProbAnnoObject(self, params, genomeObject, blastResultFile, queryToRolesetProbs, workFolder, wsClient):
         '''Create a "probabilistic annotation" object file from a Genome object file. The probabilistic annotation
         object adds fields for the probability of each role being linked to each gene.'''
     
         sys.stderr.write("Building ProbAnno object for genome %s..." %(params["genome"]))
-        targetToRoles, rolesToTargets = readFilteredOtuRoles(dataFolder)
+        targetToRoles, rolesToTargets = readFilteredOtuRoles(self.config)
         targetToRoleSet = {}
         for target in targetToRoles:
-            stri = SEPARATOR.join(sorted(targetToRoles[target]))
+            stri = self.config["separator"].join(sorted(targetToRoles[target]))
             targetToRoleSet[target] = stri
         queryToTargetProbs = parseBlastOutput(blastResultFile)
         
@@ -266,7 +299,7 @@ class ProbabilisticAnnotation:
             # This section actually does the conversion of probabilities.
             queryRolesToProbs = {}
             for tup in queryToTuplist[query]:
-                rolelist = tup[0].split(SEPARATOR)
+                rolelist = tup[0].split(self.config["separator"])
                 # Add up all the instances of each particular role on the list.
                 for role in rolelist:
                     if role in queryRolesToProbs:
@@ -411,18 +444,18 @@ class ProbabilisticAnnotation:
             GPR = ""
             if len(noexistRoles) == len(allCplxRoles):
                 TYPE = "CPLX_NOREPS"
-                complexProbs.append( (cplx, 0.0, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR) )
+                complexProbs.append( (cplx, 0.0, TYPE, self.config["separator"].join(unavailRoles), self.config["separator"].join(noexistRoles), GPR) )
     #            fid.write("%s\t%1.4f\t%s\t%s\t%s\t%s\n" %(cplx, 0.0, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR))
                 continue
             if len(unavailRoles) == len(allCplxRoles):
                 TYPE = "CPLX_NOTTHERE"
-                complexProbs.append( (cplx, 0.0, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR) )
+                complexProbs.append( (cplx, 0.0, TYPE, self.config["separator"].join(unavailRoles), self.config["separator"].join(noexistRoles), GPR) )
     #            fid.write("%s\t%1.4f\t%s\t%s\t%s\t%s\n" %(cplx, 0.0, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR))
                 continue
             # Some had no representatives and the rest were not found in the cell
             if len(unavailRoles) + len(noexistRoles) == len(allCplxRoles):
                 TYPE = "CPLX_NOREPS_AND_NOTTHERE"
-                complexProbs.append( (cplx, 0.0, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR) )
+                complexProbs.append( (cplx, 0.0, TYPE, self.config["separator"].join(unavailRoles), self.config["separator"].join(noexistRoles), GPR) )
     #            fid.write("%s\t%1.4f\t%s\t%s\t%s\t%s\n" %(cplx, 0.0, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR))
                 continue
             # Otherwise at least one of them is available
@@ -439,7 +472,7 @@ class ProbabilisticAnnotation:
             for role in availRoles:
                 if rolesToProbabilities[role] < minp:
                     minp = rolesToProbabilities[role]
-            complexProbs.append( (cplx, minp, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR) )
+            complexProbs.append( (cplx, minp, TYPE, self.config["separator"].join(unavailRoles), self.config["separator"].join(noexistRoles), GPR) )
     #        fid.write("%s\t%1.4f\t%s\t%s\t%s\t%s\n" %(cplx, minp, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR))
     
         if input["debug"]:
@@ -492,7 +525,7 @@ class ProbabilisticAnnotation:
             for cplx in rxnComplexes:
                 if cplx in cplxToTuple:
                     # Complex1 (P1; TYPE1) ///Complex2 (P2; TYPE2) ...
-                    complexinfo = "%s%s%s (%1.4f; %s) " %(complexinfo, SEPARATOR, cplx, cplxToTuple[cplx][0], cplxToTuple[cplx][1])
+                    complexinfo = "%s%s%s (%1.4f; %s) " %(complexinfo, self.config["separator"], cplx, cplxToTuple[cplx][0], cplxToTuple[cplx][1])
                     TYPE = "HASCOMPLEXES"
                     if cplxToTuple[cplx][0] > maxp:
                         maxp = cplxToTuple[cplx][0]
@@ -646,23 +679,25 @@ class ProbabilisticAnnotation:
                                 #None if it couldn't be found
         #BEGIN_CONSTRUCTOR
         if config == None:
-            self.config = { }
-            self.config["cdmi_url"] = "http://kbase.us/services/cdmi_api/"
-            self.config["workspace_url"] = "http://kbase.us/services/workspace/"
-            self.config["fbamodelservices_url"] = "http://localhost:7036"
-            self.config["data_folder_path"] = "/home/mmundy/kb/deployment/services/probabilistic_annotation/data"
-            self.config["subsystem_fid_file"] = "SUBSYSTEM_FIDS"
-            self.config["dlit_fid_file"] = "DLIT_FIDS"
-            self.config["concatenated_fid_file"] = "ALL_FIDS"
-            self.config["concatenated_fid_role_file"] = "ALL_FID_ROLES"
-            self.config["otu_id_file"] = "OTU_GENOME_IDS"
-            self.config["subsystem_otu_fid_roles_file"] = "SUBSYSTEM_OTU_FID_ROLES"
-            self.config["subsystem_otu_fasta_file"] = "SUBSYSTEM_FASTA"
-            self.config["complexes_roles_file"] = "COMPLEXES_ROLES"
-            self.config["reaction_complexes_file"] = "REACTIONS_COMPLEXES"
-            self.config["work_folder_path"] = "/tmp"
-            self.config["separator"] = "///"
-            self.config["dilution_percent"] = 80
+            # How about checking for environment variable and reading the file for ourselves.
+            print("why is the config not set")
+#             self.config = { }
+#             self.config["cdmi_url"] = "http://kbase.us/services/cdmi_api/"
+#             self.config["workspace_url"] = "http://kbase.us/services/workspace/"
+#             self.config["fbamodelservices_url"] = "http://localhost:7036"
+#             self.config["data_folder_path"] = "/home/mmundy/kb/deployment/services/probabilistic_annotation/data"
+#             self.config["subsystem_fid_file"] = "SUBSYSTEM_FIDS"
+#             self.config["dlit_fid_file"] = "DLIT_FIDS"
+#             self.config["concatenated_fid_file"] = "ALL_FIDS"
+#             self.config["concatenated_fid_role_file"] = "ALL_FID_ROLES"
+#             self.config["otu_id_file"] = "OTU_GENOME_IDS"
+#             self.config["subsystem_otu_fid_roles_file"] = "SUBSYSTEM_OTU_FID_ROLES"
+#             self.config["subsystem_otu_fasta_file"] = "SUBSYSTEM_FASTA"
+#             self.config["complexes_roles_file"] = "COMPLEXES_ROLES"
+#             self.config["reaction_complexes_file"] = "REACTIONS_COMPLEXES"
+#             self.config["work_folder_path"] = "/tmp"
+#             self.config["separator"] = "///"
+#             self.config["dilution_percent"] = 80
         else:
             self.config = config
         #END_CONSTRUCTOR
@@ -674,40 +709,25 @@ class ProbabilisticAnnotation:
         #BEGIN annotate
         
         # Create a workspace client.
-        wsClient = workspaceService(self.workspaceURL)
+        wsClient = workspaceService(self.config["workspace_url"])
         
         # Queue a job to run annotate command.
-        jobData = input
         # Add job_info key to jobData hash -- this will get printed by check job
-        queueJobParams = { "type": "probanno", "auth": input["auth"], "jobdata": jobData }
-        json.dump(queueJobParams, open("job.json", "w"), indent=4)
+        queueJobParams = { "type": "probanno", "auth": input["auth"], "jobdata": input }
+        # TODO When available, use the job functions in the workspace server.
 #        jobid = wsClient.queue_job(queueJobParams)
-        
-        return 42
+
+        # Start temporary code for testing
+        jid = randint(1,1000000)
+        jsonFilename = "job%d.json" %(jid)
+        outputFilename = "job%d.out" %(jid)
+        json.dump(queueJobParams, open(jsonFilename, "w"), indent=4)
+        cmdline = "nohup %s %s %s >%s 2>&1 &" %(self.config["annotate_job_script_path"], jsonFilename, environ["KB_DEPLOYMENT_CONFIG"], outputFilename)
+        status = os.system(cmdline)
+        sys.stderr.write("Submitted job %d" %(jid))
+        jobid = "%d" %(jid)
+        # End temporary code for testing
     
-        # Get the Genome object from the specified workspace.
-        getObjectParams = { "type": "Genome", "id": input["genome"], "workspace": input["genome_workspace"], "auth": input["auth"] }
-        genomeObject = wsClient.get_object(getObjectParams)
-        
-        # Create a temporary directory for storing blast input and output files.
-        workFolder = tempfile.mkdtemp("", "%s-" %(input["genome"]), self.dataFolder)
-        
-        # Convert Genome object to fasta file.
-        fastaFile = genomeToFasta(input, genomeObject, workFolder)
-        
-        # Run blast using the fasta file.
-        blastResultFile = runBlast(input, fastaFile, workFolder, self.dataFolder)
-        
-        # Calculate roleset probabilities.
-        rolestringTuples = rolesetProbabilitiesMarble(input, blastResultFile, workFolder, self.dataFolder)
-        
-        # Build ProbAnno object and store in the specified workspace.
-        output = buildProbAnnoObject(input, genomeObject, blastResultFile, rolestringTuples, workFolder, self.dataFolder, wsClient)
-        
-        # Remove the temporary directory.
-        if input["debug"] == False:
-            shutil.rmtree(workFolder)
-            
         #END annotate
 
         #At some point might do deeper type checking...
