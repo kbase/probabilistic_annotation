@@ -1,16 +1,8 @@
 #! /usr/bin/python
 
 import sys, os, json
-from ConfigParser import ConfigParser
 from biokbase.probabilistic_annotation.Impl import ProbabilisticAnnotation
-
-def getConfig(filename):
-    retconfig = {}
-    config = ConfigParser()
-    config.read(filename)
-    for nameval in config.items("ProbabilisticAnnotation"):
-        retconfig[nameval[0]] = nameval[1]
-    return retconfig
+from biokbase.probabilistic_annotation.DataParser import getConfig
 
 # First parameter is the path to the file containing the job object json.
 # Read the job object from the file.

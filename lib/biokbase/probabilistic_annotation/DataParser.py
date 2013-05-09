@@ -2,6 +2,7 @@
 
 # Read and write data files
 import os, sys, math
+from ConfigParser import ConfigParser
 
 # E values of less than 1E-200 are treated as 1E-200 to avoid log of 0 issues.
 MIN_EVALUE = 1E-200
@@ -284,3 +285,11 @@ def readRolesetProbabilityFile(roleset_probability_file):
         else:
             queryToTuplist[spl[0]] = [ (spl[1], float(spl[2])) ]
     return queryToTuplist
+
+def getConfig(filename):
+    retconfig = {}
+    config = ConfigParser()
+    config.read(filename)
+    for nameval in config.items("ProbabilisticAnnotation"):
+        retconfig[nameval[0]] = nameval[1]
+    return retconfig
