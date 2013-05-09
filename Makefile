@@ -82,12 +82,16 @@ deploy-dir:
 #        if [ ! -d $(SERV_SERVICE_DIR)/webroot ] ; then mkdir -p $(SERV_SERVICE_DIR)/webroot ; fi
 
 deploy-service-files:
-	tpage $(SERV_TPAGE_ARGS) service/start_service.tt > $(SERV_SERVICE_DIR)/start_service; \
-	chmod +x $(SERV_SERVICE_DIR)/start_service; \
-        tpage $(SERV_TPAGE_ARGS) service/stop_service.tt > $(SERV_SERVICE_DIR)/stop_service; \
-        chmod +x $(SERV_SERVICE_DIR)/stop_service; \
-        tpage $(SERV_TPAGE_ARGS) service/process.tt > $(SERV_SERVICE_DIR)/process.$(SERV_SERVICE); \
-        chmod +x $(SERV_SERVICE_DIR)/process.$(SERV_SERVICE);
+	tpage $(SERV_TPAGE_ARGS) service/process.tt > $(SERV_SERVICE_DIR)/process.$(SERV_SERVICE); \
+        chmod +x $(SERV_SERVICE_DIR)/process.$(SERV_SERVICE); \
+	tpage $(SERV_TPAGE_ARGS) service/start_python_service.tt > $(SERV_SERVICE_DIR)/start_python_service; \
+	chmod +x $(SERV_SERVICE_DIR)/start_python_service; \
+	tpage $(SERV_TPAGE_ARGS) service/stop_python_service.tt > $(SERV_SERVICE_DIR)/stop_python_service; \
+	chmod +x $(SERV_SERVICE_DIR)/stop_python_service;
+	#tpage $(SERV_TPAGE_ARGS) service/start_service.tt > $(SERV_SERVICE_DIR)/start_service; \
+	#chmod +x $(SERV_SERVICE_DIR)/start_service; \
+        #tpage $(SERV_TPAGE_ARGS) service/stop_service.tt > $(SERV_SERVICE_DIR)/stop_service; \
+        #chmod +x $(SERV_SERVICE_DIR)/stop_service; \
 
 deploy-perlscripts:
 	# These three are needed to make these variables appear in the wrapped script
@@ -131,6 +135,8 @@ compile-typespec:
 	touch lib/biokbase/__init__.py
 	touch lib/biokbase/${SERVICE_NAME}/__init__.py
 	mkdir -p lib/javascript/${SERVICE_NAME}
+	# The PSGI file that gets created is in Perl and it creates incorrect "use" statements
+	# for the impl file and the service if we dont' specify these.
 	compile_typespec \
 	--pyimpl biokbase.${SERVICE_NAME}.Impl \
 	--pyserver biokbase.${SERVICE_NAME}.Server \
