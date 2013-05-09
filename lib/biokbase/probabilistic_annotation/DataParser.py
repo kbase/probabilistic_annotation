@@ -290,6 +290,6 @@ def getConfig(filename):
     retconfig = {}
     config = ConfigParser()
     config.read(filename)
-    for nameval in config.items("ProbabilisticAnnotation"):
+    for nameval in config.items("probabilistic_annotation"):
         retconfig[nameval[0]] = nameval[1]
     return retconfig
