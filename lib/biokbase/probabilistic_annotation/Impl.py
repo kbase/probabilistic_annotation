@@ -1,5 +1,5 @@
 #BEGIN_HEADER
-import sys, sys, tempfile, shutil
+import sys, time, tempfile, shutil
 from os import environ
 from biokbase.probabilistic_annotation.DataExtractor import *
 from biokbase.probabilistic_annotation.DataParser import *
