@@ -661,45 +661,33 @@ class ProbabilisticAnnotation:
             
         return True
     
-    def safeRemove(fname, dirname):
-        totalfname = os.path.join(dirname, fname)
-        try:
-            # Check for file existence
-            fid = open(totalfname, "r")
-            fid.close()
-            os.remove(totalfname)
-        # If there is still an OSError despite the file existing we want to raise that, it will probably
-        # cause problems trying to write to the files anyway. but an IOError just means the file isn't there.
-        except IOError:
-            pass
-    
     #END_CLASS_HEADER
 
     def __init__(self, config): #config contains contents of config file in hash or 
                                 #None if it couldn't be found
         #BEGIN_CONSTRUCTOR
         if config == None:
-            # How about checking for environment variable and reading the file for ourselves.
-            print("why is the config not set")
-#             self.config = { }
-#             self.config["cdmi_url"] = "http://kbase.us/services/cdmi_api/"
-#             self.config["workspace_url"] = "http://kbase.us/services/workspace/"
-#             self.config["fbamodelservices_url"] = "http://localhost:7036"
-#             self.config["data_folder_path"] = "/home/mmundy/kb/deployment/services/probabilistic_annotation/data"
-#             self.config["subsystem_fid_file"] = "SUBSYSTEM_FIDS"
-#             self.config["dlit_fid_file"] = "DLIT_FIDS"
-#             self.config["concatenated_fid_file"] = "ALL_FIDS"
-#             self.config["concatenated_fid_role_file"] = "ALL_FID_ROLES"
-#             self.config["otu_id_file"] = "OTU_GENOME_IDS"
-#             self.config["subsystem_otu_fid_roles_file"] = "SUBSYSTEM_OTU_FID_ROLES"
-#             self.config["subsystem_otu_fasta_file"] = "SUBSYSTEM_FASTA"
-#             self.config["complexes_roles_file"] = "COMPLEXES_ROLES"
-#             self.config["reaction_complexes_file"] = "REACTIONS_COMPLEXES"
-#             self.config["work_folder_path"] = "/tmp"
-#             self.config["separator"] = "///"
-#             self.config["dilution_percent"] = 80
+            # There needs to be a config for the server to work.
+            raise ValueError("__init__: A valid configuration was not provided.  Check KB_DEPLOYMENT_CONFIG and KB_SERVICE_NAME environment variables.")
         else:
             self.config = config
+            
+        # See if the static database files are available.
+        gendataScript = "/home/mmundy/kb/deployment/bin/probanno-gendata"
+        statusFilePath = os.path.join(config["data_folder_path"], "status")
+        logFilePath = os.path.join(config["data_folder_path"], "generate.log")
+        try:
+            fid = open(statusFilePath, "r")
+            sys.stderr.write("Database files status is %s\n" %(fid.readline()))
+            fid.close()
+        except IOError:
+            fid = open(statusFilePath, "w")
+            fid.write("running\nstarted at %s\n" %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime())))
+            fid.close()
+            cmdline = "nohup %s %s >%s 2>&1 &" %(gendataScript, environ["KB_DEPLOYMENT_CONFIG"], logFilePath)
+            status = os.system(cmdline)
+            sys.stderr.write("Generating static data files\n")
+            
         #END_CONSTRUCTOR
         pass
 
