@@ -44,7 +44,7 @@ def generate_data(config):
         otus, prokotus = readOtuData(config)
     except IOError:
         sys.stderr.write("failed...generating file...")
-        otus, prokotus = getOtuGenomeIds(MINN, COUNT)
+        otus, prokotus = getOtuGenomeIds(MINN, COUNT, config)
         writeOtuData(otus, prokotus, config)
     sys.stderr.write("done\n")
     
@@ -55,7 +55,7 @@ def generate_data(config):
         sub_fids = readSubsystemFids(config)
     except IOError:
         sys.stderr.write("failed...generating file...")
-        sub_fids = subsystemFids(MINN, COUNT)
+        sub_fids = subsystemFids(MINN, COUNT, config)
         writeSubsystemFids(sub_fids, config)
     sys.stderr.write("done\n")
     
@@ -68,7 +68,7 @@ def generate_data(config):
         dlit_fids = readDlitFids(config)
     except IOError:
         sys.stderr.write("failed...generating file...")
-        dlit_fids = getDlitFids(MINN, COUNT)
+        dlit_fids = getDlitFids(MINN, COUNT, config)
         writeDlitFids(dlit_fids, config)
     sys.stderr.write("done\n")
     
@@ -101,7 +101,7 @@ def generate_data(config):
         all_fidsToRoles, all_rolesToFids = readAllFidRoles(config)
     except IOError:
         sys.stderr.write("failed...generating file...")
-        all_fidsToRoles, all_rolesToFids = fidsToRoles(all_fids)
+        all_fidsToRoles, all_rolesToFids = fidsToRoles(all_fids, config)
         writeAllFidRoles(all_fidsToRoles, config)
     sys.stderr.write("done\n")
     
@@ -114,8 +114,8 @@ def generate_data(config):
         otu_fidsToRoles, otu_rolesToFids = readFilteredOtuRoles(config)
     except IOError:
         sys.stderr.write("failed...generating file...")
-        otudict = getOtuGenomeDictionary(MINN, COUNT)
-        otu_fidsToRoles, otu_rolesToFids, missing_roles = filterFidsByOtusBetter(all_fidsToRoles, all_rolesToFids, otudict)
+        otudict = getOtuGenomeDictionary(MINN, COUNT, config)
+        otu_fidsToRoles, otu_rolesToFids, missing_roles = filterFidsByOtusBetter(all_fidsToRoles, all_rolesToFids, otudict, config)
         writeFilteredOtuRoles(otu_fidsToRoles, config)
     sys.stderr.write("done\n")
     
@@ -126,7 +126,7 @@ def generate_data(config):
         readSubsystemFasta(config)
     except IOError:
         sys.stderr.write("failed...generating file...")
-        fidsToSeqs = fidsToSequences(otu_fidsToRoles.keys())
+        fidsToSeqs = fidsToSequences(otu_fidsToRoles.keys(), config)
         writeSubsystemFasta(fidsToSeqs, config)
     sys.stderr.write("done\n")
     
@@ -141,7 +141,7 @@ def generate_data(config):
         complexToRequiredRoles = readComplexRoles(config)
     except IOError:
         sys.stderr.write("failed...generating file...")
-        complexToRequiredRoles, requiredRolesToComplexes = complexRoleLinks(MINN, COUNT)
+        complexToRequiredRoles, requiredRolesToComplexes = complexRoleLinks(MINN, COUNT, config)
         writeComplexRoles(complexToRequiredRoles, config)
     sys.stderr.write("done\n")
     
@@ -153,7 +153,7 @@ def generate_data(config):
         rxnToComplexes = readReactionComplex(config)
     except IOError:
         sys.stderr.write("failed...generating file...")
-        rxnToComplexes, complexesToReactions = reactionComplexLinks(MINN, COUNT)
+        rxnToComplexes, complexesToReactions = reactionComplexLinks(MINN, COUNT, config)
         writeReactionComplex(rxnToComplexes, config)
     sys.stderr.write("done\n")
     
