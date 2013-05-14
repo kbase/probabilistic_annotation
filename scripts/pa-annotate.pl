@@ -95,6 +95,12 @@ if (!defined($output)) {
 	print "Probabilistic annotation failed!\n";
 	exit 1;
 } else {
-	print "Probabilistic annotation job ".$output." successfully submitted\n";
+	my $jobid;
+#	if (ref($output) eq "ARRAY") {
+#		$jobid = $output[0];
+#	} else {
+		$jobid = $output;
+#	}
+	print "Probabilistic annotation job ".$jobid." successfully submitted\n";
 }
 exit 0;

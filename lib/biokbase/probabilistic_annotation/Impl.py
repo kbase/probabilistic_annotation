@@ -673,20 +673,23 @@ class ProbabilisticAnnotation:
             self.config = config
             
         # See if the static database files are available.
-        gendataScript = "/home/mmundy/kb/deployment/bin/probanno-gendata"
-        statusFilePath = os.path.join(config["data_folder_path"], "status")
-        logFilePath = os.path.join(config["data_folder_path"], "generate.log")
+        gendataScript = "%s/bin/probanno-gendata" %(environ["KB_TOP"])
+        statusFilePath = os.path.join(config["data_folder_path"], "gendata.status")
+        logFilePath = os.path.join(config["data_folder_path"], "gendata.log")
         try:
             fid = open(statusFilePath, "r")
             sys.stderr.write("Database files status is %s\n" %(fid.readline()))
             fid.close()
         except IOError:
-            fid = open(statusFilePath, "w")
-            fid.write("running\nstarted at %s\n" %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime())))
-            fid.close()
-            cmdline = "nohup %s %s >%s 2>&1 &" %(gendataScript, environ["KB_DEPLOYMENT_CONFIG"], logFilePath)
-            status = os.system(cmdline)
-            sys.stderr.write("Generating static data files\n")
+            if config["generate_data_option"] == "runjob":
+                raise RuntimeError("__init__: Database files are not available")
+            else:
+                fid = open(statusFilePath, "w")
+                fid.write("running\nstarted at %s\n" %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime())))
+                fid.close()
+                cmdline = "nohup %s %s >%s 2>&1 &" %(gendataScript, environ["KB_DEPLOYMENT_CONFIG"], logFilePath)
+                status = os.system(cmdline)
+                sys.stderr.write("Generating static data files\n")
             
         #END_CONSTRUCTOR
         pass
