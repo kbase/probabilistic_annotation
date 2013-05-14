@@ -389,12 +389,12 @@ class ProbabilisticAnnotation:
             
         return totalRoleProbs
     
-    def complexProbabilities(self, input, genome, totalRoleProbs, workFolder):
+    def complexProbabilities(self, input, genome, totalRoleProbs, workFolder, complexesToRequiredRoles = None):
         '''Compute the probability of each complex from the probability of each role.
     
         The complex probability is computed as the minimum probability of roles within that complex.
         
-        The output file to this has four columns
+        The output to this is a tuple with the following five fields (a file is printed with the same format if "debug" is specified as an input):
         Complex   |   Probability   | Type   |  Roles_not_in_organism  |  Roles_not_in_subsystems
         
         Type: 
@@ -403,13 +403,17 @@ class ProbabilisticAnnotation:
         CPLX_PARTIAL (only some roles found - only those roles that were found were utilized; does not distinguish between not there and no reps for those not found)
         CPLX_NOTTHERE (Probability of 0 because the genes aren't there for any of the subunits)
         CPLX_NOREPS (Probability of 0 because there are no representative genes in the subsystems)
+
+        complexesToRequiredRoles is a dictionary from complex to the roles involved in forming that complex. If it is None
+        we read it from the CDMI files we downloaded, otherwise we use the provided dictionary.
         '''
     
         if input["verbose"]:
             sys.stderr.write("%s: Started computing complex probabilities\n" %(genome))
     
-        # Get the mapping from complexes to roles.
-        complexesToRequiredRoles = readComplexRoles(self.config)
+        # Get the mapping from complexes to roles if it isn't already provided.
+        if complexesToRequiredRoles is None:
+            complexesToRequiredRoles = readComplexRoles(self.config)
         
         # Get the subsystem roles (used to distinguish between NOTTHERE and NOREPS).
         otu_fidsToRoles, otu_rolesToFids  = readFilteredOtuRoles(self.config)
@@ -488,7 +492,7 @@ class ProbabilisticAnnotation:
             sys.stderr.write("%s: Finished computing complex probabilities\n" %(genome))
         return complexProbs
     
-    def reactionProbabilities(self, input, genome, complexProbs, workFolder):
+    def reactionProbabilities(self, input, genome, complexProbs, workFolder, rxnsToComplexes = None):
         '''From the probability of complexes estimate the probability of reactions.
     
         The reaction probability is computed as the maximum probability of complexes that perform
@@ -504,8 +508,11 @@ class ProbabilisticAnnotation:
         and make it easier to catch issues with reaction --> complex links in the database.
         Some of the infrastructure is already there (with the TYPE).
     
-        ComplexInfo is information about the complex IDs, their probabilities, and their TYPE
+        ComplexProbs is information about the complex IDs, their probabilities, and their TYPE
         (see ComplexProbabilities)
+
+        rxnsToComplexes - this is None unless it is provided by Chris's function. Otherwise it is a
+        dictionary from reaction to a list of catalyzing complexes.
         '''
     
         if input["verbose"]:
@@ -516,9 +523,11 @@ class ProbabilisticAnnotation:
         for tuple in complexProbs:
             cplxToTuple[tuple[0]] = ( tuple[1], tuple[2], tuple[5] )
         
-        # Take the MAXIMUM probability of complexes
-        rxnsToComplexes = readReactionComplex(self.config)
-    
+        if rxnsToComplexes is None:
+            rxnsToComplexes = readReactionComplex(self.config)
+
+        # Take the MAXIMUM probability of complexes catalyzing a particular reaction
+        # and call that the complex probability.
         reactionProbs = []
         for rxn in rxnsToComplexes:
             TYPE = "NOCOMPLEXES"
@@ -732,10 +741,16 @@ class ProbabilisticAnnotation:
         totalRoleProbs = self.totalRoleProbabilities(input, genome, roleProbs, workFolder)
         
         # Calculate complex probabilities.
-        complexProbs = self.complexProbabilities(input, genome, totalRoleProbs, workFolder)
+        # NOTE - when we have a roles_to_reactions function (or a reactions_to_roles would probably be better...) we need to
+        # make a dictionary from complexes to their roles, and then call this function with a non-None value in
+        # complexesToRequiredRoles
+        complexProbs = self.complexProbabilities(input, genome, totalRoleProbs, workFolder, complexesToRequiredRoles = None)
         
         # Calculate reaction probabilities.
-        reactionProbs = self.reactionProbabilities(input, genome, complexProbs, workFolder)
+        # NOTE - when we have a roles_to_reactions function (or a reactions_to_roles would probably be better...) we need to
+        # make a dictionary from reactions to their complexes, and then call this function with a non-None value in
+        # rxnsToComplexes.
+        reactionProbs = self.reactionProbabilities(input, genome, complexProbs, workFolder, rxnsToComplexes = None)
  
         # Translate IDs to modelSEED IDs
         output = []
