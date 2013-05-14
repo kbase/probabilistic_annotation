@@ -38,10 +38,9 @@ AUTHORS
 ";
 
 # Define usage and options.
-my $primaryArgs = [ "ProbAnno ID", "Model ID" ];
+my $primaryArgs = [ "ProbAnno ID" ];
 my ( $opt, $usage ) = describe_options(
     'pa-calculate <' . join( "> <", @{$primaryArgs} ) . '> %o',
-    [ 'modelws|w:s', 'ID of workspace where Model object is saved', { "default" => workspace() } ],
     [ 'probannows:s', 'ID of workspace where ProbAnno object is stored', { "default" => workspace() } ],
     [ 'overwrite|o', "Set as 1 to overwrite existing Model object with same name", { "default" => 0 } ],
     [ 'debug|d', "Set as 1 to keep intermediate files for debug purposes", { "default" => 0 } ],
@@ -74,9 +73,7 @@ my $client = get_probanno_client();
 # Define translation from options to function parameters.
 my $translation = {
     "ProbAnno ID" => "probanno",
-    "Model ID"    => "model",
     probannows    => "probanno_workspace",
-    modelws       => "model_workspace",
     overwrite     => "overwrite",
     debug         => "debug"
 };

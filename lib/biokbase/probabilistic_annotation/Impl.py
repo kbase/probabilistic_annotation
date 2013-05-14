@@ -6,6 +6,8 @@ from biokbase.probabilistic_annotation.DataParser import *
 from biokbase.workspaceService.client import *
 from biokbase.fbaModelServices.Client import *
 
+from biokbase.cdmi.client import CDMI_EntityAPI
+
 # Temporary for testing
 from random import randint
 #END_HEADER
@@ -492,8 +494,10 @@ class ProbabilisticAnnotation:
         The reaction probability is computed as the maximum probability of complexes that perform
         that reaction.
     
-        The output to this function is a file containing the following columns:
-        Reaction   |  Probability  |  RxnType  |  ComplexInfo
+        The output to this function is a list of tuples containing the following elements:
+        Reaction   |  Probability  |  RxnType  |  ComplexInfo | GPR
+
+        If the "debug" flag is set we also produce a file with these columns in the workFolder.
     
         If the reaction has no complexes it won't even be in this file becuase of the way
         I set up the call... I could probably change this so that I get a list of ALL reactions
@@ -545,32 +549,6 @@ class ProbabilisticAnnotation:
         if input["verbose"]:
             sys.stderr.write("%s: Finished computing reaction probabilities\n" %(genome))
         return reactionProbs
-    
-    def buildModelObject(self, input, genome, genomeWorkspace, reactionProbs):
-        ''' Create a probability model object from the reaction probabilities.'''
-        
-        if input["verbose"]:
-            sys.stderr.write("%s: Started building model object\n" %(genome))
-        
-        # Build the list of reaction probabilities.
-        rxnProbList = []
-        for rxn in reactionProbs:
-            rxnProbList.append( (rxn[0], rxn[1], rxn[4]) )
-            
-        # Create a fba modeling service client.
-        fbaModelClient = fbaModelServices(self.config["fbamodelservices_url"])
-        
-        # Build a model from the input genome and reaction probabilities.
-        probFbaModelParams = { "genome": genome, "genome_workspace": genomeWorkspace,
-                               "model": input["model"], "workspace": input["model_workspace"],
-                               "reaction_probs": rxnProbList, "default_prob": 0.0,
-                               "overwrite": input["overwrite"], "auth": input["auth"] }
-        metadata = fbaModelClient.genome_to_probfbamodel(probFbaModelParams)
-        
-        if input["verbose"]:
-            sys.stderr.write("%s: Finished building model object\n" %(genome))
-            
-        return metadata
     
     def metaboliteWeights(params, model):
         
@@ -750,6 +728,7 @@ class ProbabilisticAnnotation:
         roleProbs = self.rolesetProbabilitiesToRoleProbabilities(input, genome, probannoObject["data"]["rolesetProbabilities"], workFolder)
     
         # Calculate whole cell role probabilities.
+        # Note - eventually workFolder will be replaced with a rolesToReactions call
         totalRoleProbs = self.totalRoleProbabilities(input, genome, roleProbs, workFolder)
         
         # Calculate complex probabilities.
@@ -757,10 +736,16 @@ class ProbabilisticAnnotation:
         
         # Calculate reaction probabilities.
         reactionProbs = self.reactionProbabilities(input, genome, complexProbs, workFolder)
-    
-        # Create the model with reaction probabilities.
-        output = self.buildModelObject(input, genome, probannoObject["data"]["genome_workspace"], reactionProbs)
-    
+ 
+        # Translate IDs to modelSEED IDs
+        output = []
+        EntityAPI = CDMI_EntityAPI(self.config["cdmi_url"])
+        for tup in reactionProbs:
+            rxndata = EntityAPI.get_entity_Reaction( [ tup[0] ], [ "source_id" ] )
+            # What a freaking mess...
+            newtup = [ rxndata[tup[0]]["source_id"] ] + list(tup[1:])
+            output.append(tuple(newtup))
+
         #END calculate
 
         #At some point might do deeper type checking...
