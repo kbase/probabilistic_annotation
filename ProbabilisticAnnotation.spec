@@ -96,6 +96,17 @@ module ProbabilisticAnnotation
 		list<feature_id> skippedFeatures;
     } ProbabilisticAnnotation;
     
+    /* Data structure to hold probability of a reaction
+    
+    	reaction_id reaction - ID of the reaction
+    	float probability - Probability of the reaction
+    	string type - Type of complexes ("HASCOMPLEXES" or "NOCOMPLEXES")
+    	string complex_info - Detailed information on complexes
+    	string gene_list - List of genes most likely to be attached to reaction
+    	
+    */
+    typedef tuple<reaction_id reaction, float probability, string type, string complex_info, string gene_list> ReactionProbability;
+
 	/* ************************************************************************************* */
 	/* FUNCTION DEFINITIONS */
 	/* ************************************************************************************* */
@@ -108,6 +119,7 @@ module ProbabilisticAnnotation
        workspace_id probanno_workspace - ID workspace where ProbAnno object is saved
        bool overwrite - True to overwrite existing ProbAnno object with same name
        bool debug - True to keep intermediate files for debug purposes
+	   bool verbose - True to print verbose messages
        string auth - Authentication token of KBase user
     */
     typedef structure {
@@ -117,6 +129,7 @@ module ProbabilisticAnnotation
 		workspace_id probanno_workspace;
 		bool overwrite;
 		bool debug;
+		bool verbose;
 		string auth;
     } annotate_params;
 
@@ -126,22 +139,18 @@ module ProbabilisticAnnotation
     
 		probanno_id probanno - ID of ProbAnno object
 		workspace_id probanno_workspace - ID of workspace where ProbAnno object is stored
-		model_id model - ID of Model object
-		workspace_id model_workspace - ID of workspace where Model object is saved   
-		bool overwrite - True to overwrite existing ProbAnno object with same name
 		bool debug - True to keep intermediate files for debug purposes
+		bool verbose - True to print verbose messages
 		string auth - Authentication token of KBase user
     */
     typedef structure {
     	probanno_id probanno;
     	workspace_id probanno_workspace;
-    	model_id model;
-    	workspace_id model_workspace;
-    	bool overwrite;
     	bool debug;
+    	bool verbose;
     	string auth;
     } calculate_params;
     
-	funcdef calculate(calculate_params input) returns(object_metadata output);
+	funcdef calculate(calculate_params input) returns(list<ReactionProbability> output);
 	    	
 };

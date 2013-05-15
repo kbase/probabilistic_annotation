@@ -74,8 +74,8 @@ my $client = get_probanno_client();
 my $translation = {
     "ProbAnno ID" => "probanno",
     probannows    => "probanno_workspace",
-    overwrite     => "overwrite",
-    debug         => "debug"
+    debug         => "debug",
+    verbose       => "verbose"
 };
 
 # Instantiate parameters for function.
@@ -89,10 +89,11 @@ foreach my $key ( keys( %{$translation} ) ) {
 # Call the function.
 my $output = $client->calculate($params);
 if (!defined($output)) {
-	print "Probabilistic annotation failed!\n";
+	print "Calculating reactions failed!\n";
 	exit 1;
 } else {
-	print "Probability model successfully generated in workspace:\n";
-	printObjectMeta($output);
+	foreach my $rxnprob ( @{$output}) {
+		print join("\t", $rxnprob->[0], $rxnprob->[1], $rxnprob->[2], $rxnprob->[3], $rxnprob->[4])."\n";
+	}
 }
 exit 0;
