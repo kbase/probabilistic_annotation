@@ -659,6 +659,10 @@ class ProbabilisticAnnotation:
         else:
             self.config = config
             
+        # Create the data folder if it does not exist.
+        if not os.path.exists(config["data_folder_path"]):
+            os.makedirs(config["data_folder_path"])
+            
         # See if the static database files are available.
         gendataScript = "%s/bin/probanno-gendata" %(environ["KB_TOP"])
         statusFilePath = os.path.join(config["data_folder_path"], "gendata.status")
