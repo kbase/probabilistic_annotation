@@ -23,8 +23,8 @@ module ProbabilisticAnnotation
 	/* A string indicating the type of an object stored in a workspace. */
 	typedef string object_type;
 	
-	/* A string identifier for a model object. */
-	typedef string model_id;
+	/* A string identifier for a reaction object. */
+	typedef string reaction_id;
 	
 	/* ID of an object stored in the workspace. */
 	typedef string object_id;

@@ -65,6 +65,7 @@ annotate_params is a reference to a hash where the following keys are defined:
 	probanno_workspace has a value which is a workspace_id
 	overwrite has a value which is a bool
 	debug has a value which is a bool
+	verbose has a value which is a bool
 	auth has a value which is a string
 genome_id is a string
 workspace_id is a string
@@ -86,6 +87,7 @@ annotate_params is a reference to a hash where the following keys are defined:
 	probanno_workspace has a value which is a workspace_id
 	overwrite has a value which is a bool
 	debug has a value which is a bool
+	verbose has a value which is a bool
 	auth has a value which is a string
 genome_id is a string
 workspace_id is a string
@@ -97,8 +99,7 @@ bool is an int
 
 =item Description
 
-This function, rather than using an already-loaded genome object, loads a genome from the specified workspace
-before running the probabilistic annotation algorithm.
+
 
 =back
 
@@ -162,36 +163,23 @@ sub annotate
 
 <pre>
 $input is a calculate_params
-$output is an object_metadata
+$output is a reference to a list where each element is a ReactionProbability
 calculate_params is a reference to a hash where the following keys are defined:
 	probanno has a value which is a probanno_id
 	probanno_workspace has a value which is a workspace_id
-	model has a value which is a model_id
-	model_workspace has a value which is a workspace_id
-	overwrite has a value which is a bool
 	debug has a value which is a bool
+	verbose has a value which is a bool
 	auth has a value which is a string
 probanno_id is a string
 workspace_id is a string
-model_id is a string
 bool is an int
-object_metadata is a reference to a list containing 11 items:
-	0: (id) an object_id
-	1: (type) an object_type
-	2: (moddate) a timestamp
-	3: (instance) an int
-	4: (command) a string
-	5: (lastmodifier) a username
-	6: (owner) a username
-	7: (workspace) a workspace_id
-	8: (ref) a workspace_ref
-	9: (chsum) a string
-	10: (metadata) a reference to a hash where the key is a string and the value is a string
-object_id is a string
-object_type is a string
-timestamp is a string
-username is a string
-workspace_ref is a string
+ReactionProbability is a reference to a list containing 5 items:
+	0: (reaction) a reaction_id
+	1: (probability) a float
+	2: (type) a string
+	3: (complex_info) a string
+	4: (gene_list) a string
+reaction_id is a string
 
 </pre>
 
@@ -200,36 +188,23 @@ workspace_ref is a string
 =begin text
 
 $input is a calculate_params
-$output is an object_metadata
+$output is a reference to a list where each element is a ReactionProbability
 calculate_params is a reference to a hash where the following keys are defined:
 	probanno has a value which is a probanno_id
 	probanno_workspace has a value which is a workspace_id
-	model has a value which is a model_id
-	model_workspace has a value which is a workspace_id
-	overwrite has a value which is a bool
 	debug has a value which is a bool
+	verbose has a value which is a bool
 	auth has a value which is a string
 probanno_id is a string
 workspace_id is a string
-model_id is a string
 bool is an int
-object_metadata is a reference to a list containing 11 items:
-	0: (id) an object_id
-	1: (type) an object_type
-	2: (moddate) a timestamp
-	3: (instance) an int
-	4: (command) a string
-	5: (lastmodifier) a username
-	6: (owner) a username
-	7: (workspace) a workspace_id
-	8: (ref) a workspace_ref
-	9: (chsum) a string
-	10: (metadata) a reference to a hash where the key is a string and the value is a string
-object_id is a string
-object_type is a string
-timestamp is a string
-username is a string
-workspace_ref is a string
+ReactionProbability is a reference to a list containing 5 items:
+	0: (reaction) a reaction_id
+	1: (probability) a float
+	2: (type) a string
+	3: (complex_info) a string
+	4: (gene_list) a string
+reaction_id is a string
 
 
 =end text
@@ -531,7 +506,7 @@ a string
 
 
 
-=head2 model_id
+=head2 reaction_id
 
 =over 4
 
@@ -539,7 +514,7 @@ a string
 
 =item Description
 
-A string identifier for a model object.
+A string identifier for a reaction object.
 
 
 =item Definition
@@ -889,6 +864,55 @@ skippedFeatures has a value which is a reference to a list where each element is
 
 
 
+=head2 ReactionProbability
+
+=over 4
+
+
+
+=item Description
+
+Data structure to hold probability of a reaction
+
+        reaction_id reaction - ID of the reaction
+        float probability - Probability of the reaction
+        string type - Type of complexes ("HASCOMPLEXES" or "NOCOMPLEXES")
+        string complex_info - Detailed information on complexes
+        string gene_list - List of genes most likely to be attached to reaction
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a list containing 5 items:
+0: (reaction) a reaction_id
+1: (probability) a float
+2: (type) a string
+3: (complex_info) a string
+4: (gene_list) a string
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a list containing 5 items:
+0: (reaction) a reaction_id
+1: (probability) a float
+2: (type) a string
+3: (complex_info) a string
+4: (gene_list) a string
+
+
+=end text
+
+=back
+
+
+
 =head2 annotate_params
 
 =over 4
@@ -905,6 +929,7 @@ Input parameters for the "annotate" function.
        workspace_id probanno_workspace - ID workspace where ProbAnno object is saved
        bool overwrite - True to overwrite existing ProbAnno object with same name
        bool debug - True to keep intermediate files for debug purposes
+           bool verbose - True to print verbose messages
        string auth - Authentication token of KBase user
 
 
@@ -920,6 +945,7 @@ probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
 overwrite has a value which is a bool
 debug has a value which is a bool
+verbose has a value which is a bool
 auth has a value which is a string
 
 </pre>
@@ -935,6 +961,7 @@ probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
 overwrite has a value which is a bool
 debug has a value which is a bool
+verbose has a value which is a bool
 auth has a value which is a string
 
 
@@ -956,10 +983,8 @@ Input parameters for the "calculate" function.
 
             probanno_id probanno - ID of ProbAnno object
             workspace_id probanno_workspace - ID of workspace where ProbAnno object is stored
-            model_id model - ID of Model object
-            workspace_id model_workspace - ID of workspace where Model object is saved   
-            bool overwrite - True to overwrite existing ProbAnno object with same name
             bool debug - True to keep intermediate files for debug purposes
+            bool verbose - True to print verbose messages
             string auth - Authentication token of KBase user
 
 
@@ -971,10 +996,8 @@ Input parameters for the "calculate" function.
 a reference to a hash where the following keys are defined:
 probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
-model has a value which is a model_id
-model_workspace has a value which is a workspace_id
-overwrite has a value which is a bool
 debug has a value which is a bool
+verbose has a value which is a bool
 auth has a value which is a string
 
 </pre>
@@ -986,10 +1009,8 @@ auth has a value which is a string
 a reference to a hash where the following keys are defined:
 probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
-model has a value which is a model_id
-model_workspace has a value which is a workspace_id
-overwrite has a value which is a bool
 debug has a value which is a bool
+verbose has a value which is a bool
 auth has a value which is a string
 
 
