@@ -38,23 +38,23 @@ def generate_data(config):
     sys.stderr.write("Generating static database files...\n")
     
     # Get lists of OTUs
-    sys.stderr.write("OTU data...")
+    sys.stderr.write("OTU data...\n")
     try:
-        sys.stderr.write("reading from file...")
+        sys.stderr.write("  reading from file...")
         otus, prokotus = readOtuData(config)
     except IOError:
-        sys.stderr.write("failed...generating file...")
+        sys.stderr.write("failed\n  generating file...")
         otus, prokotus = getOtuGenomeIds(MINN, COUNT, config)
         writeOtuData(otus, prokotus, config)
     sys.stderr.write("done\n")
     
     # Get a list of subsystem FIDs
-    sys.stderr.write("List of subsystem FIDS...")
+    sys.stderr.write("List of subsystem FIDS...\n")
     try:
-        sys.stderr.write("reading from file...")
+        sys.stderr.write("  reading from file...")
         sub_fids = readSubsystemFids(config)
     except IOError:
-        sys.stderr.write("failed...generating file...")
+        sys.stderr.write("failed\n  generating file...")
         sub_fids = subsystemFids(MINN, COUNT, config)
         writeSubsystemFids(sub_fids, config)
     sys.stderr.write("done\n")
@@ -62,12 +62,12 @@ def generate_data(config):
     # Get a list of Dlit FIDSs
     # We include these because having them greatly expands the
     # number of roles for which we have representatives.
-    sys.stderr.write("Getting a list of DLit FIDs...")
+    sys.stderr.write("Getting a list of DLit FIDs...\n")
     try:
-        sys.stderr.write("reading from file...")
+        sys.stderr.write("  reading from file...")
         dlit_fids = readDlitFids(config)
     except IOError:
-        sys.stderr.write("failed...generating file...")
+        sys.stderr.write("failed\n  generating file...")
         dlit_fids = getDlitFids(MINN, COUNT, config)
         writeDlitFids(dlit_fids, config)
     sys.stderr.write("done\n")
@@ -77,16 +77,16 @@ def generate_data(config):
     # can lead to the same kinds of biases as not filtering
     # the subsystems... I'm not sure the problem would
     # be as bad for these though)
-    sys.stderr.write("Combining lists of subsystem and DLit FIDS...")
+    sys.stderr.write("Combining lists of subsystem and DLit FIDS...\n")
     fn = os.path.join(config["data_folder_path"], config["concatenated_fid_file"])
     try:
-        sys.stderr.write("reading from file...")
+        sys.stderr.write("  reading from file...")
         all_fids = set()
         for line in open(fn, "r"):
             all_fids.add(line.strip("\r\n"))
         all_fids = list(all_fids)
     except IOError:
-        sys.stderr.write("failed...generating file...")
+        sys.stderr.write("failed\n  generating file...")
         all_fids = list(set(sub_fids + dlit_fids))
         f = open(fn, "w")
         for fid in all_fids:
@@ -95,12 +95,12 @@ def generate_data(config):
     sys.stderr.write("done\n")
     
     # Identify roles for the OTU genes
-    sys.stderr.write("Roles for un-filtered list...")
+    sys.stderr.write("Roles for un-filtered list...\n")
     try:
-        sys.stderr.write("reading from file...")
+        sys.stderr.write("  reading from file...")
         all_fidsToRoles, all_rolesToFids = readAllFidRoles(config)
     except IOError:
-        sys.stderr.write("failed...generating file...")
+        sys.stderr.write("failed\n  generating file...")
         all_fidsToRoles, all_rolesToFids = fidsToRoles(all_fids, config)
         writeAllFidRoles(all_fidsToRoles, config)
     sys.stderr.write("done\n")
@@ -108,24 +108,24 @@ def generate_data(config):
     # Filter the subsystem FIDs by organism. We only want OTU genes.
     # Unlike the neighborhood analysis, we don't want to include only 
     # prokaryotes here.
-    sys.stderr.write("Filtered list by OTUs...")
+    sys.stderr.write("Filtered list by OTUs...\n")
     try:
-        sys.stderr.write("reading from file...")
+        sys.stderr.write("  reading from file...")
         otu_fidsToRoles, otu_rolesToFids = readFilteredOtuRoles(config)
     except IOError:
-        sys.stderr.write("failed...generating file...")
+        sys.stderr.write("failed\n  generating file...")
         otudict = getOtuGenomeDictionary(MINN, COUNT, config)
         otu_fidsToRoles, otu_rolesToFids, missing_roles = filterFidsByOtusBetter(all_fidsToRoles, all_rolesToFids, otudict, config)
         writeFilteredOtuRoles(otu_fidsToRoles, config)
     sys.stderr.write("done\n")
     
     # Generate a FASTA file for the fids in fidsToRoles
-    sys.stderr.write("Subsystem FASTA file...")
+    sys.stderr.write("Subsystem FASTA file...\n")
     try:
-        sys.stderr.write("reading from file...")
+        sys.stderr.write("  reading from file...")
         readSubsystemFasta(config)
     except IOError:
-        sys.stderr.write("failed...generating file...")
+        sys.stderr.write("failed\n  generating file...")
         fidsToSeqs = fidsToSequences(otu_fidsToRoles.keys(), config)
         writeSubsystemFasta(fidsToSeqs, config)
     sys.stderr.write("done\n")
@@ -135,24 +135,24 @@ def generate_data(config):
     # to reaction likelihoods
     # Note that it is easier to go in this direction 
     #    Because we need all the roles in a complex to get the probability of that complex.
-    sys.stderr.write("Complexes to roles...")
+    sys.stderr.write("Complexes to roles...\n")
     try:
-        sys.stderr.write("reading from file...")
+        sys.stderr.write("  reading from file...")
         complexToRequiredRoles = readComplexRoles(config)
     except IOError:
-        sys.stderr.write("failed...generating file...")
+        sys.stderr.write("failed\n  generating file...")
         complexToRequiredRoles, requiredRolesToComplexes = complexRoleLinks(MINN, COUNT, config)
         writeComplexRoles(complexToRequiredRoles, config)
     sys.stderr.write("done\n")
     
     # reaction --> complex
     # Again it is easier to go in this direction since we'll be filtering multiple complexes down to a single reaction.    
-    sys.stderr.write("Reactions to complexes...")
+    sys.stderr.write("Reactions to complexes...\n")
     try:
-        sys.stderr.write("reading from file...")
+        sys.stderr.write("  reading from file...")
         rxnToComplexes = readReactionComplex(config)
     except IOError:
-        sys.stderr.write("failed...generating file...")
+        sys.stderr.write("failed\n  generating file...")
         rxnToComplexes, complexesToReactions = reactionComplexLinks(MINN, COUNT, config)
         writeReactionComplex(rxnToComplexes, config)
     sys.stderr.write("done\n")

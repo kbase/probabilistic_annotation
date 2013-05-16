@@ -106,6 +106,8 @@ def subsystemFids(MINN, COUNT, config):
     cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
     # Get Genes that are in Subsystems and in Otus.
     ssdict = cdmi_entity.all_entities_Subsystem(MINN,COUNT,["id"])
+    if len(ssdict) == COUNT:
+        sys.stderr.write("Maximum count reached for subsystem dictionary...")
     ssids = getFieldFromEntity(ssdict, "id")
 
     # Now lets get a list of FIDs within those subsystems
@@ -142,6 +144,8 @@ def getDlitFids(MINN, COUNT, config):
     cdmi = CDMI_API(config["cdmi_url"])
     cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
     pubdict = cdmi_entity.all_entities_Publication(MINN, COUNT, ["id"])
+    if len(pubdict) == COUNT:
+        sys.stderr.write("Maximum count reached for publication dictionary...")
     pubids = getFieldFromEntity(pubdict, "id")
     pub2seq = cdmi_entity.get_relationship_Concerns(pubids, [], [], ["id"])
     pubseqs = getFieldFromRelationship(pub2seq, "id", "to")
@@ -260,7 +264,7 @@ def getOtuGenomeDictionary(MINN, COUNT, config):
     '''Obtain a dictionary from OTU representatives to all genomes in the OTU'''
     cdmi = CDMI_API(config["cdmi_url"])
     # Get list of OTUs
-    otulist = getOtuGenomeIds(MINN, COUNT)
+    otulist = getOtuGenomeIds(MINN, COUNT, config)
     otudict = cdmi.otu_members(otulist[0])
     return otudict
 
@@ -341,6 +345,8 @@ def getOtuGenomeIds(MINN, COUNT, config):
 
     # Get the requested number of OTU
     otudict = cdmi_entity.all_entities_OTU(MINN, COUNT, ["id"])
+    if len(otudict) == COUNT:
+        sys.stderr.write("Maximum count reached for otu dictionary...")
     otuids = getFieldFromEntity(otudict, "id")
     gendict = cdmi_entity.get_relationship_IsCollectionOf(otuids, [], ["representative"], ["id", "prokaryotic"])
     isrep = getFieldFromRelationship(gendict, "representative", "rel")
@@ -410,6 +416,8 @@ def complexRoleLinks(MINN, COUNT, config):
     cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
     # Get a list of complexes
     cplxdict = cdmi_entity.all_entities_Complex(MINN, COUNT, ["id"])
+    if len(cplxdict) == COUNT:
+        sys.stderr.write("Maximum count reached for complex dictionary...")
     cplxlist = getFieldFromEntity(cplxdict, "id")
     # Get a list of roles linked to those complexes
     roledict = cdmi_entity.get_relationship_IsTriggeredBy(cplxlist, [], ["optional"], ["id"])
@@ -448,6 +456,8 @@ def reactionComplexLinks(MINN, COUNT, config):
     # but use the ER model instead.
     # I reflect that here...
     rxndict = cdmi_entity.all_entities_Reaction(MINN, COUNT, ["id"])
+    if len(rxndict) == COUNT:
+        sys.stderr.write("Maximum count reached for reaction dictionary...")
     rxns = getFieldFromEntity(rxndict, "id")
     cplxdict = cdmi_entity.get_relationship_IsStepOf(rxns, [], [], ["id"])
     rxnlist = getFieldFromRelationship(cplxdict, "from_link", "rel")
