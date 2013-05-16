@@ -8,6 +8,9 @@ from biokbase.fbaModelServices.Client import *
 
 from biokbase.cdmi.client import CDMI_EntityAPI
 
+class NotReadyError(Exception):
+    pass
+
 # Temporary for testing
 from random import randint
 #END_HEADER
@@ -648,6 +651,18 @@ class ProbabilisticAnnotation:
             
         return True
     
+    def checkDatabaseFiles(self):
+        '''Check the status of the static database files.'''
+        statusFilePath = os.path.join(self.config["data_folder_path"], self.config["status_file"])
+        try:
+            fid = open(statusFilePath, "r")
+            status = fid.readline()
+            fid.close()
+            if status.strip("\r\n") != "ready":
+                raise NotReadyError("Static database files are not ready.  Current status is %s." %(status))
+        except IOError:
+            raise NotReadyError("Static database files are not ready.  Failed to open status file %s." %(statusFilePath))
+
     #END_CLASS_HEADER
 
     def __init__(self, config): #config contains contents of config file in hash or 
@@ -665,7 +680,7 @@ class ProbabilisticAnnotation:
             
         # See if the static database files are available.
         gendataScript = "%s/bin/probanno-gendata" %(environ["KB_TOP"])
-        statusFilePath = os.path.join(config["data_folder_path"], "gendata.status")
+        statusFilePath = os.path.join(config["data_folder_path"], config["status_file"])
         logFilePath = os.path.join(config["data_folder_path"], "gendata.log")
         try:
             fid = open(statusFilePath, "r")
@@ -673,7 +688,7 @@ class ProbabilisticAnnotation:
             fid.close()
         except IOError:
             if config["generate_data_option"] == "runjob":
-                raise RuntimeError("__init__: Database files are not available")
+                raise NotReadyError("__init__: Database files are not available")
             else:
                 fid = open(statusFilePath, "w")
                 fid.write("running\nstarted at %s\n" %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime())))
@@ -689,6 +704,9 @@ class ProbabilisticAnnotation:
         # self.ctx is set by the wsgi application class
         # return variables are: jobid
         #BEGIN annotate
+        
+        # Make sure the static database files are ready.
+        self.checkDatabaseFiles()
         
         # Create a workspace client.
         wsClient = workspaceService(self.config["workspace_url"])
@@ -722,6 +740,9 @@ class ProbabilisticAnnotation:
         # self.ctx is set by the wsgi application class
         # return variables are: output
         #BEGIN calculate
+        
+        # Make sure the static database files are ready.
+        self.checkDatabaseFiles()
         
         # Create a workspace client.
         wsClient = workspaceService(self.config["workspace_url"])

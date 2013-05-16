@@ -170,7 +170,7 @@ config = getConfig(sys.argv[1])
 generate_data(config)
 
 # Update the status file.
-fid = open(os.path.join(config["data_folder_path"], "gendata.status"), "w")
+fid = open(os.path.join(config["data_folder_path"], config["status_file"]), "w")
 fid.write("ready\ncompleted at %s\n" %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime())))
 fid.close()
 
