@@ -56,11 +56,11 @@ class ProbabilisticAnnotation:
 
         return
         
-    def genomeToFasta(self, params, genomeObject, workFolder):
+    def genomeToFasta(self, input, genomeObject, workFolder):
         '''Convert a Genome object into an amino-acid FASTA file (for BLAST purposes)'''
         
         # Open the fasta file.
-        fastaFile = os.path.join(workFolder, "%s.faa" %(params["genome"]))
+        fastaFile = os.path.join(workFolder, "%s.faa" %(input["genome"]))
         try:
             fid = open(fastaFile, "w")
         except IOError:
@@ -71,7 +71,7 @@ class ProbabilisticAnnotation:
         # Make sure the Genome object has features.
         # TODO Throw exception if no features in genome
         if "features" not in genomeObject["data"]:
-             sys.stderr.write("""ERROR: The input Genome object %s/%s has no features - did you forget to run annotate_genome?\n""" %(params["genome_workspace"], params["genome"]))
+             sys.stderr.write("""ERROR: The input Genome object %s/%s has no features - did you forget to run annotate_genome?\n""" %(input["genome_workspace"], input["genome"]))
              return None
     
         # Run the list of features to build the fasta file.
@@ -90,10 +90,10 @@ class ProbabilisticAnnotation:
             
         return fastaFile
         
-    def runBlast(self, params, queryFile, workFolder):
+    def runBlast(self, input, queryFile, workFolder):
         '''A simplistic wrapper to BLAST the query proteins against the subsystem proteins'''
         
-        blastResultFile = os.path.join(workFolder, "%s.blastout" %(params["genome"]))
+        blastResultFile = os.path.join(workFolder, "%s.blastout" %(input["genome"]))
         cmd = "blastp -query \"%s\" -db %s -outfmt 6 -evalue 1E-5 -num_threads 1 -out \"%s\"" %(queryFile, os.path.join(self.config["data_folder_path"], self.config["subsystem_otu_fasta_file"]), blastResultFile)
         sys.stderr.write("Started BLAST with command: %s\n" %(cmd))
         status = os.system(cmd)
@@ -103,7 +103,7 @@ class ProbabilisticAnnotation:
             sys.stderr.write("BLAST command failed")
         return blastResultFile
     
-    def rolesetProbabilitiesMarble(self, params, blastResultFile, workFolder):
+    def rolesetProbabilitiesMarble(self, input, blastResultFile, workFolder):
         '''Calculate the probabilities of rolesets (i.e. each possible combination of
         roles implied by the functions of the proteins in subsystems) from the BLAST results.
     
@@ -175,8 +175,8 @@ class ProbabilisticAnnotation:
                     rolestringTuples[query] = [ (stri, p) ]
     
         # Save the generated data when debug is turned on.
-        if params["debug"]:
-            rolesetProbabilityFile = os.path.join(workFolder, "%s.rolesetprobs" %(params["genome"]))
+        if input["debug"]:
+            rolesetProbabilityFile = os.path.join(workFolder, "%s.rolesetprobs" %(input["genome"]))
             fid = open(rolesetProbabilityFile, "w")
     #        for f, p in rolestringTuples.iteritems():
             for query in rolestringTuples:
@@ -187,11 +187,11 @@ class ProbabilisticAnnotation:
         sys.stderr.write("done\n")
         return rolestringTuples
             
-    def buildProbAnnoObject(self, params, genomeObject, blastResultFile, queryToRolesetProbs, workFolder, wsClient):
+    def buildProbAnnoObject(self, input, genomeObject, blastResultFile, queryToRolesetProbs, workFolder, wsClient):
         '''Create a "probabilistic annotation" object file from a Genome object file. The probabilistic annotation
         object adds fields for the probability of each role being linked to each gene.'''
     
-        sys.stderr.write("Building ProbAnno object for genome %s..." %(params["genome"]))
+        sys.stderr.write("Building ProbAnno object for genome %s..." %(input["genome"]))
         targetToRoles, rolesToTargets = readFilteredOtuRoles(self.config)
         targetToRoleSet = {}
         for target in targetToRoles:
@@ -209,9 +209,9 @@ class ProbabilisticAnnotation:
         # then add that to the dictionary.  I use the ii in range so I can edit the elements without changes being lost.
     
         objectData = {}
-        objectData["id"] = params["probanno"]
-        objectData["genome"] = params["genome"]
-        objectData["genome_workspace"] = params["genome_workspace"];
+        objectData["id"] = input["probanno"]
+        objectData["genome"] = input["genome"]
+        objectData["genome_workspace"] = input["genome_workspace"];
         objectData["rolesetProbabilities"] = queryToRolesetProbs;
         objectData["featureAlternativeFunctions"] = []
         objectData["skippedFeatures"] = []
@@ -265,8 +265,8 @@ class ProbabilisticAnnotation:
         objectMetadata = { "num_rolesets": len(objectData["rolesetProbabilities"]),
                            "num_altfuncs": len(objectData["featureAlternativeFunctions"]),
                            "num_skipped_features": len(objectData["skippedFeatures"]) }
-        saveObjectParams = { "type": "ProbAnno", "id": params["probanno"], "workspace": params["probanno_workspace"],
-                             "auth": params["auth"], "data": objectData, "metadata": objectMetadata, "command": "pa-annotate" }
+        saveObjectParams = { "type": "ProbAnno", "id": input["probanno"], "workspace": input["probanno_workspace"],
+                             "auth": input["auth"], "data": objectData, "metadata": objectMetadata, "command": "pa-annotate" }
         metadata = wsClient.save_object(saveObjectParams)
         
         sys.stderr.write("done\n")
@@ -482,7 +482,7 @@ class ProbabilisticAnnotation:
     #        fid.write("%s\t%1.4f\t%s\t%s\t%s\t%s\n" %(cplx, minp, TYPE, SEPARATOR.join(unavailRoles), SEPARATOR.join(noexistRoles), GPR))
     
         if input["debug"]:
-            complex_probability_file = os.path.join(workFolder, "%s.complexprob" %(params.genome))
+            complex_probability_file = os.path.join(workFolder, "%s.complexprob" %(input.genome))
             fid = open(complex_probability_file, "w")
             for tuple in complexProbs:
                 fid.write("%s\t%1.4f\t%s\t%s\t%s\t%s\n" %(tuple[0], tuple[1], tuple[2], tuple[3], tuple[4], tuple[5]))
@@ -559,7 +559,7 @@ class ProbabilisticAnnotation:
             sys.stderr.write("%s: Finished computing reaction probabilities\n" %(genome))
         return reactionProbs
     
-    def metaboliteWeights(params, model):
+    def metaboliteWeights(input, model):
         
         '''
         Given a model object with name "model",
@@ -578,7 +578,7 @@ class ProbabilisticAnnotation:
         TODO - put in biomass equation too.
         '''
      
-        print(params)
+        print(input)
         metIdToIdx = {}
         rxnIdToIdx = {}
      
@@ -603,7 +603,7 @@ class ProbabilisticAnnotation:
                 met_idx = metIdToIdx[met_uuid]
                 i.append(met_idx)
                 j.append(idx)
-                if params["absval"]:
+                if input["absval"]:
                     coefficient = abs(coefficient)
                 data.append(coefficient)
             costs.append(1.0 - reaction["probability"])
@@ -661,7 +661,7 @@ class ProbabilisticAnnotation:
             
         # Create the data folder if it does not exist.
         if not os.path.exists(config["data_folder_path"]):
-            os.makedirs(config["data_folder_path"])
+            os.makedirs(config["data_folder_path"], 0775)
             
         # See if the static database files are available.
         gendataScript = "%s/bin/probanno-gendata" %(environ["KB_TOP"])
