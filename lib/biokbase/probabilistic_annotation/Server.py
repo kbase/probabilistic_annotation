@@ -11,6 +11,8 @@ from ConfigParser import ConfigParser
 DEPLOY = 'KB_DEPLOYMENT_CONFIG'
 SERVICE = 'KB_SERVICE_NAME'
 
+# Note that the error fields do not match the 2.0 JSONRPC spec
+
 def getConfigs():
     if DEPLOY not in environ or SERVICE not in environ:
         return None
@@ -136,7 +138,8 @@ class JSONRPCServiceCustom(JSONRPCService):
             # empty dict, list or wrong type
             raise InvalidRequestError
 
-class Application:
+
+class Application(object):
     # Wrap the wsgi handler in a class definition so that we can
     # do some initialization and avoid regenerating stuff over
     # and over
@@ -156,6 +159,8 @@ class Application:
                 'authenticated' : None,
                 'token' : None }
 
+        status = '500 Internal Server Error'
+
         try:
             body_size = int( environ.get('CONTENT_LENGTH',0))
         except (ValueError):
@@ -164,31 +169,40 @@ class Application:
             status = '200 OK'
             rpc_result = ""
         else:
-            request_body = environ['wsgi.input'].read( body_size)
+            request_body = environ['wsgi.input'].read(body_size)
             try:
-                # push the context object into the implementation instance's namespace
-                impl_ProbabilisticAnnotation.ctx = ctx
-                rpc_result = self.rpc_service.call( request_body)
-            except JSONRPCError as jre:
-                status = '500 Internal Server Error'
-                err = {'error': {'code': jre.code,
-                                 'name': jre.message,
-                                 'message': jre.data
-                                 }
+                req = json.loads(request_body)
+            except ValueError as ve:
+                err = {'code': -32700,
+                       'name': "Parse error",
+                       'message': str(ve),
+                       'version': '1.1'  # don't know the inc version
                        }
                 rpc_result = json.dumps(err)
-            except Exception, e:
-                status = '500 Internal Server Error'
-                err = {'error': {'code': 0,
-                                 'name': 'Unexpected Server Error',
-                                 'message': traceback.format_exc()
-                                 }
-                       }
-                rpc_result = json.dumps(err)
-
-                print "Error in rpc call: %s" % e
             else:
-                status = '200 OK'
+                try:
+                    # push the context object into the implementation instance's namespace
+                    impl_ProbabilisticAnnotation.ctx = ctx
+                    rpc_result = self.rpc_service.call( request_body)
+                except JSONRPCError as jre:
+                    err = {'error': {'code': jre.code,
+                                     'name': jre.message,
+                                     'message': jre.data
+                                     }
+                           }
+                    self.complete_err(err, req)
+                    rpc_result = json.dumps(err)
+                except Exception, e:
+                    err = {'error': {'code': 0,
+                                     'name': 'Unexpected Server Error',
+                                     'message': traceback.format_exc()
+                                     }
+                           }
+                    self.complete_err(err, req)
+                    rpc_result = json.dumps(err)
+
+                else:
+                    status = '200 OK'
 
         #print 'The request method was %s\n' % environ['REQUEST_METHOD']
         #print 'The environment dictionary is:\n%s\n' % pprint.pformat( environ )
@@ -205,8 +219,18 @@ class Application:
                                                                           'authorization')),
                              ('content-type', 'application/json'),
                              ('content-length', str(len(response_body)))]
-        start_response( status, response_headers)
+        start_response(status, response_headers)
         return [response_body]
+
+    def complete_err(self, err, req):
+        if 'id' in req:
+            err['id'] = req['id']
+        if 'version' in req:
+            err['version'] = req['version']
+        elif 'jsonrpc' in req:
+            err['jsonrpc'] = req['jsonrpc']
+        else:
+            err['version'] = '1.0'
 
 application = Application()
 
