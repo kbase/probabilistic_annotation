@@ -151,18 +151,19 @@ def readSubsystemFasta(config):
     return
 
 def writeSubsystemFasta(fidsToSeqs, config):
-    fid = open(os.path.join(config["data_folder_path"], config["subsystem_otu_fasta_file"]), "w")
+    filepath = os.path.join(config["data_folder_path"], config["subsystem_otu_fasta_file"])
+    fid = open(filepath, "w")
     for fids in fidsToSeqs:
         fid.write(">%s\n%s\n" %(fids, fidsToSeqs[fids]))
     fid.close()
     # Compile the BLAST database for the fasta file
-    status = os.system("makeblastdb -in %s -dbtype prot > /dev/null" %(os.path.join(config["data_folder_path"], config["subsystem_otu_fasta_file"])))
+    status = os.system("makeblastdb -in %s -dbtype prot" %(filepath))
     # TODO: Throw exceptions for errors
     if os.WIFEXITED(status):
         if os.WEXITSTATUS(status) != 0:
-            print("makeblastdb failed with status %d\n" %(os.WEXITSTATUS(status)))
+            sys.stderr.write("makeblastdb failed with status %d\n" %(os.WEXITSTATUS(status)))
     if os.WIFSIGNALED(status):
-        print("makeblastdb ended by signal %d\n" %(os.WTERMSIG(status)))
+        sys.stderr.write("makeblastdb ended by signal %d\n" %(os.WTERMSIG(status)))
     return
 
 #####################

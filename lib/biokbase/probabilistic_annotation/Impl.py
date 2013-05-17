@@ -8,8 +8,19 @@ from biokbase.fbaModelServices.Client import *
 
 from biokbase.cdmi.client import CDMI_EntityAPI
 
+# Exception thrown when static database files are not ready
 class NotReadyError(Exception):
     pass
+
+# Exception thrown when no features are found in genome
+class NoFeaturesError(Exception):
+    pass
+
+# Exception thrown when blast command failed
+class BlastError(Exception):
+    pass
+
+# Exception thrown when 
 
 # Temporary for testing
 from random import randint
@@ -62,21 +73,14 @@ class ProbabilisticAnnotation:
     def genomeToFasta(self, input, genomeObject, workFolder):
         '''Convert a Genome object into an amino-acid FASTA file (for BLAST purposes)'''
         
+        # Make sure the Genome object has features.
+        if "features" not in genomeObject["data"]:
+            raise NoFeaturesError("The input Genome object %s/%s has no features. Did you forget to run annotate_genome?\n" %(input["genome_workspace"], input["genome"]))
+    
         # Open the fasta file.
         fastaFile = os.path.join(workFolder, "%s.faa" %(input["genome"]))
-        try:
-            fid = open(fastaFile, "w")
-        except IOError:
-            # TODO Throw an exception back to the client
-            print("Failed to open fasta file %s\n" %(fastaFile))
-            return
+        fid = open(fastaFile, "w")
         
-        # Make sure the Genome object has features.
-        # TODO Throw exception if no features in genome
-        if "features" not in genomeObject["data"]:
-             sys.stderr.write("""ERROR: The input Genome object %s/%s has no features - did you forget to run annotate_genome?\n""" %(input["genome_workspace"], input["genome"]))
-             return None
-    
         # Run the list of features to build the fasta file.
         features = genomeObject["data"]["features"]
         for feature in features:
@@ -90,7 +94,8 @@ class ProbabilisticAnnotation:
                 function = ""
             seq = feature["protein_translation"]
             fid.write(">%s %s\n%s\n" %(myid, function, seq))
-            
+        
+        fid.close()    
         return fastaFile
         
     def runBlast(self, input, queryFile, workFolder):
@@ -101,9 +106,11 @@ class ProbabilisticAnnotation:
         sys.stderr.write("Started BLAST with command: %s\n" %(cmd))
         status = os.system(cmd)
         sys.stderr.write("Ended BLAST with command: %s\n" %(cmd))
-        # TODO Throw exception if blast fails
-        if status != 0:
-            sys.stderr.write("BLAST command failed")
+        if os.WIFEXITED(status):
+            if os.WEXITSTATUS(status) != 0:
+                raise BlastError("'%s' failed with status %d\n" %(cmd, os.WEXITSTATUS(status)))
+        if os.WIFSIGNALED(status):
+            raise BlastError("'%s' ended by signal %d\n" %(cmd, os.WTERMSIG(status)))
         return blastResultFile
     
     def rolesetProbabilitiesMarble(self, input, blastResultFile, workFolder):
@@ -682,20 +689,15 @@ class ProbabilisticAnnotation:
         gendataScript = "%s/bin/probanno-gendata" %(environ["KB_TOP"])
         statusFilePath = os.path.join(config["data_folder_path"], config["status_file"])
         logFilePath = os.path.join(config["data_folder_path"], "gendata.log")
-        try:
-            fid = open(statusFilePath, "r")
-            sys.stderr.write("Database files status is %s\n" %(fid.readline()))
+        if config["generate_data_option"] == "runjob":
+            self.checkDatabaseFiles()
+        else:
+            fid = open(statusFilePath, "w")
+            fid.write("running\nstarted at %s\n" %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime())))
             fid.close()
-        except IOError:
-            if config["generate_data_option"] == "runjob":
-                raise NotReadyError("__init__: Database files are not available")
-            else:
-                fid = open(statusFilePath, "w")
-                fid.write("running\nstarted at %s\n" %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime())))
-                fid.close()
-                cmdline = "nohup %s %s >%s 2>&1 &" %(gendataScript, environ["KB_DEPLOYMENT_CONFIG"], logFilePath)
-                status = os.system(cmdline)
-                sys.stderr.write("Generating static data files\n")
+            cmdline = "nohup %s %s >%s 2>&1 &" %(gendataScript, environ["KB_DEPLOYMENT_CONFIG"], logFilePath)
+            status = os.system(cmdline)
+            sys.stderr.write("Generating static data files with command '%s'\n" %(cmdline))
             
         #END_CONSTRUCTOR
         pass

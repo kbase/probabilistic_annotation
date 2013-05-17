@@ -319,7 +319,22 @@ def fidsToSequences(fidlist, config):
     Features with no amino acid sequence are discarded.'''
     cdmi = CDMI_API(config["cdmi_url"])
     fidlist = list(set(fidlist))
-    seqs = cdmi.fids_to_protein_sequences(fidlist)
+    start = 0
+    increment = 100000
+    end = start + increment - 1
+    counter = (len(fidlist) / increment) + 1
+    seqs = {}
+    while counter != 0:
+        ps = cdmi.fids_to_protein_sequences(fidlist[start:end])
+        seqs.update(ps)
+        
+        # Move to next sub-list
+        start += increment
+        end += increment
+        if end >= len(fidlist):
+            end = len(fidlist) - 1
+        counter -= 1
+    
     return seqs
 
 def genomesToPegs(genomes, config):
