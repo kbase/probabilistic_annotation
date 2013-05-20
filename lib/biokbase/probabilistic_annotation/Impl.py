@@ -223,7 +223,6 @@ class ProbabilisticAnnotation:
         objectData["genome"] = input["genome"]
         objectData["genome_workspace"] = input["genome_workspace"];
         objectData["rolesetProbabilities"] = queryToRolesetProbs;
-        objectData["featureAlternativeFunctions"] = []
         objectData["skippedFeatures"] = []
         
         for ii in range(len(genomeObject["data"]["features"])):
@@ -238,42 +237,9 @@ class ProbabilisticAnnotation:
             # TODO Or should I make an empty object? I should ask Chris.
             if queryid not in queryToRolesetProbs or queryid not in queryToTargetProbs:
                 objectData["skippedFeatures"].append(queryid)
-                continue
-            
-            # Get a list of (target ID, BLAST score) pairs for each possible role set from the query's homologs
-            # At the moment we dont' use this...
-            # I'm keeping the code around in case we decide we want the functionality.
-            query_rolesetToTargetScores = {}
-            for targetprob in queryToTargetProbs[queryid]:
-                try:
-                    targetroleset = targetToRoleSet[targetprob[0]]
-                except KeyError:
-                    sys.stderr.write("WARNING: Internal data inconsistency - BLAST target %s has no associated roleset\n" %(targetprob[0]))
-                    continue
-                if targetroleset in query_rolesetToTargetScores:
-                    query_rolesetToTargetScores[targetroleset].append(targetprob)
-                else:
-                    query_rolesetToTargetScores[targetroleset] = [ targetprob ]
-    
-            # For each possible roleset, obtain its probability, and the list of (target, BLAST score) pairs
-            featureAlternativeFunctions = {}
-            alternative_functions = []
-            for rolesetprob in queryToRolesetProbs[queryid]:
-                roleset = rolesetprob[0]
-                rolep = rolesetprob[1]
-                if roleset not in query_rolesetToTargetScores:
-                    # TODO Throw exception
-                    sys.stderr.write("INTERNAL ERROR: The rolesets for the query genes were not transferred from targets correctly - query roleset %s did not exist in the target homolog list\n" %(roleset))
-                    exit(2)
-                rlist = [ roleset, rolep ]
-                alternative_functions.append(rlist)
-            featureAlternativeFunctions["alternativeFunctions"] = alternative_functions
-            featureAlternativeFunctions["id"] = queryid
-            objectData["featureAlternativeFunctions"].append(featureAlternativeFunctions)
-    
+                
         # Store the ProbAnno object in the specified workspace.
         objectMetadata = { "num_rolesets": len(objectData["rolesetProbabilities"]),
-                           "num_altfuncs": len(objectData["featureAlternativeFunctions"]),
                            "num_skipped_features": len(objectData["skippedFeatures"]) }
         saveObjectParams = { "type": "ProbAnno", "id": input["probanno"], "workspace": input["probanno_workspace"],
                              "auth": input["auth"], "data": objectData, "metadata": objectMetadata, "command": "pa-annotate" }
