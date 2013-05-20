@@ -153,7 +153,9 @@ def readSubsystemFasta(config):
 def writeSubsystemFasta(fidsToSeqs, config):
     filepath = os.path.join(config["data_folder_path"], config["subsystem_otu_fasta_file"])
     fid = open(filepath, "w")
-    for fids in fidsToSeqs:
+    # Sort the fids so that fasta files containing the same proteins hash to the same MD5 (for
+    # data provenance purposes)
+    for fids in sorted(fidsToSeqs.keys()):
         fid.write(">%s\n%s\n" %(fids, fidsToSeqs[fids]))
     fid.close()
     # Compile the BLAST database for the fasta file
