@@ -15,19 +15,20 @@ NAME
       pa-calculate -- generate probability model for a genome
 
 SYNOPSIS
-      pa-calculate <ProbAnno ID> <Model ID> [OPTIONS]
+      pa-calculate <ProbAnno ID> [OPTIONS]
 
 DESCRIPTION
       Generate a probability model for a genome.
       
       Options:
-      -d, --debug        Keep intermediate files for debug purposes
-      -e, --showerror    Show any errors in execution
-      -h, --help         Display this help message, ignore all arguments
-      -o, --overwrite    Overwrite existing Model object with same name
-      --probannows       ID of workspace where ProbAnno object is stored
-      -v, --verbose      Print verbose messages
-      -w, --modelws      ID of workspace where Model object is saved
+      -d, --debug           Keep intermediate files for debug purposes
+      -e, --showerror       Show any errors in execution
+      -h, --help            Display this help message, ignore all arguments
+      -o, --overwrite       Overwrite existing Model object with same name
+      --probannows          ID of workspace where ProbAnno object is stored
+      -t, --templatemodel   Template model ID
+      -m, --templatemodelws Template model workspace
+      -v, --verbose         Print verbose messages
 
 EXAMPLES
       Annotate:
@@ -42,7 +43,8 @@ my $primaryArgs = [ "ProbAnno ID" ];
 my ( $opt, $usage ) = describe_options(
     'pa-calculate <' . join( "> <", @{$primaryArgs} ) . '> %o',
     [ 'probannows:s', 'ID of workspace where ProbAnno object is stored', { "default" => workspace() } ],
-    [ 'overwrite|o', "Set as 1 to overwrite existing Model object with same name", { "default" => 0 } ],
+    [ 'templatemodel|t', "template model", { "default" => undef } ],
+    [ 'templatemodelws|m', "template model workspace", { "default" => undef } ],
     [ 'debug|d', "Set as 1 to keep intermediate files for debug purposes", { "default" => 0 } ],
     [ 'showerror|e', 'Set as 1 to show any errors in execution', { "default" => 0 } ],
     [ 'verbose|v', 'Set as 1 to print verbose messages', { "default" => 0 } ],
@@ -75,7 +77,9 @@ my $translation = {
     "ProbAnno ID" => "probanno",
     probannows    => "probanno_workspace",
     debug         => "debug",
-    verbose       => "verbose"
+    verbose       => "verbose",
+    templatemodel => "template_model",
+    templatemodelws => "template_model_workspace"
 };
 
 # Instantiate parameters for function.

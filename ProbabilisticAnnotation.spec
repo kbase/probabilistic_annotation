@@ -10,6 +10,7 @@ module ProbabilisticAnnotation
     
 	/* A string identifier for a probabilistic annotation object. */
     typedef string probanno_id;
+    typedef string template_modelid;
 
 	/* A string identifier for a genome. */    
     typedef string genome_id;
@@ -134,11 +135,13 @@ module ProbabilisticAnnotation
     typedef structure {
     	probanno_id probanno;
     	workspace_id probanno_workspace;
+	template_modelid template_model;
+	workspace_id template_model_workspace;
     	bool debug;
     	bool verbose;
     	string auth;
     } calculate_params;
     
-	funcdef calculate(calculate_params input) returns(list<ReactionProbability> output);
+    funcdef calculate(calculate_params input) returns(list<ReactionProbability> output);
 	    	
 };
