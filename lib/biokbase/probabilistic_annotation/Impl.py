@@ -38,10 +38,33 @@ Module Description:
 class ProbabilisticAnnotation:
 
     #BEGIN_CLASS_HEADER
-    
+    def _checkInputArguments(self, input, requiredArgs, defaultArgDict):
+        '''
+        Using Chris's function as a model...
+        
+        input is a dictionary from option to value
+        requiredArgs is a list of required options in the input dict
+        defaultArgDict is a dictionary of default options.
+
+        If a key in defaultArgDict is not found in the input it is added with the
+        specified default value.
+        '''
+        if requiredArgs is not None:
+            for arg in requiredArgs:
+                if arg not in input:
+                    raise IOError("Required argument %s not found" %(arg) )
+        if defaultArgDict is not None:
+            for arg in defaultArgDict:
+                if arg in input:
+                    continue
+                else:
+                    input[arg] = defaultArgDict[arg]
+
+        return input
+
     def runAnnotate(self, input):
         '''Run an annotate job.'''
-        
+
         # Create a workspace client.
         wsClient = workspaceService(self.config["workspace_url"])
         
@@ -59,7 +82,7 @@ class ProbabilisticAnnotation:
         blastResultFile = self.runBlast(input, fastaFile, workFolder)
         
         # Calculate roleset probabilities.
-        rolestringTuples = self.rolesetProbabilitiesMarble(input, blastResultFile, workFolder)
+        rolestringTuples = self.rolesetProbabilitiesMarble(input, input["genome"], blastResultFile, workFolder)
         
         # Build ProbAnno object and store in the specified workspace.
         output = self.buildProbAnnoObject(input, genomeObject, blastResultFile, rolestringTuples, workFolder, wsClient)
@@ -113,7 +136,7 @@ class ProbabilisticAnnotation:
             raise BlastError("'%s' ended by signal %d\n" %(cmd, os.WTERMSIG(status)))
         return blastResultFile
     
-    def rolesetProbabilitiesMarble(self, input, blastResultFile, workFolder):
+    def rolesetProbabilitiesMarble(self, input, genome, blastResultFile, workFolder):
         '''Calculate the probabilities of rolesets (i.e. each possible combination of
         roles implied by the functions of the proteins in subsystems) from the BLAST results.
     
@@ -186,7 +209,7 @@ class ProbabilisticAnnotation:
     
         # Save the generated data when debug is turned on.
         if input["debug"]:
-            rolesetProbabilityFile = os.path.join(workFolder, "%s.rolesetprobs" %(input["genome"]))
+            rolesetProbabilityFile = os.path.join(workFolder, "%s.rolesetprobs" %(genome))
             fid = open(rolesetProbabilityFile, "w")
     #        for f, p in rolestringTuples.iteritems():
             for query in rolestringTuples:
@@ -672,6 +695,12 @@ class ProbabilisticAnnotation:
         # self.ctx is set by the wsgi application class
         # return variables are: jobid
         #BEGIN annotate
+
+        input = self._checkInputArguments(input, 
+                                          ["auth", "genome", "genome_workspace", "probanno", "probanno_workspace"],
+                                          { "debug" : False,
+                                            "verbose" : False }
+                                          )
         
         # Make sure the static database files are ready.
         self.checkDatabaseFiles()
@@ -708,7 +737,17 @@ class ProbabilisticAnnotation:
         # self.ctx is set by the wsgi application class
         # return variables are: output
         #BEGIN calculate
-        
+
+        # Sanity check on input arguments
+        input = self._checkInputArguments(input, 
+                                          ["probanno", "probanno_workspace", "auth"], 
+                                          { "debug"   : False,
+                                            "verbose" : False ,
+                                            "template_model" : None,
+                                            "template_model_workspace" : None
+                                            }
+                                          )
+
         # Make sure the static database files are ready.
         self.checkDatabaseFiles()
         
@@ -725,6 +764,14 @@ class ProbabilisticAnnotation:
             workFolder = tempfile.mkdtemp("", "%s-" %(genome), self.config["work_folder_path"])
         else:
             workFolder = None
+
+        # TODO - When Chris's template model functions are ready, the function call and subsequent data manipulation to get the dictionaries
+        # we need will go here
+        if input["template_model"] is not None or input["template_model_workspace"] is not None:
+            if not(input["template_model"] is not None and input["template_model_workspace"] is not None) :
+                raise IOError("Template model workspace is required if template model ID is provided")
+            else:
+                raise NotImplementedError("Template model support is not yet implemented")
         
         # Calculate per-gene role probabilities.
         roleProbs = self.rolesetProbabilitiesToRoleProbabilities(input, genome, probannoObject["data"]["rolesetProbabilities"], workFolder)

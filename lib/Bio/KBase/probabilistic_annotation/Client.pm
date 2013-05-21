@@ -167,11 +167,14 @@ $output is a reference to a list where each element is a ReactionProbability
 calculate_params is a reference to a hash where the following keys are defined:
 	probanno has a value which is a probanno_id
 	probanno_workspace has a value which is a workspace_id
+	template_model has a value which is a template_modelid
+	template_model_workspace has a value which is a workspace_id
 	debug has a value which is a bool
 	verbose has a value which is a bool
 	auth has a value which is a string
 probanno_id is a string
 workspace_id is a string
+template_modelid is a string
 bool is an int
 ReactionProbability is a reference to a list containing 5 items:
 	0: (reaction) a reaction_id
@@ -192,11 +195,14 @@ $output is a reference to a list where each element is a ReactionProbability
 calculate_params is a reference to a hash where the following keys are defined:
 	probanno has a value which is a probanno_id
 	probanno_workspace has a value which is a workspace_id
+	template_model has a value which is a template_modelid
+	template_model_workspace has a value which is a workspace_id
 	debug has a value which is a bool
 	verbose has a value which is a bool
 	auth has a value which is a string
 probanno_id is a string
 workspace_id is a string
+template_modelid is a string
 bool is an int
 ReactionProbability is a reference to a list containing 5 items:
 	0: (reaction) a reaction_id
@@ -360,6 +366,32 @@ an int
 =item Description
 
 A string identifier for a probabilistic annotation object.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a string
+</pre>
+
+=end html
+
+=begin text
+
+a string
+
+=end text
+
+=back
+
+
+
+=head2 template_modelid
+
+=over 4
+
 
 
 =item Definition
@@ -953,6 +985,8 @@ Input parameters for the "calculate" function.
 a reference to a hash where the following keys are defined:
 probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
+template_model has a value which is a template_modelid
+template_model_workspace has a value which is a workspace_id
 debug has a value which is a bool
 verbose has a value which is a bool
 auth has a value which is a string
@@ -966,6 +1000,8 @@ auth has a value which is a string
 a reference to a hash where the following keys are defined:
 probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
+template_model has a value which is a template_modelid
+template_model_workspace has a value which is a workspace_id
 debug has a value which is a bool
 verbose has a value which is a bool
 auth has a value which is a string
