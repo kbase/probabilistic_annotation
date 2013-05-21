@@ -76,16 +76,16 @@ class ProbabilisticAnnotation:
         workFolder = tempfile.mkdtemp("", "%s-" %(input["genome"]), self.config["work_folder_path"])
         
         # Convert Genome object to fasta file.
-        fastaFile = self.genomeToFasta(input, genomeObject, workFolder)
+        fastaFile = self._genomeToFasta(input, genomeObject, workFolder)
         
         # Run blast using the fasta file.
-        blastResultFile = self.runBlast(input, fastaFile, workFolder)
+        blastResultFile = self._runBlast(input, fastaFile, workFolder)
         
         # Calculate roleset probabilities.
-        rolestringTuples = self.rolesetProbabilitiesMarble(input, input["genome"], blastResultFile, workFolder)
+        rolestringTuples = self._rolesetProbabilitiesMarble(input, input["genome"], blastResultFile, workFolder)
         
         # Build ProbAnno object and store in the specified workspace.
-        output = self.buildProbAnnoObject(input, genomeObject, blastResultFile, rolestringTuples, workFolder, wsClient)
+        output = self._buildProbAnnoObject(input, genomeObject, blastResultFile, rolestringTuples, workFolder, wsClient)
         
         # Remove the temporary directory.
         if input["debug"] == False:
@@ -93,7 +93,7 @@ class ProbabilisticAnnotation:
 
         return
         
-    def genomeToFasta(self, input, genomeObject, workFolder):
+    def _genomeToFasta(self, input, genomeObject, workFolder):
         '''Convert a Genome object into an amino-acid FASTA file (for BLAST purposes)'''
         
         # Make sure the Genome object has features.
@@ -121,7 +121,7 @@ class ProbabilisticAnnotation:
         fid.close()    
         return fastaFile
         
-    def runBlast(self, input, queryFile, workFolder):
+    def _runBlast(self, input, queryFile, workFolder):
         '''A simplistic wrapper to BLAST the query proteins against the subsystem proteins'''
         
         blastResultFile = os.path.join(workFolder, "%s.blastout" %(input["genome"]))
@@ -136,7 +136,7 @@ class ProbabilisticAnnotation:
             raise BlastError("'%s' ended by signal %d\n" %(cmd, os.WTERMSIG(status)))
         return blastResultFile
     
-    def rolesetProbabilitiesMarble(self, input, genome, blastResultFile, workFolder):
+    def _rolesetProbabilitiesMarble(self, input, genome, blastResultFile, workFolder):
         '''Calculate the probabilities of rolesets (i.e. each possible combination of
         roles implied by the functions of the proteins in subsystems) from the BLAST results.
     
@@ -220,7 +220,7 @@ class ProbabilisticAnnotation:
         sys.stderr.write("done\n")
         return rolestringTuples
             
-    def buildProbAnnoObject(self, input, genomeObject, blastResultFile, queryToRolesetProbs, workFolder, wsClient):
+    def _buildProbAnnoObject(self, input, genomeObject, blastResultFile, queryToRolesetProbs, workFolder, wsClient):
         '''Create a "probabilistic annotation" object file from a Genome object file. The probabilistic annotation
         object adds fields for the probability of each role being linked to each gene.'''
     
@@ -271,7 +271,7 @@ class ProbabilisticAnnotation:
         sys.stderr.write("done\n")
         return metadata
     
-    def rolesetProbabilitiesToRoleProbabilities(self, input, genome, queryToTuplist, workFolder):
+    def _rolesetProbabilitiesToRoleProbabilities(self, input, genome, queryToTuplist, workFolder):
         '''Compute probability of each role from the rolesets for each query protein.
         At the moment the strategy is to take any set of rolestrings containing the same roles
         and add their probabilities.
@@ -330,7 +330,7 @@ class ProbabilisticAnnotation:
     #
     # The gene assignments are all genes within DILUTION_PERCENT of the maximum...
     #
-    def totalRoleProbabilities(self, input, genome, roleProbs, workFolder):
+    def _totalRoleProbabilities(self, input, genome, roleProbs, workFolder):
         '''Given the probability that each gene has each role, estimate the probability that
         the entire ORGANISM has that role.
     
@@ -388,7 +388,7 @@ class ProbabilisticAnnotation:
             
         return totalRoleProbs
     
-    def complexProbabilities(self, input, genome, totalRoleProbs, workFolder, complexesToRequiredRoles = None):
+    def _complexProbabilities(self, input, genome, totalRoleProbs, workFolder, complexesToRequiredRoles = None):
         '''Compute the probability of each complex from the probability of each role.
     
         The complex probability is computed as the minimum probability of roles within that complex.
@@ -491,7 +491,7 @@ class ProbabilisticAnnotation:
             sys.stderr.write("%s: Finished computing complex probabilities\n" %(genome))
         return complexProbs
     
-    def reactionProbabilities(self, input, genome, complexProbs, workFolder, rxnsToComplexes = None):
+    def _reactionProbabilities(self, input, genome, complexProbs, workFolder, rxnsToComplexes = None):
         '''From the probability of complexes estimate the probability of reactions.
     
         The reaction probability is computed as the maximum probability of complexes that perform
@@ -558,7 +558,7 @@ class ProbabilisticAnnotation:
             sys.stderr.write("%s: Finished computing reaction probabilities\n" %(genome))
         return reactionProbs
     
-    def metaboliteWeights(input, model):
+    def _metaboliteWeights(input, model):
         
         '''
         Given a model object with name "model",
@@ -647,7 +647,7 @@ class ProbabilisticAnnotation:
             
         return True
     
-    def checkDatabaseFiles(self):
+    def _checkDatabaseFiles(self):
         '''Check the status of the static database files.'''
         statusFilePath = os.path.join(self.config["data_folder_path"], self.config["status_file"])
         try:
@@ -679,7 +679,7 @@ class ProbabilisticAnnotation:
         statusFilePath = os.path.join(config["data_folder_path"], config["status_file"])
         logFilePath = os.path.join(config["data_folder_path"], "gendata.log")
         if config["generate_data_option"] == "runjob":
-            self.checkDatabaseFiles()
+            self._checkDatabaseFiles()
         else:
             fid = open(statusFilePath, "w")
             fid.write("running\nstarted at %s\n" %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime())))
@@ -703,7 +703,7 @@ class ProbabilisticAnnotation:
                                           )
         
         # Make sure the static database files are ready.
-        self.checkDatabaseFiles()
+        self._checkDatabaseFiles()
         
         # Create a workspace client.
         wsClient = workspaceService(self.config["workspace_url"])
@@ -749,7 +749,7 @@ class ProbabilisticAnnotation:
                                           )
 
         # Make sure the static database files are ready.
-        self.checkDatabaseFiles()
+        self._checkDatabaseFiles()
         
         # Create a workspace client.
         wsClient = workspaceService(self.config["workspace_url"])
@@ -774,23 +774,23 @@ class ProbabilisticAnnotation:
                 raise NotImplementedError("Template model support is not yet implemented")
         
         # Calculate per-gene role probabilities.
-        roleProbs = self.rolesetProbabilitiesToRoleProbabilities(input, genome, probannoObject["data"]["rolesetProbabilities"], workFolder)
+        roleProbs = self._rolesetProbabilitiesToRoleProbabilities(input, genome, probannoObject["data"]["rolesetProbabilities"], workFolder)
     
         # Calculate whole cell role probabilities.
         # Note - eventually workFolder will be replaced with a rolesToReactions call
-        totalRoleProbs = self.totalRoleProbabilities(input, genome, roleProbs, workFolder)
+        totalRoleProbs = self._totalRoleProbabilities(input, genome, roleProbs, workFolder)
         
         # Calculate complex probabilities.
         # NOTE - when we have a roles_to_reactions function (or a reactions_to_roles would probably be better...) we need to
         # make a dictionary from complexes to their roles, and then call this function with a non-None value in
         # complexesToRequiredRoles
-        complexProbs = self.complexProbabilities(input, genome, totalRoleProbs, workFolder, complexesToRequiredRoles = None)
+        complexProbs = self._complexProbabilities(input, genome, totalRoleProbs, workFolder, complexesToRequiredRoles = None)
         
         # Calculate reaction probabilities.
         # NOTE - when we have a roles_to_reactions function (or a reactions_to_roles would probably be better...) we need to
         # make a dictionary from reactions to their complexes, and then call this function with a non-None value in
         # rxnsToComplexes.
-        reactionProbs = self.reactionProbabilities(input, genome, complexProbs, workFolder, rxnsToComplexes = None)
+        reactionProbs = self._reactionProbabilities(input, genome, complexProbs, workFolder, rxnsToComplexes = None)
  
         # Translate IDs to modelSEED IDs
         output = []
