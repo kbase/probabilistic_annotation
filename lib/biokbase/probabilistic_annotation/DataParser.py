@@ -1,11 +1,15 @@
 #!/usr/bin/python
 
 # Read and write data files
-import os, sys, math
+import os, sys, math, subprocess
 from ConfigParser import ConfigParser
 
 # E values of less than 1E-200 are treated as 1E-200 to avoid log of 0 issues.
 MIN_EVALUE = 1E-200
+
+# Exception thrown when makeblastdb command failed
+class MakeblastdbError(Exception):
+    pass
 
 ###########
 #  OTUs   #
@@ -157,13 +161,19 @@ def writeSubsystemFasta(fidsToSeqs, config):
         fid.write(">%s\n%s\n" %(fids, fidsToSeqs[fids]))
     fid.close()
     # Compile the BLAST database for the fasta file
-    status = os.system("makeblastdb -in %s -dbtype prot" %(filepath))
-    # TODO: Throw exceptions for errors
-    if os.WIFEXITED(status):
-        if os.WEXITSTATUS(status) != 0:
-            sys.stderr.write("makeblastdb failed with status %d\n" %(os.WEXITSTATUS(status)))
-    if os.WIFSIGNALED(status):
-        sys.stderr.write("makeblastdb ended by signal %d\n" %(os.WTERMSIG(status)))
+    args = ["/usr/bin/makeblastdb", "-in", filepath, "-dbtype", "prot"]
+    try:
+        retcode = subprocess.call(args)
+        if retcode < 0:
+            cmd = ' '.join(args)
+            raise MakeblastdbError("'%s' was terminated by signal %d" %(cmd, -retcode))
+        else:
+            if retcode > 0:
+                cmd = ' '.join(args)
+                raise MakeblastdbError("'%s' failed with status %d" %(cmd, retcode))
+    except OSError as e:
+        cmd = ' '.join(args)
+        raise MakeblastdbError("Failed to run '%s': %s" %(cmd, e.strerror))
     return
 
 #####################
