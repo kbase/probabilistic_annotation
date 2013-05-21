@@ -68,31 +68,19 @@ module ProbabilisticAnnotation
 	*/    	
     typedef tuple<string function, float probability, string functionMD5> FunctionProbability;
     
-    /* Alternative functions for each feature
-    
-        feature_id id - ID of feature the annotation is associated with 
-        list<FunctionProbability> alternativeFunctions - list of alternative functions and probabilities
-    */
-    typedef structure {
-		feature_id id;
-		list<FunctionProbability> alternativeFunctions;
-    } ProbAnnoFeature;
-    
     /* Object to carry alternative functions and probabilities for genes in a genome    
 
         probanno_id id - ID of the probabilistic annotation object    
         genome_id genome - ID of the genome the probabilistic annotation was built for
         workspace_id genome_workspace - ID of the workspace containing genome
-        list<ProbAnnoFeature> featureAlternativeFunctions - list of ProbAnnoFeature objects holding alternative functions for features
-        mapping<feature_id feature, list<FunctionProbability>> rolesetProbabilities - mapping of features to list of FunctionProbability objects
+        mapping<feature_id, list<FunctionProbability>> rolesetProbabilities - mapping of features to list of alternative FunctionProbability objects
         list<feature_id> skippedFeatures - list of features in genome with no probability
     */
     typedef structure {
 		probanno_id id;
 		genome_id genome;
 		workspace_id genome_workspace;
-		list<ProbAnnoFeature> featureAlternativeFunctions;
-		mapping<feature_id feature, list<FunctionProbability> alternativeFunctions> rolesetProbabilities;
+		mapping<feature_id, list<FunctionProbability>> rolesetProbabilities;
 		list<feature_id> skippedFeatures;
     } ProbabilisticAnnotation;
     
