@@ -142,6 +142,9 @@ module ProbabilisticAnnotation
     	string auth;
     } calculate_params;
     
-    funcdef calculate(calculate_params input) returns(list<ReactionProbability> output);
+    /* Compute reaction probabilities from probabilistic annotation and a template model.
+    Returns metadata for the reaction probability object 
+    */
+    funcdef calculate(calculate_params input) returns(object_metadata output);
 	    	
 };

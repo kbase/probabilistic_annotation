@@ -163,7 +163,7 @@ sub annotate
 
 <pre>
 $input is a calculate_params
-$output is a reference to a list where each element is a ReactionProbability
+$output is an object_metadata
 calculate_params is a reference to a hash where the following keys are defined:
 	probanno has a value which is a probanno_id
 	probanno_workspace has a value which is a workspace_id
@@ -176,13 +176,23 @@ probanno_id is a string
 workspace_id is a string
 template_modelid is a string
 bool is an int
-ReactionProbability is a reference to a list containing 5 items:
-	0: (reaction) a reaction_id
-	1: (probability) a float
-	2: (type) a string
-	3: (complex_info) a string
-	4: (gene_list) a string
-reaction_id is a string
+object_metadata is a reference to a list containing 11 items:
+	0: (id) an object_id
+	1: (type) an object_type
+	2: (moddate) a timestamp
+	3: (instance) an int
+	4: (command) a string
+	5: (lastmodifier) a username
+	6: (owner) a username
+	7: (workspace) a workspace_id
+	8: (ref) a workspace_ref
+	9: (chsum) a string
+	10: (metadata) a reference to a hash where the key is a string and the value is a string
+object_id is a string
+object_type is a string
+timestamp is a string
+username is a string
+workspace_ref is a string
 
 </pre>
 
@@ -191,7 +201,7 @@ reaction_id is a string
 =begin text
 
 $input is a calculate_params
-$output is a reference to a list where each element is a ReactionProbability
+$output is an object_metadata
 calculate_params is a reference to a hash where the following keys are defined:
 	probanno has a value which is a probanno_id
 	probanno_workspace has a value which is a workspace_id
@@ -204,20 +214,31 @@ probanno_id is a string
 workspace_id is a string
 template_modelid is a string
 bool is an int
-ReactionProbability is a reference to a list containing 5 items:
-	0: (reaction) a reaction_id
-	1: (probability) a float
-	2: (type) a string
-	3: (complex_info) a string
-	4: (gene_list) a string
-reaction_id is a string
+object_metadata is a reference to a list containing 11 items:
+	0: (id) an object_id
+	1: (type) an object_type
+	2: (moddate) a timestamp
+	3: (instance) an int
+	4: (command) a string
+	5: (lastmodifier) a username
+	6: (owner) a username
+	7: (workspace) a workspace_id
+	8: (ref) a workspace_ref
+	9: (chsum) a string
+	10: (metadata) a reference to a hash where the key is a string and the value is a string
+object_id is a string
+object_type is a string
+timestamp is a string
+username is a string
+workspace_ref is a string
 
 
 =end text
 
 =item Description
 
-
+Compute reaction probabilities from probabilistic annotation and a template model.
+Returns metadata for the reaction probability object
 
 =back
 

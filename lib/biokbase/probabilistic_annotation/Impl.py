@@ -20,8 +20,6 @@ class NoFeaturesError(Exception):
 class BlastError(Exception):
     pass
 
-# Exception thrown when 
-
 # Temporary for testing
 from random import randint
 #END_HEADER
@@ -740,7 +738,7 @@ class ProbabilisticAnnotation:
 
         # Sanity check on input arguments
         input = self._checkInputArguments(input, 
-                                          ["probanno", "probanno_workspace", "auth"], 
+                                          ["probanno", "probanno_workspace", "auth", "outputid", "outputws"], 
                                           { "debug"   : False,
                                             "verbose" : False ,
                                             "template_model" : None,
@@ -792,14 +790,33 @@ class ProbabilisticAnnotation:
         # rxnsToComplexes.
         reactionProbs = self._reactionProbabilities(input, genome, complexProbs, workFolder, rxnsToComplexes = None)
  
+        # Create a reaction probability object
+        rxnProbObject = {}
+        rxnProbObject["genome"] = probannoObject["data"]["genome"]
+        rxnProbObject["template_model"] = input["template_model"]
+        rxnProbObject["probanno"] = probannoObject["data"]["id"]
+        rxnProbObject["id"] = input["outputid"]
+        rxnProbObject["reactionProbabilities"] = reactionProbs
+
+        # Save output to the output workspace
+        saveObjectParams = { "id" : input["outputid"],
+                             "type" : "RxnProbs",
+                             "data" : rxnProbObject,
+                             "workspace" : input["outputws"],
+                             "command" : "pa-calculate",
+                             "auth" : input["auth"]
+                             }
+
+        output = wsClient.save_object(saveObjectParams)
+        
         # Translate IDs to modelSEED IDs
-        output = []
-        EntityAPI = CDMI_EntityAPI(self.config["cdmi_url"])
-        for tup in reactionProbs:
-            rxndata = EntityAPI.get_entity_Reaction( [ tup[0] ], [ "source_id" ] )
-            # What a freaking mess...
-            newtup = [ rxndata[tup[0]]["source_id"] ] + list(tup[1:])
-            output.append(tuple(newtup))
+#        output = []
+#        EntityAPI = CDMI_EntityAPI(self.config["cdmi_url"])
+#        for tup in reactionProbs:
+#            rxndata = EntityAPI.get_entity_Reaction( [ tup[0] ], [ "source_id" ] )
+#            # What a freaking mess...
+#            newtup = [ rxndata[tup[0]]["source_id"] ] + list(tup[1:])
+#            output.append(tuple(newtup))
 
         #END calculate
 

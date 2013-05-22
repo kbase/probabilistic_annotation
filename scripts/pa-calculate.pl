@@ -15,10 +15,10 @@ NAME
       pa-calculate -- generate probability model for a genome
 
 SYNOPSIS
-      pa-calculate <ProbAnno ID> [OPTIONS]
+      pa-calculate <ProbAnno ID> <RxnProb ID> [OPTIONS]
 
 DESCRIPTION
-      Generate a probability model for a genome.
+      Generate reaction probabilities from a probabilistic annotation.
       
       Options:
       -d, --debug           Keep intermediate files for debug purposes
@@ -29,6 +29,7 @@ DESCRIPTION
       -t, --templatemodel   Template model ID
       -m, --templatemodelws Template model workspace
       -v, --verbose         Print verbose messages
+      -w, --rxnprobws        Workspace for reaction probability object
 
 EXAMPLES
       Annotate:
@@ -39,10 +40,11 @@ AUTHORS
 ";
 
 # Define usage and options.
-my $primaryArgs = [ "ProbAnno ID" ];
+my $primaryArgs = [ "ProbAnno ID", "RxnProb ID" ];
 my ( $opt, $usage ) = describe_options(
     'pa-calculate <' . join( "> <", @{$primaryArgs} ) . '> %o',
     [ 'probannows|w=s', 'ID of workspace where ProbAnno object is stored', { "default" => workspace() } ],
+    [ 'rxnprobws|w=s', 'ID of workspace to save the output', { 'default' => workspace() } ],
     [ 'templatemodel|t=s', "template model", { "default" => undef } ],
     [ 'templatemodelws|m=s', "template model workspace", { "default" => undef } ],
     [ 'debug|d:i', "Keep intermediate files for debug purposes", { "default" => 0 } ],
@@ -75,6 +77,8 @@ my $client = get_probanno_client();
 # Define translation from options to function parameters.
 my $translation = {
     "ProbAnno ID" => "probanno",
+    "RxnProb ID"  => "outputid",
+    "rxnprobws"    => "outputws",
     probannows    => "probanno_workspace",
     debug         => "debug",
     verbose       => "verbose",
