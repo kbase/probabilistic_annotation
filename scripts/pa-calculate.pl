@@ -42,12 +42,12 @@ AUTHORS
 my $primaryArgs = [ "ProbAnno ID" ];
 my ( $opt, $usage ) = describe_options(
     'pa-calculate <' . join( "> <", @{$primaryArgs} ) . '> %o',
-    [ 'probannows:s', 'ID of workspace where ProbAnno object is stored', { "default" => workspace() } ],
-    [ 'templatemodel|t', "template model", { "default" => undef } ],
-    [ 'templatemodelws|m', "template model workspace", { "default" => undef } ],
-    [ 'debug|d', "Set as 1 to keep intermediate files for debug purposes", { "default" => 0 } ],
-    [ 'showerror|e', 'Set as 1 to show any errors in execution', { "default" => 0 } ],
-    [ 'verbose|v', 'Set as 1 to print verbose messages', { "default" => 0 } ],
+    [ 'probannows|w=s', 'ID of workspace where ProbAnno object is stored', { "default" => workspace() } ],
+    [ 'templatemodel|t=s', "template model", { "default" => undef } ],
+    [ 'templatemodelws|m=s', "template model workspace", { "default" => undef } ],
+    [ 'debug|d:i', "Keep intermediate files for debug purposes", { "default" => 0 } ],
+    [ 'showerror|e:i', 'Show any errors in execution', { "default" => 0 } ],
+    [ 'verbose|v:i', 'Print verbose messages', { "default" => 0 } ],
     [ 'help|h', 'Show help text' ],
     [ 'usage|?', 'Show usage information' ]
     );
@@ -64,8 +64,8 @@ if (defined($opt->{usage})) {
 foreach my $arg ( @{$primaryArgs} ) {
     $opt->{$arg} = shift @ARGV;
     if ( !defined( $opt->{$arg} ) ) {
-		print $usage;
-		exit;
+		print STDERR "Required arguments are missing\n".$usage;
+		exit 1;
     }
 }
 
