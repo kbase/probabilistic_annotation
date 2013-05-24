@@ -543,7 +543,8 @@ class ProbabilisticAnnotation:
                         GPR = cplxToTuple[cplx][2]
                     elif cplxToTuple[cplx][2] != "":
                         GPR = " or ".join( [ GPR, cplxToTuple[cplx][2] ] )
-            reactionProbs.append( (rxn, maxp, TYPE, complexinfo, GPR) )
+            # List so that we can modify the reaction IDs if needed to translate to ModelSEED IDs
+            reactionProbs.append( [rxn, maxp, TYPE, complexinfo, GPR] )
     
         if input["debug"]:
             reaction_probability_file = os.path.join(workFolder, "%s.rxnprobs" %(genome))
@@ -789,6 +790,14 @@ class ProbabilisticAnnotation:
         # make a dictionary from reactions to their complexes, and then call this function with a non-None value in
         # rxnsToComplexes.
         reactionProbs = self._reactionProbabilities(input, genome, complexProbs, workFolder, rxnsToComplexes = None)
+
+        if input["template_model"] is None:
+            # Convert kb| IDs to modelSEED IDs
+            EntityAPI = CDMI_EntityAPI(self.config["cdmi_url"])
+            for ii in range(len(reactionProbs)):
+                rxnid = reactionProbs[ii][0]
+                rxndata = EntityAPI.get_entity_Reaction( [ rxnid ], [ "source_id" ] )
+                reactionProbs[ii][0] = rxndata[rxnid]["source_id"]
  
         # Create a reaction probability object
         rxnProbObject = {}
@@ -809,15 +818,6 @@ class ProbabilisticAnnotation:
 
         output = wsClient.save_object(saveObjectParams)
         
-        # Translate IDs to modelSEED IDs
-#        output = []
-#        EntityAPI = CDMI_EntityAPI(self.config["cdmi_url"])
-#        for tup in reactionProbs:
-#            rxndata = EntityAPI.get_entity_Reaction( [ tup[0] ], [ "source_id" ] )
-#            # What a freaking mess...
-#            newtup = [ rxndata[tup[0]]["source_id"] ] + list(tup[1:])
-#            output.append(tuple(newtup))
-
         #END calculate
 
         #At some point might do deeper type checking...
