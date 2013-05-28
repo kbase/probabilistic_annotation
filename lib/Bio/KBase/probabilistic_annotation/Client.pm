@@ -167,14 +167,17 @@ $output is an object_metadata
 calculate_params is a reference to a hash where the following keys are defined:
 	probanno has a value which is a probanno_id
 	probanno_workspace has a value which is a workspace_id
-	template_model has a value which is a template_modelid
+	template_model has a value which is a template_id
 	template_model_workspace has a value which is a workspace_id
+	rxnprobs has a value which is a rxnprobs_id
+	rxnprobs_workspace has a value which is a workspace_id
 	debug has a value which is a bool
 	verbose has a value which is a bool
 	auth has a value which is a string
 probanno_id is a string
 workspace_id is a string
-template_modelid is a string
+template_id is a string
+rxnprobs_id is a string
 bool is an int
 object_metadata is a reference to a list containing 11 items:
 	0: (id) an object_id
@@ -205,14 +208,17 @@ $output is an object_metadata
 calculate_params is a reference to a hash where the following keys are defined:
 	probanno has a value which is a probanno_id
 	probanno_workspace has a value which is a workspace_id
-	template_model has a value which is a template_modelid
+	template_model has a value which is a template_id
 	template_model_workspace has a value which is a workspace_id
+	rxnprobs has a value which is a rxnprobs_id
+	rxnprobs_workspace has a value which is a workspace_id
 	debug has a value which is a bool
 	verbose has a value which is a bool
 	auth has a value which is a string
 probanno_id is a string
 workspace_id is a string
-template_modelid is a string
+template_id is a string
+rxnprobs_id is a string
 bool is an int
 object_metadata is a reference to a list containing 11 items:
 	0: (id) an object_id
@@ -409,10 +415,46 @@ a string
 
 
 
-=head2 template_modelid
+=head2 template_id
 
 =over 4
 
+
+
+=item Description
+
+A string identifier for a template model object.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a string
+</pre>
+
+=end html
+
+=begin text
+
+a string
+
+=end text
+
+=back
+
+
+
+=head2 rxnprobs_id
+
+=over 4
+
+
+
+=item Description
+
+A string identifier for a reaction probabilities object.
 
 
 =item Definition
@@ -923,6 +965,46 @@ a reference to a list containing 5 items:
 
 
 
+=head2 RxnProbs
+
+=over 4
+
+
+
+=item Description
+
+Object to hold reaction probabilities for a genome.
+
+        genome_id genome;
+        list<ReactionProbability> reactionProbabilities;
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+genome has a value which is a genome_id
+reactionProbabilities has a value which is a reference to a list where each element is a ReactionProbability
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+genome has a value which is a genome_id
+reactionProbabilities has a value which is a reference to a list where each element is a ReactionProbability
+
+
+=end text
+
+=back
+
+
+
 =head2 annotate_params
 
 =over 4
@@ -1006,8 +1088,10 @@ Input parameters for the "calculate" function.
 a reference to a hash where the following keys are defined:
 probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
-template_model has a value which is a template_modelid
+template_model has a value which is a template_id
 template_model_workspace has a value which is a workspace_id
+rxnprobs has a value which is a rxnprobs_id
+rxnprobs_workspace has a value which is a workspace_id
 debug has a value which is a bool
 verbose has a value which is a bool
 auth has a value which is a string
@@ -1021,8 +1105,10 @@ auth has a value which is a string
 a reference to a hash where the following keys are defined:
 probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
-template_model has a value which is a template_modelid
+template_model has a value which is a template_id
 template_model_workspace has a value which is a workspace_id
+rxnprobs has a value which is a rxnprobs_id
+rxnprobs_workspace has a value which is a workspace_id
 debug has a value which is a bool
 verbose has a value which is a bool
 auth has a value which is a string

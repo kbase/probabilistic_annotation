@@ -10,8 +10,13 @@ module ProbabilisticAnnotation
     
 	/* A string identifier for a probabilistic annotation object. */
     typedef string probanno_id;
-    typedef string template_modelid;
+    
+    /* A string identifier for a template model object. */
+    typedef string template_id;
 
+	/* A string identifier for a reaction probabilities object. */
+	typedef string rxnprobs_id;
+	
 	/* A string identifier for a genome. */    
     typedef string genome_id;
     
@@ -95,6 +100,17 @@ module ProbabilisticAnnotation
     	
     */
     typedef tuple<reaction_id reaction, float probability, string type, string complex_info, string gene_list> ReactionProbability;
+    
+    /* Object to hold reaction probabilities for a genome.
+    
+    	genome_id genome;
+    	list<ReactionProbability> reactionProbabilities;
+    	
+    */
+    typedef structure {
+    	genome_id genome;
+    	list<ReactionProbability> reactionProbabilities;
+    } RxnProbs;
 
 	/* ************************************************************************************* */
 	/* FUNCTION DEFINITIONS */
@@ -135,8 +151,10 @@ module ProbabilisticAnnotation
     typedef structure {
     	probanno_id probanno;
     	workspace_id probanno_workspace;
-	template_modelid template_model;
-	workspace_id template_model_workspace;
+		template_id template_model;
+		workspace_id template_model_workspace;
+		rxnprobs_id rxnprobs;
+		workspace_id rxnprobs_workspace;
     	bool debug;
     	bool verbose;
     	string auth;

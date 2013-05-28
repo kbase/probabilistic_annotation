@@ -12,10 +12,10 @@ use Bio::KBase::workspaceService::Helpers qw(auth workspace printObjectMeta);
 my $manpage =
 "
 NAME
-      pa-calculate -- generate probability model for a genome
+      pa-calculate -- generate reaction probabilities from a probabilistic annotation
 
 SYNOPSIS
-      pa-calculate <ProbAnno ID> <RxnProb ID> [OPTIONS]
+      pa-calculate <ProbAnno ID> <RxnProbs ID> [OPTIONS]
 
 DESCRIPTION
       Generate reaction probabilities from a probabilistic annotation.
@@ -24,12 +24,12 @@ DESCRIPTION
       -d, --debug           Keep intermediate files for debug purposes
       -e, --showerror       Show any errors in execution
       -h, --help            Display this help message, ignore all arguments
-      -o, --overwrite       Overwrite existing Model object with same name
+      -o, --overwrite       Overwrite existing RxnProbs object with same name
       --probannows          ID of workspace where ProbAnno object is stored
-      -t, --templatemodel   Template model ID
-      -m, --templatemodelws Template model workspace
+      -t, --templateid      ID of ModelTemplate object
+      -m, --templatews      ID of workspace where ModelTemplate object is stored
       -v, --verbose         Print verbose messages
-      -w, --rxnprobws        Workspace for reaction probability object
+      -w, --rxnprobsws      ID of workspace where RxnProbs object is saved
 
 EXAMPLES
       Annotate:
@@ -40,13 +40,13 @@ AUTHORS
 ";
 
 # Define usage and options.
-my $primaryArgs = [ "ProbAnno ID", "RxnProb ID" ];
+my $primaryArgs = [ "ProbAnno ID", "RxnProbs ID" ];
 my ( $opt, $usage ) = describe_options(
     'pa-calculate <' . join( "> <", @{$primaryArgs} ) . '> %o',
     [ 'probannows|w=s', 'ID of workspace where ProbAnno object is stored', { "default" => workspace() } ],
-    [ 'rxnprobws|w=s', 'ID of workspace to save the output', { 'default' => workspace() } ],
-    [ 'templatemodel|t=s', "template model", { "default" => undef } ],
-    [ 'templatemodelws|m=s', "template model workspace", { "default" => undef } ],
+    [ 'rxnprobsws|w=s', 'ID of workspace where RxnProbs object is saved', { 'default' => workspace() } ],
+    [ 'templateid|t=s', "ID of ModelTemplate object", { "default" => undef } ],
+    [ 'templatews|m=s', "ID of workspace where ModelTemplate object is stored", { "default" => undef } ],
     [ 'debug|d:i', "Keep intermediate files for debug purposes", { "default" => 0 } ],
     [ 'showerror|e:i', 'Show any errors in execution', { "default" => 0 } ],
     [ 'verbose|v:i', 'Print verbose messages', { "default" => 0 } ],
@@ -77,13 +77,13 @@ my $client = get_probanno_client();
 # Define translation from options to function parameters.
 my $translation = {
     "ProbAnno ID" => "probanno",
-    "RxnProb ID"  => "outputid",
-    "rxnprobws"    => "outputws",
+    "RxnProbs ID" => "rxnprobs",
+    rxnprobsws    => "rxnprobs_workspace",
     probannows    => "probanno_workspace",
     debug         => "debug",
     verbose       => "verbose",
-    templatemodel => "template_model",
-    templatemodelws => "template_model_workspace"
+    templateid    => "template_model",
+    templatews    => "template_model_workspace"
 };
 
 # Instantiate parameters for function.
@@ -97,11 +97,10 @@ foreach my $key ( keys( %{$translation} ) ) {
 # Call the function.
 my $output = $client->calculate($params);
 if (!defined($output)) {
-	print "Calculating reactions failed!\n";
+	print "Calculating reaction probabilities failed!\n";
 	exit 1;
 } else {
-	foreach my $rxnprob ( @{$output}) {
-		print join("\t", $rxnprob->[0], $rxnprob->[1], $rxnprob->[2], $rxnprob->[3], $rxnprob->[4])."\n";
-	}
+	print "Reaction probabilities successfully generated in workspace:";
+	printObjectMeta($output)
 }
 exit 0;
