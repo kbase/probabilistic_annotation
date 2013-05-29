@@ -28,7 +28,7 @@ all: compile-typespec
 # TESTS
 # Note I don't have any test scripts yet but when I make them they'll go in these locations
 CLIENT_TESTS = $(wildcard client-tests/*.t)
-SCRIPT_TESTS = $(wildcard script-tests/*.sh)
+SCRIPT_TESTS = $(wildcard script-tests/*.py)
 SERVER_TESTS = $(wildcard server-tests/*.t)
 
 test: test-service test-client test-scripts
@@ -47,7 +47,7 @@ test-service:
 test-scripts:
 	for t in $(SCRIPT_TESTS) ; do \
 		if [ -f $$t ] ; then \
-			/bin/sh $$t ; \
+			python $$t ; \
 			if [ $$? -ne 0 ] ; then \
 				exit 1 ; \
 			fi \

@@ -739,7 +739,7 @@ class ProbabilisticAnnotation:
 
         # Sanity check on input arguments
         input = self._checkInputArguments(input, 
-                                          ["probanno", "probanno_workspace", "auth", "outputid", "outputws"], 
+                                          ["probanno", "probanno_workspace", "auth", "rxnprobs", "rxnprobs_workspace"], 
                                           { "debug"   : False,
                                             "verbose" : False ,
                                             "template_model" : None,
@@ -804,14 +804,14 @@ class ProbabilisticAnnotation:
         rxnProbObject["genome"] = probannoObject["data"]["genome"]
         rxnProbObject["template_model"] = input["template_model"]
         rxnProbObject["probanno"] = probannoObject["data"]["id"]
-        rxnProbObject["id"] = input["outputid"]
+        rxnProbObject["id"] = input["rxnprobs"]
         rxnProbObject["reactionProbabilities"] = reactionProbs
 
         # Save output to the output workspace
-        saveObjectParams = { "id" : input["outputid"],
+        saveObjectParams = { "id" : input["rxnprobs"],
                              "type" : "RxnProbs",
                              "data" : rxnProbObject,
-                             "workspace" : input["outputws"],
+                             "workspace" : input["rxnprobs_workspace"],
                              "command" : "pa-calculate",
                              "auth" : input["auth"]
                              }
