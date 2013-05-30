@@ -3,12 +3,9 @@ import unittest
 import subprocess
 from os import environ
 
-class TestCalculateScript(unittest.TestCase):
-    
+class TestCalculateScript(unittest.TestCase):    
     def setUp(self):
-        self.cmd = environ["TARGET"] + "/bin/pa-calculate"
-        self.url = "http://localhost:7073"
-        
+        self.cmd = environ["KB_TOP"] + "/bin/pa-calculate"
     def test_help(self):
         '''Run pa-calculate --help and verify that the major sections in the help text are present'''
         

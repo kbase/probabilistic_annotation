@@ -6,7 +6,7 @@ from os import environ
 class TestUrlScript(unittest.TestCase):
     
     def setUp(self):
-        self.cmd = environ["TARGET"] + "/bin/pa-url"
+        self.cmd = environ["KB_TOP"] + "/bin/pa-url"
         self.url = "http://localhost:7073"
         
     def test_current(self):

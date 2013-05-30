@@ -6,7 +6,7 @@ from os import environ
 class TestAnnotateScript(unittest.TestCase):
     
     def setUp(self):
-        self.cmd = environ["TARGET"] + "/bin/pa-annotate"
+        self.cmd = environ["KB_TOP"] + "/bin/pa-annotate"
         self.url = "http://localhost:7073"
         
     def test_help(self):
