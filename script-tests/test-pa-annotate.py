@@ -88,7 +88,7 @@ class TestAnnotateScript(unittest.TestCase):
         self.assertEqual(proc.returncode, 0)
 
         # Allow time for the command to run
-        time.sleep(30)
+        time.sleep(self.runtime)
 
         # Lets grab the object
         wsClientArgs = { "workspace": self.probannows,
