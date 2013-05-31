@@ -25,7 +25,7 @@ params = { "probanno"                 : options.probanno,
            "auth"                     : options.auth,
            "template_model"           : options.template_model, 
            "template_model_workspace" : options.template_model_workspace,
-           "outputid"                 : options.outputid,
+           "rxnprobs"                 : options.outputid,
            "outputws"                 : options.outputws }
 
 client = ProbabilisticAnnotation(options.url)
