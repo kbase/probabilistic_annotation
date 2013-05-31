@@ -1,0 +1,15 @@
+I have created a small "genome" object with three annotated genes (one of which is the E. coli Enolase
+and the other two are some other genes). Here is how to test this in your own workspace:
+
+1: Import the genome object into a workspace
+2: Modify the workspace and genome IDs in the SetUp functions of the test scripts
+to point at your workspace and genome.
+3: Test the functions.
+
+Note that the "probannoid" must be the same in both the test-pa-calculate and test-pa-annotate function since
+the same object is used as the output from the former and the input to the latter.
+
+Also... since auth isnt' impemented in Python yet I hacked in just reading the .kbase_auth file so make sure
+your file's location is specified in the test files or you will likely have permission denied. It will also
+work with any publically-writable workspace but you won't be able to delete files from those when the script is
+finished.
