@@ -83,15 +83,11 @@ deploy-dir:
 
 deploy-service-files:
 	tpage $(SERV_TPAGE_ARGS) service/process.tt > $(SERV_SERVICE_DIR)/process.$(SERV_SERVICE); \
-        chmod +x $(SERV_SERVICE_DIR)/process.$(SERV_SERVICE); \
-	tpage $(SERV_TPAGE_ARGS) service/start_python_service.tt > $(SERV_SERVICE_DIR)/start_python_service; \
-	chmod +x $(SERV_SERVICE_DIR)/start_python_service; \
-	tpage $(SERV_TPAGE_ARGS) service/stop_python_service.tt > $(SERV_SERVICE_DIR)/stop_python_service; \
-	chmod +x $(SERV_SERVICE_DIR)/stop_python_service;
-	#tpage $(SERV_TPAGE_ARGS) service/start_service.tt > $(SERV_SERVICE_DIR)/start_service; \
-	#chmod +x $(SERV_SERVICE_DIR)/start_service; \
-        #tpage $(SERV_TPAGE_ARGS) service/stop_service.tt > $(SERV_SERVICE_DIR)/stop_service; \
-        #chmod +x $(SERV_SERVICE_DIR)/stop_service; \
+	chmod +x $(SERV_SERVICE_DIR)/process.$(SERV_SERVICE); \
+	tpage $(SERV_TPAGE_ARGS) service/start_service.tt > $(SERV_SERVICE_DIR)/start_service; \
+	chmod +x $(SERV_SERVICE_DIR)/start_service; \
+	tpage $(SERV_TPAGE_ARGS) service/stop_service.tt > $(SERV_SERVICE_DIR)/stop_service; \
+	chmod +x $(SERV_SERVICE_DIR)/stop_service;
 
 deploy-perlscripts:
 	# These three are needed to make these variables appear in the wrapped script

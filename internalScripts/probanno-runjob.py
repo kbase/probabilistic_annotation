@@ -4,22 +4,19 @@ import sys, os, json
 from biokbase.probabilistic_annotation.Impl import ProbabilisticAnnotation
 from biokbase.probabilistic_annotation.DataParser import getConfig
 
-# First parameter is the path to the file containing the job object json.
-# Read the job object from the file.
-job = json.load(open(sys.argv[1], "r"))
+# First parameter is the path to the job directory.
+# Read the job object from the file in the job directory.
+jsonFilename = os.path.join(sys.argv[1], "jobfile.json")
+job = json.load(open(jsonFilename, "r"))
 
-# Second parameter is the path to the config file.
-# Read the config from the file.
-config = getConfig(sys.argv[2])
+# Read the config from the file specified in the job data.
+config = getConfig(job["jobdata"]["kb_deployment_config"])
 
 # Let the server know that it is being called from a job.
 config["generate_data_option"] = "runjob"
 
 # Call the server function to run the annotation.
 impl_ProbabilisticAnnotation = ProbabilisticAnnotation(config)
-impl_ProbabilisticAnnotation.runAnnotate(job["jobdata"])
-
-# Temporary code to clean up.
-os.remove(sys.argv[1])
+impl_ProbabilisticAnnotation.runAnnotate(job)
 
 exit(0)
