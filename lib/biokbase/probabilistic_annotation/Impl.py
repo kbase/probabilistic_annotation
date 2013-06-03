@@ -12,12 +12,20 @@ from biokbase.cdmi.client import CDMI_EntityAPI
 class NotReadyError(Exception):
     pass
 
-# Exception thrown when no features are found in genome
+# Exception thrown when no features are found in Genome object
 class NoFeaturesError(Exception):
     pass
 
 # Exception thrown when blast command failed
 class BlastError(Exception):
+    pass
+
+# Exception thrown when there are no gene IDs in Genome object
+class NoGeneIdsError(Exception):
+    pass
+
+# Exception thrown when role not found in roleToTotalProb dictionary
+class RoleNotFoundEror(Exception):
     pass
 
 # Temporary for testing
@@ -60,31 +68,46 @@ class ProbabilisticAnnotation:
 
         return input
 
-    def runAnnotate(self, input):
+    def runAnnotate(self, job):
         '''Run an annotate job.'''
 
         # Create a workspace client.
         wsClient = workspaceService(self.config["workspace_url"])
+
+        # The input parameters to annotate() were stored in the jobdata for the job.
+        input = job["jobdata"]
         
-        # Get the Genome object from the specified workspace.
-        getObjectParams = { "type": "Genome", "id": input["genome"], "workspace": input["genome_workspace"], "auth": input["auth"] }
-        genomeObject = wsClient.get_object(getObjectParams)
+        try:        
+            # Get the Genome object from the specified workspace.
+            getObjectParams = { "type": "Genome", "id": input["genome"], "workspace": input["genome_workspace"], "auth": input["auth"] }
+            genomeObject = wsClient.get_object(getObjectParams)
+            
+            # Create a temporary directory for storing blast input and output files.
+            workFolder = tempfile.mkdtemp("", "%s-" %(input["genome"]), self.config["work_folder_path"])
+            
+            # Convert Genome object to fasta file.
+            fastaFile = self._genomeToFasta(input, genomeObject, workFolder)
+            
+            # Run blast using the fasta file.
+            blastResultFile = self._runBlast(input, fastaFile, workFolder)
+            
+            # Calculate roleset probabilities.
+            rolestringTuples = self._rolesetProbabilitiesMarble(input, input["genome"], blastResultFile, workFolder)
+            
+            # Build ProbAnno object and store in the specified workspace.
+            output = self._buildProbAnnoObject(input, genomeObject, blastResultFile, rolestringTuples, workFolder, wsClient)
         
-        # Create a temporary directory for storing blast input and output files.
-        workFolder = tempfile.mkdtemp("", "%s-" %(input["genome"]), self.config["work_folder_path"])
-        
-        # Convert Genome object to fasta file.
-        fastaFile = self._genomeToFasta(input, genomeObject, workFolder)
-        
-        # Run blast using the fasta file.
-        blastResultFile = self._runBlast(input, fastaFile, workFolder)
-        
-        # Calculate roleset probabilities.
-        rolestringTuples = self._rolesetProbabilitiesMarble(input, input["genome"], blastResultFile, workFolder)
-        
-        # Build ProbAnno object and store in the specified workspace.
-        output = self._buildProbAnnoObject(input, genomeObject, blastResultFile, rolestringTuples, workFolder, wsClient)
-        
+            # Mark the job as done.
+            if self.config["job_queue"] == "scheduler":
+                setStatusParams = { "jobid": job["id"], "status": "done", "auth": job["auth"] }
+                wsClient.set_job_status(setStatusParams)
+            
+        except:
+            # Mark the job as failed if any exception is caught.
+            if self.config["job_queue"] == "scheduler":
+                setStatusParams = { "jobid": job["id"], "status": "error", "auth": job["auth"] }
+                wsClient.set_job_status(setStatusParams)
+            
         # Remove the temporary directory.
         if input["debug"] == False:
             shutil.rmtree(workFolder)
@@ -249,9 +272,7 @@ class ProbabilisticAnnotation:
         for ii in range(len(genomeObject["data"]["features"])):
             feature = genomeObject["data"]["features"][ii]
             if "id" not in genomeObject["data"]:
-                # TODO Throw an exception
-                sys.stderr.write("No gene ID found in input Genome object (this should never happen)\n")
-                return None
+                raise NoGeneIdsError("No gene IDs found in input Genome object %s/%s (this should never happen)" %(input["genome_workspace"], input["genome"]))
             queryid = feature["id"]
     
             # This can happen if I couldn't find hits from that gene to anything in the database. In this case, I'll just skip it.
@@ -359,9 +380,7 @@ class ProbabilisticAnnotation:
         roleToGeneList = {}
         for tuple in roleProbs:
             if tuple[1] not in roleToTotalProb:
-                # TODO Throw an exception
-                sys.stderr.write("ERROR: Role %s not placed properly in roleToTotalProb dictionary?\n" %(tuple[1]))
-                return None
+                raise RoleNotFoundError("Role %s not placed properly in roleToTotalProb dictionary?" %(tuple[1]))
             if float(tuple[2]) >= float(self.config["dilution_percent"])/100.0 * roleToTotalProb[tuple[1]]:
                 if tuple[1] in roleToGeneList:
                     roleToGeneList[tuple[1]].append(tuple[0])
@@ -651,12 +670,13 @@ class ProbabilisticAnnotation:
         statusFilePath = os.path.join(self.config["data_folder_path"], self.config["status_file"])
         try:
             fid = open(statusFilePath, "r")
-            status = fid.readline()
+            statusLine = fid.readline()
             fid.close()
-            if status.strip("\r\n") != "ready":
-                raise NotReadyError("Static database files are not ready.  Current status is %s." %(status))
+            status = statusLine.strip("\r\n")
+            if status != "ready":
+                raise NotReadyError("Static database files are not ready.  Current status is '%s'." %(status))
         except IOError:
-            raise NotReadyError("Static database files are not ready.  Failed to open status file %s." %(statusFilePath))
+            raise NotReadyError("Static database files are not ready.  Failed to open status file '%s'." %(statusFilePath))
 
     #END_CLASS_HEADER
 
@@ -707,22 +727,31 @@ class ProbabilisticAnnotation:
         # Create a workspace client.
         wsClient = workspaceService(self.config["workspace_url"])
         
-        # Queue a job to run annotate command.
-        # Add job_info key to jobData hash -- this will get printed by check job
-        queueJobParams = { "type": "probanno", "auth": input["auth"], "jobdata": input }
-        # TODO When available, use the job functions in the workspace server.
-#        jobid = wsClient.queue_job(queueJobParams)
-
-        # Start temporary code for testing
-        jid = randint(1,1000000)
-        jsonFilename = "job%d.json" %(jid)
-        outputFilename = "job%d.out" %(jid)
-        json.dump(queueJobParams, open(jsonFilename, "w"), indent=4)
-        cmdline = "nohup %s %s %s >%s 2>&1 &" %(self.config["annotate_job_script_path"], jsonFilename, environ["KB_DEPLOYMENT_CONFIG"], outputFilename)
-        status = os.system(cmdline)
-        sys.stderr.write("Submitted job %d" %(jid))
-        jobid = "%d" %(jid)
-        # End temporary code for testing
+        # Store the path to the config file so the job script can set the configuration.
+        input["kb_deployment_config"] = environ["KB_DEPLOYMENT_CONFIG"]
+        
+        # Use the same parameters for both job queue methods.
+        queueCommand = "pa-annotate " + input["genome"] + " " + input["probanno"]
+        queueJobParams = { "type": "ProbAnno", "auth": input["auth"], "queuecommand": queueCommand, "jobdata": input }
+        
+        # Queue a job to run annotate command using the workspace scheduler.
+        if self.config["job_queue"] == "scheduler":
+            job = wsClient.queue_job(queueJobParams)
+            jobid = job["id"]
+            
+        # Run the job on the local machine.
+        else:
+            jid = randint(1,1000000)
+            jobDirectory = "job.%d" %(jid)
+            os.makedirs(jobDirectory, 0770)
+            jsonFilename = os.path.join(jobDirectory, "jobfile.json")
+            outputFilename = os.path.join(jobDirectory, "stdout.log")
+            errorFilename = os.path.join(jobDirectory, "stderr.log")
+            json.dump(queueJobParams, open(jsonFilename, "w"), indent=4)
+            cmdline = "nohup %s %s >%s 2>%s &" %(self.config["annotate_job_script_path"], jobDirectory, outputFilename, errorFilename)
+            status = os.system(cmdline)
+            sys.stderr.write("Submitted job %d" %(jid))
+            jobid = "%d" %(jid)
     
         #END annotate
 
