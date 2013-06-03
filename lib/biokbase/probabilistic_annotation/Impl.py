@@ -1,5 +1,6 @@
 #BEGIN_HEADER
 import sys, time, tempfile, shutil
+import os
 from os import environ
 from biokbase.probabilistic_annotation.DataExtractor import *
 from biokbase.probabilistic_annotation.DataParser import *
@@ -76,7 +77,9 @@ class ProbabilisticAnnotation:
 
         # The input parameters to annotate() were stored in the jobdata for the job.
         input = job["jobdata"]
-        
+
+        status = None
+
         try:        
             # Get the Genome object from the specified workspace.
             getObjectParams = { "type": "Genome", "id": input["genome"], "workspace": input["genome_workspace"], "auth": input["auth"] }
@@ -96,21 +99,25 @@ class ProbabilisticAnnotation:
             
             # Build ProbAnno object and store in the specified workspace.
             output = self._buildProbAnnoObject(input, genomeObject, blastResultFile, rolestringTuples, workFolder, wsClient)
-        
+
             # Mark the job as done.
-            if self.config["job_queue"] == "scheduler":
-                setStatusParams = { "jobid": job["id"], "status": "done", "auth": job["auth"] }
-                wsClient.set_job_status(setStatusParams)
-            
+            status = "done"
+
+            # Remove the temporary directory only if our job succeeds. If it does that means there were no errors so we don't need it.
+            if input["debug"] == False:
+                shutil.rmtree(workFolder)
+        except ServerError:
+            # We failed to get the object out of the workspace
+            # This doesn't quite work the way I want it to...
+            status = "error"
+            sys.stderr.write("ERROR - ServerError (most likely we failed to get the object out of the workspace\n")
         except:
-            # Mark the job as failed if any exception is caught.
+            status = "error"
+            sys.stderr.write("ERROR: \n %s \n" %(sys.exc_info()[0]))
+        finally:
             if self.config["job_queue"] == "scheduler":
-                setStatusParams = { "jobid": job["id"], "status": "error", "auth": job["auth"] }
-                wsClient.set_job_status(setStatusParams)
-            
-        # Remove the temporary directory.
-        if input["debug"] == False:
-            shutil.rmtree(workFolder)
+                setStatusParams = { "jobid": job["id"], "status": status, "auth": job["auth"] }
+                wsClient.set_job_status(setStatusParams)           
 
         return
         
