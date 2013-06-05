@@ -1,13 +1,14 @@
 import sys
 import unittest
 import subprocess
-from os import environ
+import os
+from biokbase.probabilistic_annotation.DataParser import getConfig
 
 class TestUrlScript(unittest.TestCase):
     
     def setUp(self):
-        self.cmd = environ["KB_TOP"] + "/bin/pa-url"
-        self.url = "http://localhost:7073"
+        self.cmd = os.path.join(os.environ["TARGET"], "bin/pa-url")
+        self.config = getConfig(os.environ["KB_TEST_CONFIG"])
         
     def test_current(self):
         '''Run pa-url and verify that the current url is returned.'''
@@ -46,12 +47,12 @@ class TestUrlScript(unittest.TestCase):
     def test_seturl(self):
         '''Run pa-url newurl and verify that the new URL is returned.'''
         
-        args = [ self.cmd, self.url ]
+        args = [ self.cmd, self.config["probanno_url"] ]
         proc = subprocess.Popen(args, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         (so, se) = proc.communicate()
         self.assertEqual(proc.returncode, 0)
         lines = so.split("\n")
-        self.assertEqual(lines[1], self.url)
+        self.assertEqual(lines[1], self.config["probanno_url"])
         self.assertEqual(se, '')
         
     def test_badarg(self):

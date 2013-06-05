@@ -27,7 +27,7 @@ all: compile-typespec
 
 # TESTS
 # Note I don't have any test scripts yet but when I make them they'll go in these locations
-CLIENT_TESTS = $(wildcard client-tests/*.t)
+CLIENT_TESTS_PYTHON = $(wildcard client-tests/*.py)
 SCRIPT_TESTS = $(wildcard script-tests/*.py)
 SERVER_TESTS = $(wildcard server-tests/*.t)
 
@@ -47,7 +47,7 @@ test-service:
 test-scripts:
 	for t in $(SCRIPT_TESTS) ; do \
 		if [ -f $$t ] ; then \
-			python $$t ; \
+			PYTHONPATH="$(TARGET)/lib:" TARGET=$(TARGET) KB_TEST_CONFIG=test.cfg python $$t ; \
 			if [ $$? -ne 0 ] ; then \
 				exit 1 ; \
 			fi \
@@ -55,9 +55,9 @@ test-scripts:
 	done
 
 test-client:
-	for t in $(CLIENT_TESTS) ; do \
+	for t in $(CLIENT_TESTS_PYTHON) ; do \
 		if [ -f $$t ] ; then \
-			$(DEPLOY_RUNTIME)/bin/prove $$t ; \
+			PYTHONPATH="$(TARGET)/lib:" KB_TEST_CONFIG=test.cfg python $$t ; \
 			if [ $$? -ne 0 ] ; then \
 				exit 1 ; \
 			fi \
