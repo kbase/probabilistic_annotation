@@ -1,12 +1,33 @@
 #!/usr/bin/python
 
 # Read and write data files
-import os, sys, math, subprocess
+import os, sys, math, subprocess, time
 from ConfigParser import ConfigParser
 
 # E values of less than 1E-200 are treated as 1E-200 to avoid log of 0 issues.
 MIN_EVALUE = 1E-200
 
+# File names for static database files
+DatabaseFiles = {
+    "otu_id_file": "OTU_GENOME_IDS",
+    "subsystem_fid_file": "SUBSYSTEM_FIDS",
+    "dlit_fid_file": "DLIT_FIDS",
+    "concatenated_fid_file": "ALL_FIDS",
+    "concatenated_fid_role_file": "ALL_FID_ROLES",
+    "subsystem_otu_fid_roles_file": "SUBSYSTEM_OTU_FID_ROLES",
+    "subsystem_otu_fasta_file": "SUBSYSTEM_FASTA",
+    "subsystem_otu_index_file": "SUBSYSTEM_FASTA.pin",
+    "subsystem_otu_sequence_file": "SUBSYSTEM_FASTA.psq",
+    "subsystem_otu_header_file": "SUBSYSTEM_FASTA.phr",
+    "complexes_roles_file": "COMPLEXES_ROLES",
+    "reaction_complexes_file": "REACTIONS_COMPLEXES"
+}
+
+# File names for tracking static database files
+StatusFiles = {
+    "status_file": "staticdata.status",
+    "cache_file": "staticdata.cache"    
+}
 # Exception thrown when makeblastdb command failed
 class MakeblastdbError(Exception):
     pass
@@ -16,7 +37,7 @@ class MakeblastdbError(Exception):
 ###########
 
 def readOtuData(config):
-    fid = open(os.path.join(config["data_folder_path"], config["otu_id_file"]), "r")
+    fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["otu_id_file"]), "r")
     otus = []
     prokotus = []
     for line in fid:
@@ -28,7 +49,7 @@ def readOtuData(config):
     return otus, prokotus
 
 def writeOtuData(otus, prokotus, config):
-    fid = open(os.path.join(config["data_folder_path"], config["otu_id_file"]), "w")
+    fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["otu_id_file"]), "w")
     for otu in otus:
         if otu in prokotus:
             fid.write("%s\t%d\n" %(otu, 1))
@@ -42,7 +63,7 @@ def writeOtuData(otus, prokotus, config):
 ##################
 
 def readSubsystemFids(config):
-    fid = open(os.path.join(config["data_folder_path"], config["subsystem_fid_file"]), "r")
+    fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["subsystem_fid_file"]), "r")
     sub_fids = []
     for line in fid:
         spl = line.strip("\r\n")
@@ -51,7 +72,7 @@ def readSubsystemFids(config):
     return sub_fids
 
 def writeSubsystemFids(sub_fids, config):
-    fid = open(os.path.join(config["data_folder_path"], config["subsystem_fid_file"]), "w")
+    fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["subsystem_fid_file"]), "w")
     for f in sub_fids:
         fid.write("%s\n" %(f))
     fid.close()
@@ -62,7 +83,7 @@ def writeSubsystemFids(sub_fids, config):
 ##################
 
 def readDlitFids(config):
-    fid = open(os.path.join(config["data_folder_path"], config["dlit_fid_file"]), "r")
+    fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["dlit_fid_file"]), "r")
     otu_fids = []
     for line in fid:
         spl = line.strip("\r\n")
@@ -71,7 +92,7 @@ def readDlitFids(config):
     return otu_fids
 
 def writeDlitFids(otu_fids, config):
-    fid = open(os.path.join(config["data_folder_path"], config["dlit_fid_file"]), "w")
+    fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["dlit_fid_file"]), "w")
     for f in otu_fids:
         fid.write("%s\n" %(f))
     fid.close()
@@ -82,7 +103,7 @@ def writeDlitFids(otu_fids, config):
 ###########################
 
 def readAllFidRoles(config):
-    fid = open(os.path.join(config["data_folder_path"], config["concatenated_fid_role_file"]), "r")
+    fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["concatenated_fid_role_file"]), "r")
     all_fidsToRoles = {}
     for line in fid:
         spl = line.strip("\r\n").split("\t")
@@ -105,7 +126,7 @@ def readAllFidRoles(config):
     return all_fidsToRoles, all_rolesToFids
 
 def writeAllFidRoles(otu_fidsToRoles, config):
-    fid = open(os.path.join(config["data_folder_path"], config["concatenated_fid_role_file"]), "w")
+    fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["concatenated_fid_role_file"]), "w")
     for f in otu_fidsToRoles:
         fid.write("%s\t%s\n" %(f, config["separator"].join(otu_fidsToRoles[f])))
     fid.close()
@@ -116,7 +137,7 @@ def writeAllFidRoles(otu_fidsToRoles, config):
 ######################
 
 def readFilteredOtuRoles(config):
-    fid = open(os.path.join(config["data_folder_path"], config["subsystem_otu_fid_roles_file"]), "r")
+    fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["subsystem_otu_fid_roles_file"]), "r")
     otu_fidsToRoles = {}
     for line in fid:
         spl = line.strip("\r\n").split("\t")
@@ -139,7 +160,7 @@ def readFilteredOtuRoles(config):
     return otu_fidsToRoles, otu_rolesToFids
 
 def writeFilteredOtuRoles(otu_fidsToRoles, config):
-    fid = open(os.path.join(config["data_folder_path"], config["subsystem_otu_fid_roles_file"]), "w")
+    fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["subsystem_otu_fid_roles_file"]), "w")
     for f in otu_fidsToRoles:
         fid.write("%s\t%s\n" %(f, config["separator"].join(otu_fidsToRoles[f])))
     fid.close()
@@ -150,12 +171,12 @@ def writeFilteredOtuRoles(otu_fidsToRoles, config):
 ########################
 
 def readSubsystemFasta(config):
-    fid = open(os.path.join(config["data_folder_path"], config["subsystem_otu_fasta_file"]), "r")
+    fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["subsystem_otu_fasta_file"]), "r")
     fid.close()
     return
 
 def writeSubsystemFasta(fidsToSeqs, config):
-    filepath = os.path.join(config["data_folder_path"], config["subsystem_otu_fasta_file"])
+    filepath = os.path.join(config["data_folder_path"], DatabaseFiles["subsystem_otu_fasta_file"])
     fid = open(filepath, "w")
     # Sort the fids so that fasta files containing the same proteins hash to the same MD5 (for
     # data provenance purposes)
@@ -222,7 +243,7 @@ def writeSubsystemFasta(fidsToSeqs, config):
 #####################
 
 def readComplexRoles(config):
-    fid = open(os.path.join(config["data_folder_path"], config["complexes_roles_file"]), "r")
+    fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["complexes_roles_file"]), "r")
     complexToRequiredRoles = {}
     for line in fid:
         spl = line.strip("\r\n").split("\t")
@@ -237,7 +258,7 @@ def readComplexRoles(config):
     return complexToRequiredRoles
 
 def writeComplexRoles(complexToRequiredRoles, config):
-    fid = open(os.path.join(config["data_folder_path"], config["complexes_roles_file"]), "w")
+    fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["complexes_roles_file"]), "w")
     for complexes in complexToRequiredRoles:
         fid.write("%s\t%s\n" %(complexes, config["separator"].join(complexToRequiredRoles[complexes])))
     fid.close()
@@ -248,7 +269,7 @@ def writeComplexRoles(complexToRequiredRoles, config):
 #########################
 
 def readReactionComplex(config):
-    fid = open(os.path.join(config["data_folder_path"], config["reaction_complexes_file"]), "r")
+    fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["reaction_complexes_file"]), "r")
     rxnToComplexes = {}
     for line in fid:
         spl = line.strip("\r\n").split("\t")
@@ -263,7 +284,7 @@ def readReactionComplex(config):
     return rxnToComplexes
 
 def writeReactionComplex(rxnToComplexes, config):
-    fid = open(os.path.join(config["data_folder_path"], config["reaction_complexes_file"]), "w")
+    fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["reaction_complexes_file"]), "w")
     for rxn in rxnToComplexes:
         fid.write("%s\t%s\n" %(rxn, config["separator"].join(rxnToComplexes[rxn])))
     fid.close()
@@ -300,9 +321,27 @@ def readRolesetProbabilityFile(roleset_probability_file):
     return queryToTuplist
 
 def getConfig(filename):
+    # Use default config file if one is not specified.
+    if filename == None:
+        filename = os.path.join(sys.environ["KB_TOP"], "deployment.cfg")
+        
+    # Read the config file and extract the probabilistic annotation section.
     retconfig = {}
     config = ConfigParser()
     config.read(filename)
     for nameval in config.items("probabilistic_annotation"):
         retconfig[nameval[0]] = nameval[1]
     return retconfig
+
+def readStatusFile(config):
+    fid = open(os.path.join(config["data_folder_path"], StatusFiles["status_file"]), "r")
+    statusLine = fid.readline()
+    fid.close()
+    return statusLine.strip("\r\n")
+
+def writeStatusFile(config, status):
+    fid = open(os.path.join(config["data_folder_path"], StatusFiles["status_file"]), "w")
+    fid.write("%s\ncompleted at %s\n" %(status, time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime())))
+    fid.close()
+    return
+

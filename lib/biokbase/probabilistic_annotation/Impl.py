@@ -1,12 +1,12 @@
 #BEGIN_HEADER
-import sys, time, tempfile, shutil
-import os
-from os import environ
+import sys, tempfile, shutil
+import os, traceback
+from random import randint
 from biokbase.probabilistic_annotation.DataExtractor import *
 from biokbase.probabilistic_annotation.DataParser import *
+from biokbase.probabilistic_annotation.Shock import Client as ShockClient
 from biokbase.workspaceService.client import *
 from biokbase.fbaModelServices.Client import *
-
 from biokbase.cdmi.client import CDMI_EntityAPI
 
 # Exception thrown when static database files are not ready
@@ -28,9 +28,6 @@ class NoGeneIdsError(Exception):
 # Exception thrown when role not found in roleToTotalProb dictionary
 class RoleNotFoundEror(Exception):
     pass
-
-# Temporary for testing
-from random import randint
 #END_HEADER
 
 '''
@@ -86,7 +83,7 @@ class ProbabilisticAnnotation:
             genomeObject = wsClient.get_object(getObjectParams)
             
             # Create a temporary directory for storing blast input and output files.
-            workFolder = tempfile.mkdtemp("", "%s-" %(input["genome"]), self.config["work_folder_path"])
+            workFolder = os.path.join(self.config["work_folder_path"], "jobs", job["id"])
             
             # Convert Genome object to fasta file.
             fastaFile = self._genomeToFasta(input, genomeObject, workFolder)
@@ -153,7 +150,7 @@ class ProbabilisticAnnotation:
         '''A simplistic wrapper to BLAST the query proteins against the subsystem proteins'''
         
         blastResultFile = os.path.join(workFolder, "%s.blastout" %(input["genome"]))
-        cmd = "blastp -query \"%s\" -db %s -outfmt 6 -evalue 1E-5 -num_threads 1 -out \"%s\"" %(queryFile, os.path.join(self.config["data_folder_path"], self.config["subsystem_otu_fasta_file"]), blastResultFile)
+        cmd = "blastp -query \"%s\" -db %s -outfmt 6 -evalue 1E-5 -num_threads 1 -out \"%s\"" %(queryFile, os.path.join(self.config["data_folder_path"], DatabaseFiles["subsystem_otu_fasta_file"]), blastResultFile)
         sys.stderr.write("Started BLAST with command: %s\n" %(cmd))
         status = os.system(cmd)
         sys.stderr.write("Ended BLAST with command: %s\n" %(cmd))
@@ -674,17 +671,53 @@ class ProbabilisticAnnotation:
     
     def _checkDatabaseFiles(self):
         '''Check the status of the static database files.'''
-        statusFilePath = os.path.join(self.config["data_folder_path"], self.config["status_file"])
         try:
-            fid = open(statusFilePath, "r")
-            statusLine = fid.readline()
-            fid.close()
-            status = statusLine.strip("\r\n")
+            status = readStatusFile(self.config)
             if status != "ready":
                 raise NotReadyError("Static database files are not ready.  Current status is '%s'." %(status))
         except IOError:
+            statusFilePath = os.path.join(self.config["data_folder_path"], StatusFiles["status_file"])
             raise NotReadyError("Static database files are not ready.  Failed to open status file '%s'." %(statusFilePath))
 
+    def _loadDatabaseFiles(self):
+        '''Load the static database files from Shock.'''
+        
+        # Get the current info about the static database files from the cache file.
+        cacheFilename = os.path.join(self.config["data_folder_path"], StatusFiles["cache_file"])
+        if os.path.exists(cacheFilename):
+            fileCache = json.load(open(cacheFilename, "r"))
+        else:
+            fileCache = { }
+        
+        # Create a shock client.
+        shockClient = ShockClient(self.config["shock_url"])
+
+        # See if the static database files on this system are up-to-date with files stored in Shock.
+        for key in DatabaseFiles:
+            # Get info about the file stored in Shock.
+            query = "lookupname=ProbAnnoData/"+DatabaseFiles[key]
+            nodelist = shockClient.query(query)
+            node = nodelist[0]
+            
+            # Downlaod the file if the checksum does not match or the file is not available on this system.
+            localPath = os.path.join(self.config["data_folder_path"], DatabaseFiles[key])
+            download = False
+            if key in fileCache:
+                if node["file"]["checksum"]["sha1"] != fileCache[key]["file"]["checksum"]["sha1"]:
+                    download = True
+            else:
+                download = True
+            if os.path.exists(localPath) == False:
+                download = True
+            if download:
+                sys.stderr.write("Downloading %s to %s\n" %(key, localPath))
+                shockClient.download_to_path(node["id"], localPath)
+                fileCache[key] = node
+                
+        # Save the updated cache file.
+        json.dump(fileCache, open(cacheFilename, "w"), indent=4)
+        return
+     
     #END_CLASS_HEADER
 
     def __init__(self, config): #config contains contents of config file in hash or 
@@ -701,18 +734,18 @@ class ProbabilisticAnnotation:
             os.makedirs(config["data_folder_path"], 0775)
             
         # See if the static database files are available.
-        gendataScript = "%s/bin/probanno-gendata" %(environ["KB_TOP"])
-        statusFilePath = os.path.join(config["data_folder_path"], config["status_file"])
-        logFilePath = os.path.join(config["data_folder_path"], "gendata.log")
-        if config["generate_data_option"] == "runjob":
-            self._checkDatabaseFiles()
-        else:
-            fid = open(statusFilePath, "w")
-            fid.write("running\nstarted at %s\n" %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime())))
-            fid.close()
-            cmdline = "nohup %s %s >%s 2>&1 &" %(gendataScript, environ["KB_DEPLOYMENT_CONFIG"], logFilePath)
-            status = os.system(cmdline)
-            sys.stderr.write("Generating static data files with command '%s'\n" %(cmdline))
+        # Check the status
+        # catch not ready error, when caught call method to download files from shock
+        # or how about always call method to check cache and download as needed, catch error reading from cache file
+        writeStatusFile(config, "running")
+        try:
+            self._loadDatabaseFiles()
+            status = "ready"
+        except:
+            status = "failed"
+            sys.stderr.write("\nCaught exception...\n")
+            traceback.print_exc(file=sys.stderr)
+        writeStatusFile(config, status)
             
         #END_CONSTRUCTOR
         pass
@@ -731,11 +764,8 @@ class ProbabilisticAnnotation:
         # Make sure the static database files are ready.
         self._checkDatabaseFiles()
         
-        # Create a workspace client.
-        wsClient = workspaceService(self.config["workspace_url"])
-        
         # Store the path to the config file so the job script can set the configuration.
-        input["kb_deployment_config"] = environ["KB_DEPLOYMENT_CONFIG"]
+        input["kb_deployment_config"] = os.environ["KB_DEPLOYMENT_CONFIG"]
         
         # Use the same parameters for both job queue methods.
         queueCommand = "pa-annotate " + input["genome"] + " " + input["probanno"]
@@ -743,13 +773,15 @@ class ProbabilisticAnnotation:
         
         # Queue a job to run annotate command using the workspace scheduler.
         if self.config["job_queue"] == "scheduler":
+            wsClient = workspaceService(self.config["workspace_url"])
             job = wsClient.queue_job(queueJobParams)
             jobid = job["id"]
             
         # Run the job on the local machine.
         else:
             jid = randint(1,1000000)
-            jobDirectory = "job.%d" %(jid)
+            queueJobParams["id"] = "localjob.%d" %(jid)
+            jobDirectory = os.path.join(self.config["work_folder_path"], "jobs", "localjob.%d" %(jid))
             os.makedirs(jobDirectory, 0770)
             jsonFilename = os.path.join(jobDirectory, "jobfile.json")
             outputFilename = os.path.join(jobDirectory, "stdout.log")

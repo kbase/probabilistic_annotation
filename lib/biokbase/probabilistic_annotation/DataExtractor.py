@@ -320,7 +320,7 @@ def fidsToSequences(fidlist, config):
     cdmi = CDMI_API(config["cdmi_url"])
     fidlist = list(set(fidlist))
     start = 0
-    increment = 100000
+    increment = 50000
     end = start + increment - 1
     counter = (len(fidlist) / increment) + 1
     seqs = {}
