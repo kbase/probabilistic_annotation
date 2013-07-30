@@ -119,12 +119,13 @@ deploy-libs:
 	rsync -arv lib/. $(TARGET)/lib/.
 
 deploy-docs:
-	# I have nothing here yet.
-	# The python code doesn't use pod but would need something different to make the nice HTML... I'll deal with this later.
 	if [ ! -d docs ] ; then mkdir -p docs ; fi
-
-#	--impl Bio::KBase::${SERVICE_NAME}::Impl \
-#	--service Bio::KBase::${SERVICE_NAME}::Server \
+	if [ ! -d ${SERV_SERVICE_DIR}/webroot/ ]; then mkdir -p ${SERV_SERVICE_DIR}/webroot/ ; fi
+	# pod2html doesn't work on the Python client (whcih has no docstrings anyway) but it does work on the Perl client.
+	# Note - we can also run pydoc -w on our Impl.py file to get some documentation for those functions
+	# but the formatting isn't consistent with what the other services use...
+	$(KB_RUNTIME)/bin/pod2html -t "${SERVICE_NAME}" lib/Bio/KBase/${SERVICE_NAME}/Client.pm > docs/${SERVICE_NAME}.html
+	cp docs/*html $(SERV_SERVICE_DIR)/webroot/
 
 compile-typespec:
 	mkdir -p lib/biokbase/${SERVICE_NAME}

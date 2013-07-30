@@ -759,6 +759,11 @@ class ProbabilisticAnnotation:
     def __init__(self, config): #config contains contents of config file in hash or 
                                 #None if it couldn't be found
         #BEGIN_CONSTRUCTOR
+        '''Constructor for ProbabilisticAnnotation object.
+
+        config: Contents of a config file in a hash. The config file should look like the deploy.cfg file
+        but be in the location pointed to by KB_DEPLOYMENT_OONFIG
+        '''
         if config == None:
             # There needs to be a config for the server to work.
             raise ValueError("__init__: A valid configuration was not provided.  Check KB_DEPLOYMENT_CONFIG and KB_SERVICE_NAME environment variables.")
