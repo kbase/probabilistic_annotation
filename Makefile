@@ -67,15 +67,10 @@ test-client:
 # DEPLOYMENT
 deploy: deploy-dir deploy-client deploy-service
 
-deploy-service: deploy-libs deploy-scripts deploy-service-files deploy-config
-deploy-client: deploy-libs deploy-scripts deploy-docs deploy-config
+deploy-service: deploy-libs deploy-scripts deploy-service-files deploy-cfg
+deploy-client: deploy-libs deploy-scripts deploy-docs
 
 deploy-scripts: deploy-perlscripts deploy-pythonscripts
-
-deploy-config:
-	# We need to create a config file if it doesn't exist because auth requires it.
-	# This will evantually become more standardized but for now I want it to "just work".
-	if [ ! -e $(TARGET)/deployment.cfg ]; then touch $(TARGET)/deployment.cfg; fi
 
 deploy-dir:
 	if [ ! -d $(SERV_SERVICE_DIR) ] ; then mkdir -p $(SERV_SERVICE_DIR) ; fi
@@ -98,7 +93,7 @@ deploy-perlscripts:
 		basefile=`basename $$src`; \
 		base=`basename $$src .pl`; \
 		cp $$src $(TARGET)/plbin ; \
-		bash $(TOOLS_DIR)/wrap_perl.sh "$(TARGET)/plbin/$$basefile" $(TARGET)/bin/$$base ; \
+		$(WRAP_PERL_SCRIPT) "$(TARGET)/plbin/$$basefile" $(TARGET)/bin/$$base ; \
 	done
 
 deploy-pythonscripts:
@@ -110,13 +105,8 @@ deploy-pythonscripts:
 		basefile=`basename $$src`; \
 		base=`basename $$src .py`; \
 		cp $$src $(TARGET)/pybin ; \
-		bash $(TOOLS_DIR)/wrap_python.sh "$(TARGET)/pybin/$$basefile" $(TARGET)/bin/$$base ; \
+		$(WRAP_PYTHON_SCRIPT) "$(TARGET)/pybin/$$basefile" $(TARGET)/bin/$$base ; \
 	done
-
-deploy-libs:
-	# lib/ contains basically all of the guts of the code. 
-	# Reference a python module within here with "import biokbase.probabilistic_annotation.[module_name]"
-	rsync -arv lib/. $(TARGET)/lib/.
 
 deploy-docs:
 	if [ ! -d docs ] ; then mkdir -p docs ; fi
@@ -145,3 +135,5 @@ compile-typespec:
 	rm -f lib/${SERVICE_NAME}Impl.py
 	rm -f lib/${SERVICE_NAME}Server.py
 	rm -rf Bio
+
+include $(TOP_DIR)/tools/Makefile.common.rules
