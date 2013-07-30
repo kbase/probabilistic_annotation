@@ -31,7 +31,7 @@ DESCRIPTION
 
 EXAMPLES
       Annotate:
-      > pa-annotate kb\|g.0 kb\|g.0
+      > pa-annotate kb\|g.0.genome kb\|g.0.probanno
       
 AUTHORS
       Matt Benedict, Mike Mundy

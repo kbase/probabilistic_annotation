@@ -1,0 +1,106 @@
+<div>
+<h1>Probabilistic Annotation Command Line Script User Manual</h1>
+<h2>Probabilistic Annotation Overview</h2>
+<p> The purpose of a the Probabilistic Annotation service is to
+provide users with alternative annotations for genes, each attached
+to a likelihood score, and to translate these likelihood scores into
+likelihood scores for the existence of reactions in metabolic models.
+</p>
+<p>
+<ul>
+  <li>Allows users to quickly assess the quality of an annotation.
+  </li>
+  <li>Reaction likelihood computations allow users to estimate the quality of metabolic networks
+generated using the automated reconstruction tools in the KBase.
+  </li>
+  <li>Combining reaction likelihoods with gapfilling both directly incorporates available
+genetic evidence into the gapfilling process and provides putative gene annotations automatically,
+reducing the effort needed to search for evidence for gapfilled reactions.
+  </li>
+</ul>
+<p>In the following overviews, we demonstrate the functions of the probabilistic_annotation service.</p>
+</div><div><h2>Using the Probabilisitc Annotation Command Line Tools</h2>
+<ol>
+  <li><a href="#STEP1">Accessing Probabilistic Annotation commands</a></li>
+  <li><a href="#STEP2">Calculating annotation likelihoods for your genome</a></li>
+  <li><a href="#STEP3">Calculating reaction likelihoods for your genome</a></li>
+</ol>
+<a name="STEP1">
+</div><div><h3>1. Accessing Probabilistic Annotation commands<</h3>
+</a>
+<p>The probabilistic annotation tools are available either through the <a href="http://iris.kbase.us" target="_blank">IRIS command web interface</a>
+or through the
+<a href="http://www.kbase.us" target="_blank">KBase Client Installation</a>.
+Thus, the first step towards using the probabilsitic annotation commands is to either
+familiarize yourself with IRIS in the IRIS tutorial:
+<a href="http://kbase.us/for-users/tutorials/navigating-iris/" target="_blank">IRIS Overview Tutorial</a>
+or to install and run the KBase Client Installation. </p>
+<a name="STEP2">
+</div>
+<div><h3>2. Calculating annotation likelihoods for your genome</h3>
+</a>
+<p>The pa-annotate command is for calculating alternative annotations for every gene in your genome
+together with their likelihoods. The current method for calculating likelihoods is based on similarity (BLAST) to genes in the
+subsystems and genes with literature evidence. In the future syntenic evidence will also be incorporated in the likelihood scores.
+</p>
+<p>
+The pa-annotate command has the following usage:
+<pre><code>
+	$ pa-annotate Genome_ID ProbAnno_ID [OPTIONS]
+	-e, --showerror    Show any errors in execution
+	--genomews         ID of workspace where Genome object is stored
+	-h, --help         Display this help message, ignore all arguments
+	-o, --overwrite    Overwrite existing ProbAnno object with same name
+	-v, --verbose      Print verbose messages
+	-w, --probannows   ID of workspace where ProbAnno object is saved
+</pre></code>
+</p>
+<p>
+For example, if you have a copy of the E. coli K12 genome ('kb|g.0') in your workspace you can calculate alternative annotations and
+annotation likelihoods using the following command.
+<pre><code>
+	$ pa-annotate 'kb|g.0' 'kb|g.0.probanno'
+</pre></code>
+</p>
+<p>
+This command takes a significant amount of time to run (since it has to run BLAST against a rather large database), so it is placed on a queue and given a job ID. Use the kbws-checkjobs command to see if your job has finished running. Once it is done running the results will be saved in a ProbAnno typed object with the specified ID. 
+</p>
+<p>
+The probabilistic annotation object can be used as an input to gapfilling using the --probanno flag for kbfba-gapfill (reaction likelihoods are computed and then used to modify the weights in the objective function). See the help for that function for details.
+</p>
+<a name="STEP3">
+</div><div><h3>3. Calculating reaction likelihoods for your genome</h3>
+</a>
+<p>
+The pa-calculate command takes a probabilistic annotation (as genegeated from the <a href="#STEP2">pa-annotate command</a>) as input and calculates likelihoods for every reaction in the database (soon to be user-specified, currently it is the default database containing KEGG reactions plus reactions from several manually-curated models). 
+</p>
+<p>
+The pa-calculate command has the following usage:
+<pre><code>
+	$ pa-calculate ProbAnno_ID RxnProbs_ID [OPTIONS]
+	-e, --showerror       Show any errors in execution
+	-h, --help            Display this help message, ignore all arguments
+	-o, --overwrite       Overwrite existing RxnProbs object with same name
+	--probannows          ID of workspace where ProbAnno object is stored
+	-t, --templateid      ID of ModelTemplate object
+	-m, --templatews      ID of workspace where ModelTemplate object is stored
+	-v, --verbose         Print verbose messages
+	-w, --rxnprobsws      ID of workspace where RxnProbs object is saved
+</pre></code>
+</p>
+<p>
+For example, using the probabilistic annotation object for E coli as input one could compute probabilities for each reaction by running:
+<pre><code>
+	$ pa-calcualte 'kb|g.0.probanno' 'kb|g.0.rxnprobs'
+</pre></code>
+</p>
+<p>
+Unlike pa-annotate, pa-calculate runs very quickly so it is not placed on a queue. The resulting object is of type RxnProbs and contains putative gene annotations (based on a
+cutoff from the gene most likely to fulfil each role associated with the reaction) and likelihood scores. 
+</p>
+<p>
+The RxnProbs object can currently be used as input to the gapfilling function to use likelihood scores as weights in gapfilling using the --probrxn flag (see the help for kbfba-gapfill for details).
+However, if you do this you must make sure that the same template model is used for gapfilling and for computing the probabilities. If you want to avoid this issue, we recommend using the 
+probabilisitc annotation directly (--probanno) instead.
+</p>
+</div>

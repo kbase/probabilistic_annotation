@@ -1,0 +1,19 @@
+OVERVIEW
+-----------------------------------------
+
+This KBase service computes likelihoods for annotations and reactions for a given genome.
+Likelihoods are computed based on similarity to genes with literature evidence and genes
+in subsystems. More ambiguous role calls are given lower probabilities.
+
+VERSION: 1.0 (Released 08/06/2013)
+-----------------------------------------
+NEW FEATURES:
+- This is the first release of the probabilistic_annotation service
+- Add methods for probabilistic annotation (pa-annotate) and calculation of reaction probabilities (pa-calculate)
+- Add method for setting and viewing the URL for the probabilistic annotation service (pa-url)
+
+UPDATED FEATURES / MAJOR BUG FIXES: 
+- None
+
+ANTICIPATED FUTURE DEVELOPMENTS:
+- Incorporation of gene synteny into probability calculations

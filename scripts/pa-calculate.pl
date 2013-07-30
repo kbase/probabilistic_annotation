@@ -33,7 +33,7 @@ DESCRIPTION
 
 EXAMPLES
       Annotate:
-      > pa-calculate kb\|g.0 kb\|g.0
+      > pa-calculate kb\|g.0.probanno kb\|g.0.rxnprobs
       
 AUTHORS
       Matt Benedict, Mike Mundy

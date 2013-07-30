@@ -1,1 +1,0 @@
-FOr some reason a (empty) folder is created with the genome ID as its name in whatever folder you run from, in addition to the place where it should be created.
