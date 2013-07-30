@@ -74,7 +74,8 @@ deploy-scripts: deploy-perlscripts deploy-pythonscripts
 
 deploy-dir:
 	if [ ! -d $(SERV_SERVICE_DIR) ] ; then mkdir -p $(SERV_SERVICE_DIR) ; fi
-#        if [ ! -d $(SERV_SERVICE_DIR)/webroot ] ; then mkdir -p $(SERV_SERVICE_DIR)/webroot ; fi
+	if [ ! -d docs ] ; then mkdir -p docs ; fi
+	if [ ! -d ${SERV_SERVICE_DIR}/webroot/ ]; then mkdir -p ${SERV_SERVICE_DIR}/webroot/ ; fi
 
 deploy-service-files:
 	tpage $(SERV_TPAGE_ARGS) service/process.tt > $(SERV_SERVICE_DIR)/process.$(SERV_SERVICE); \
@@ -109,8 +110,6 @@ deploy-pythonscripts:
 	done
 
 deploy-docs:
-	if [ ! -d docs ] ; then mkdir -p docs ; fi
-	if [ ! -d ${SERV_SERVICE_DIR}/webroot/ ]; then mkdir -p ${SERV_SERVICE_DIR}/webroot/ ; fi
 	# pod2html doesn't work on the Python client (whcih has no docstrings anyway) but it does work on the Perl client.
 	# Note - we can also run pydoc -w on our Impl.py file to get some documentation for those functions
 	# but the formatting isn't consistent with what the other services use...
