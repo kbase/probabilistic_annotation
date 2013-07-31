@@ -30,15 +30,15 @@ EXAMPLES
       Current URL is:
       http://kbase.us/services/probabilistic annotation
       
-      Reset to the default URL:
-      > pa-url default
-      Current URL is:
-      http://kbase.us/services/probabilistic annotation
-      
       Use a new URL:
       > pa-url http://localhost:7073
       Current URL is:
       http://localhost:7073
+      
+      Reset to the default URL:
+      > pa-url default
+      Current URL is:
+      http://kbase.us/services/probabilistic annotation
       
 AUTHORS
       Matt Benedict, Mike Mundy

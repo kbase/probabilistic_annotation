@@ -103,7 +103,7 @@ class ProbabilisticAnnotation:
             status = "done"
 
             # Remove the temporary directory only if our job succeeds. If it does that means there were no errors so we don't need it.
-            if input["debug"] == False:
+            if self.config["debug"] == False:
                 shutil.rmtree(workFolder)
         except ServerError:
             # We failed to get the object out of the workspace
@@ -251,7 +251,7 @@ class ProbabilisticAnnotation:
                     rolestringTuples[query] = [ (stri, p) ]
     
         # Save the generated data when debug is turned on.
-        if input["debug"]:
+        if self.config["debug"]:
             rolesetProbabilityFile = os.path.join(workFolder, "%s.rolesetprobs" %(genome))
             fid = open(rolesetProbabilityFile, "w")
             for query in rolestringTuples:
@@ -364,7 +364,7 @@ class ProbabilisticAnnotation:
                 roleProbs.append( (query, role, queryRolesToProbs[role]) )
     
         # Save the generated data when debug is turned on.
-        if input["debug"]:
+        if self.config["debug"]:
             role_probability_file = os.path.join(workFolder, "%s.roleprobs" %(genome))
             fid = open(role_probability_file, "w")
             for tuple in roleProbs:
@@ -431,7 +431,7 @@ class ProbabilisticAnnotation:
             totalRoleProbs.append( (role, roleToTotalProb[role], " or ".join(roleToGeneList[role])) )   
     
         # Save the generated data when debug is turned on.
-        if input["debug"]:
+        if self.config["debug"]:
             total_role_probability_file = os.path.join(workFolder, "%s.cellroleprob" %(genome))
             fid = open(total_role_probability_file, "w")
             for tuple in totalRoleProbs:
@@ -537,8 +537,8 @@ class ProbabilisticAnnotation:
                     minp = rolesToProbabilities[role]
             complexProbs.append( (cplx, minp, TYPE, self.config["separator"].join(unavailRoles), self.config["separator"].join(noexistRoles), GPR) )
     
-        if input["debug"]:
-            complex_probability_file = os.path.join(workFolder, "%s.complexprob" %(input.genome))
+        if self.config["debug"]:
+            complex_probability_file = os.path.join(workFolder, "%s.complexprob" %(genome))
             fid = open(complex_probability_file, "w")
             for tuple in complexProbs:
                 fid.write("%s\t%1.4f\t%s\t%s\t%s\t%s\n" %(tuple[0], tuple[1], tuple[2], tuple[3], tuple[4], tuple[5]))
@@ -605,7 +605,7 @@ class ProbabilisticAnnotation:
             # List so that we can modify the reaction IDs if needed to translate to ModelSEED IDs
             reactionProbs.append( [rxn, maxp, TYPE, complexinfo, GPR] )
     
-        if input["debug"]:
+        if self.config["debug"]:
             reaction_probability_file = os.path.join(workFolder, "%s.rxnprobs" %(genome))
             fid = open(reaction_probability_file, "w")
             for tuple in reactionProbs:
@@ -769,11 +769,23 @@ class ProbabilisticAnnotation:
             raise ValueError("__init__: A valid configuration was not provided.  Check KB_DEPLOYMENT_CONFIG and KB_SERVICE_NAME environment variables.")
         else:
             self.config = config
+        
+        # Convert flag to boolean value (a number greater than zero or the string 'True' turns the flag on).
+        if self.config["debug"].isdigit():
+            if int(self.config["debug"]) > 0:
+                self.config["debug"] = True
+            else:
+                self.config["debug"] = False
+        else:
+            if self.config["debug"] == "True":
+                self.config["debug"] = True
+            else:
+                self.config["debug"] = False
             
         # Create the data folder if it does not exist.
         if not os.path.exists(config["data_folder_path"]):
             os.makedirs(config["data_folder_path"], 0775)
-            
+
         # See if the static database files are available.
         # Check the status
         # catch not ready error, when caught call method to download files from shock
@@ -812,8 +824,7 @@ class ProbabilisticAnnotation:
 
         input = self._checkInputArguments(input, 
                                           ["auth", "genome", "genome_workspace", "probanno", "probanno_workspace"],
-                                          { "debug" : False,
-                                            "verbose" : False }
+                                          { "verbose" : False }
                                           )
         
         # Make sure the static database files are ready.
@@ -843,7 +854,7 @@ class ProbabilisticAnnotation:
             json.dump(queueJobParams, open(jsonFilename, "w"), indent=4)
             cmdline = "nohup %s %s >%s 2>%s &" %(self.config["annotate_job_script_path"], jobDirectory, outputFilename, errorFilename)
             status = os.system(cmdline)
-            sys.stderr.write("Submitted job %d" %(jid))
+            sys.stderr.write("Submitted local job %d using directory %s\n" %(jid, jobDirectory))
             jobid = "%d" %(jid)
     
         #END annotate
@@ -874,8 +885,7 @@ class ProbabilisticAnnotation:
         # Sanity check on input arguments
         input = self._checkInputArguments(input, 
                                           ["probanno", "probanno_workspace", "auth", "rxnprobs", "rxnprobs_workspace"], 
-                                          { "debug"   : False,
-                                            "verbose" : False ,
+                                          { "verbose" : False ,
                                             "template_model" : None,
                                             "template_model_workspace" : None
                                             }
@@ -893,7 +903,7 @@ class ProbabilisticAnnotation:
         genome = probannoObject["data"]["genome"]
         
         # Create a temporary directory for storing intermediate files. Only used when debug flag is on.
-        if input["debug"]:
+        if self.config["debug"]:
             workFolder = tempfile.mkdtemp("", "%s-" %(genome), self.config["work_folder_path"])
         else:
             workFolder = None

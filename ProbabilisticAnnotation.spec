@@ -123,7 +123,6 @@ module ProbabilisticAnnotation
        probanno_id probanno - ID of ProbAnno object
        workspace_id probanno_workspace - ID workspace where ProbAnno object is saved
        bool overwrite - True to overwrite existing ProbAnno object with same name
-       bool debug - True to keep intermediate files for debug purposes
 	   bool verbose - True to print verbose messages
        string auth - Authentication token of KBase user
     */
@@ -133,7 +132,6 @@ module ProbabilisticAnnotation
 		probanno_id probanno;
 		workspace_id probanno_workspace;
 		bool overwrite;
-		bool debug;
 		bool verbose;
 		string auth;
     } annotate_params;
@@ -144,7 +142,6 @@ module ProbabilisticAnnotation
     
 		probanno_id probanno - ID of ProbAnno object
 		workspace_id probanno_workspace - ID of workspace where ProbAnno object is stored
-		bool debug - True to keep intermediate files for debug purposes
 		bool verbose - True to print verbose messages
 		string auth - Authentication token of KBase user
     */
@@ -155,7 +152,6 @@ module ProbabilisticAnnotation
 		workspace_id template_model_workspace;
 		rxnprobs_id rxnprobs;
 		workspace_id rxnprobs_workspace;
-    	bool debug;
     	bool verbose;
     	string auth;
     } calculate_params;

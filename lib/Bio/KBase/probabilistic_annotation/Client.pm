@@ -64,7 +64,6 @@ annotate_params is a reference to a hash where the following keys are defined:
 	probanno has a value which is a probanno_id
 	probanno_workspace has a value which is a workspace_id
 	overwrite has a value which is a bool
-	debug has a value which is a bool
 	verbose has a value which is a bool
 	auth has a value which is a string
 genome_id is a string
@@ -86,7 +85,6 @@ annotate_params is a reference to a hash where the following keys are defined:
 	probanno has a value which is a probanno_id
 	probanno_workspace has a value which is a workspace_id
 	overwrite has a value which is a bool
-	debug has a value which is a bool
 	verbose has a value which is a bool
 	auth has a value which is a string
 genome_id is a string
@@ -171,7 +169,6 @@ calculate_params is a reference to a hash where the following keys are defined:
 	template_model_workspace has a value which is a workspace_id
 	rxnprobs has a value which is a rxnprobs_id
 	rxnprobs_workspace has a value which is a workspace_id
-	debug has a value which is a bool
 	verbose has a value which is a bool
 	auth has a value which is a string
 probanno_id is a string
@@ -212,7 +209,6 @@ calculate_params is a reference to a hash where the following keys are defined:
 	template_model_workspace has a value which is a workspace_id
 	rxnprobs has a value which is a rxnprobs_id
 	rxnprobs_workspace has a value which is a workspace_id
-	debug has a value which is a bool
 	verbose has a value which is a bool
 	auth has a value which is a string
 probanno_id is a string
@@ -1020,7 +1016,6 @@ Input parameters for the "annotate" function.
        probanno_id probanno - ID of ProbAnno object
        workspace_id probanno_workspace - ID workspace where ProbAnno object is saved
        bool overwrite - True to overwrite existing ProbAnno object with same name
-       bool debug - True to keep intermediate files for debug purposes
            bool verbose - True to print verbose messages
        string auth - Authentication token of KBase user
 
@@ -1036,7 +1031,6 @@ genome_workspace has a value which is a workspace_id
 probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
 overwrite has a value which is a bool
-debug has a value which is a bool
 verbose has a value which is a bool
 auth has a value which is a string
 
@@ -1052,7 +1046,6 @@ genome_workspace has a value which is a workspace_id
 probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
 overwrite has a value which is a bool
-debug has a value which is a bool
 verbose has a value which is a bool
 auth has a value which is a string
 
@@ -1075,7 +1068,6 @@ Input parameters for the "calculate" function.
 
             probanno_id probanno - ID of ProbAnno object
             workspace_id probanno_workspace - ID of workspace where ProbAnno object is stored
-            bool debug - True to keep intermediate files for debug purposes
             bool verbose - True to print verbose messages
             string auth - Authentication token of KBase user
 
@@ -1092,7 +1084,6 @@ template_model has a value which is a template_id
 template_model_workspace has a value which is a workspace_id
 rxnprobs has a value which is a rxnprobs_id
 rxnprobs_workspace has a value which is a workspace_id
-debug has a value which is a bool
 verbose has a value which is a bool
 auth has a value which is a string
 
@@ -1109,7 +1100,6 @@ template_model has a value which is a template_id
 template_model_workspace has a value which is a workspace_id
 rxnprobs has a value which is a rxnprobs_id
 rxnprobs_workspace has a value which is a workspace_id
-debug has a value which is a bool
 verbose has a value which is a bool
 auth has a value which is a string
 
