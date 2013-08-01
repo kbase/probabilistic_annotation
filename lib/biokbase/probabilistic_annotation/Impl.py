@@ -9,6 +9,12 @@ from biokbase.workspaceService.client import *
 from biokbase.fbaModelServices.Client import *
 from biokbase.cdmi.client import CDMI_EntityAPI
 
+# Current version number of ProbAnno object
+ProbAnnoVersion = 1
+
+# Current version number of RxnProbs object
+RxnProbsVersion = 1
+
 # Exception thrown when static database files are not ready
 class NotReadyError(Exception):
     pass
@@ -28,6 +34,10 @@ class NoGeneIdsError(Exception):
 # Exception thrown when role not found in roleToTotalProb dictionary
 class RoleNotFoundEror(Exception):
     pass
+
+# Exception thrown when object version is not valid
+class WrongVersionError(Exception):
+    pass
 #END_HEADER
 
 '''
@@ -36,7 +46,19 @@ Module Name:
 ProbabilisticAnnotation
 
 Module Description:
+The purpose of the Probabilistic Annotation service is to provide users with
+alternative annotations for genes, each attached to a likelihood score, and to
+translate these likelihood scores into likelihood scores for the existence of
+reactions in metabolic models.
 
+- Allows users to quickly assess the quality of an annotation.
+- Reaction likelihood computations allow users to estimate the quality of
+  metabolic networks generated using the automated reconstruction tools in
+  other services.
+- Combining reaction likelihoods with gapfilling both directly incorporates
+  available genetic evidence into the gapfilling process and provides putative
+  gene annotations automatically, reducing the effort needed to search for
+  evidence for gapfilled reactions.
 
 '''
 class ProbabilisticAnnotation:
@@ -298,8 +320,8 @@ class ProbabilisticAnnotation:
         objectData["id"] = input["probanno"]
         objectData["genome"] = input["genome"]
         objectData["genome_workspace"] = input["genome_workspace"];
-        objectData["rolesetProbabilities"] = queryToRolesetProbs;
-        objectData["skippedFeatures"] = []
+        objectData["roleset_probabilities"] = queryToRolesetProbs;
+        objectData["skipped_features"] = []
         
         for ii in range(len(genomeObject["data"]["features"])):
             feature = genomeObject["data"]["features"][ii]
@@ -310,11 +332,11 @@ class ProbabilisticAnnotation:
             # This can happen if I couldn't find hits from that gene to anything in the database. In this case, I'll just skip it.
             # TODO Or should I make an empty object? I should ask Chris.
             if queryid not in queryToRolesetProbs or queryid not in queryToTargetEvals:
-                objectData["skippedFeatures"].append(queryid)
+                objectData["skipped_features"].append(queryid)
                 
         # Store the ProbAnno object in the specified workspace.
-        objectMetadata = { "num_rolesets": len(objectData["rolesetProbabilities"]),
-                           "num_skipped_features": len(objectData["skippedFeatures"]) }
+        objectMetadata = { "version": ProbAnnoVersion, "num_rolesets": len(objectData["roleset_probabilities"]),
+                           "num_skipped_features": len(objectData["skipped_features"]) }
         saveObjectParams = { "type": "ProbAnno", "id": input["probanno"], "workspace": input["probanno_workspace"],
                              "auth": input["auth"], "data": objectData, "metadata": objectMetadata, "command": "pa-annotate" }
         metadata = wsClient.save_object(saveObjectParams)
@@ -900,6 +922,8 @@ class ProbabilisticAnnotation:
         # Get the ProbAnno object from the specified workspace.
         getObjectParams = { "type": "ProbAnno", "id": input["probanno"], "workspace": input["probanno_workspace"], "auth": input["auth"] }
         probannoObject = wsClient.get_object(getObjectParams)
+        if "version" not in probannoObject["metadata"][10] or probannoObject["metadata"][10]["version"] != ProbAnnoVersion:
+            raise WrongVersionError("ProbAnno object version is not %d" %(ProbAnnoVersion))
         genome = probannoObject["data"]["genome"]
         
         # Create a temporary directory for storing intermediate files. Only used when debug flag is on.
@@ -917,7 +941,7 @@ class ProbabilisticAnnotation:
                 raise NotImplementedError("Template model support is not yet implemented")
         
         # Calculate per-gene role probabilities.
-        roleProbs = self._rolesetProbabilitiesToRoleProbabilities(input, genome, probannoObject["data"]["rolesetProbabilities"], workFolder)
+        roleProbs = self._rolesetProbabilitiesToRoleProbabilities(input, genome, probannoObject["data"]["roleset_probabilities"], workFolder)
     
         # Calculate whole cell role probabilities.
         # Note - eventually workFolder will be replaced with a rolesToReactions call
@@ -945,16 +969,20 @@ class ProbabilisticAnnotation:
  
         # Create a reaction probability object
         rxnProbObject = {}
+        rxnProbObject["version"] = RxnProbsVersion
         rxnProbObject["genome"] = probannoObject["data"]["genome"]
         rxnProbObject["template_model"] = input["template_model"]
         rxnProbObject["probanno"] = probannoObject["data"]["id"]
         rxnProbObject["id"] = input["rxnprobs"]
-        rxnProbObject["reactionProbabilities"] = reactionProbs
+        rxnProbObject["reaction_probabilities"] = reactionProbs
+
+        objectMetadata = { "version": RxnProbsVersion, "num_reaction_probs": len(objectData["reaction_probabilities"]) }
 
         # Save output to the output workspace
         saveObjectParams = { "id" : input["rxnprobs"],
                              "type" : "RxnProbs",
                              "data" : rxnProbObject,
+                             "metadata" : objectMetadata,
                              "workspace" : input["rxnprobs_workspace"],
                              "command" : "pa-calculate",
                              "auth" : input["auth"]

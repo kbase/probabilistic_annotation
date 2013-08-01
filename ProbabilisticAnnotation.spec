@@ -1,3 +1,19 @@
+/*
+The purpose of the Probabilistic Annotation service is to provide users with
+alternative annotations for genes, each attached to a likelihood score, and to
+translate these likelihood scores into likelihood scores for the existence of
+reactions in metabolic models.
+
+- Allows users to quickly assess the quality of an annotation.
+- Reaction likelihood computations allow users to estimate the quality of
+  metabolic networks generated using the automated reconstruction tools in
+  other services.
+- Combining reaction likelihoods with gapfilling both directly incorporates
+  available genetic evidence into the gapfilling process and provides putative
+  gene annotations automatically, reducing the effort needed to search for
+  evidence for gapfilled reactions.
+*/
+
 module ProbabilisticAnnotation
 {
 
@@ -10,6 +26,9 @@ module ProbabilisticAnnotation
     
 	/* A string identifier for a probabilistic annotation object. */
     typedef string probanno_id;
+    
+    /* A string identifier for a job object. */
+    typedef string job_id;
     
     /* A string identifier for a template model object. */
     typedef string template_id;
@@ -72,22 +91,22 @@ module ProbabilisticAnnotation
     	float probability - the probability that the functional role is associated with the feature
     	string functionMD5 - hash to let us know if anything has changed
 	*/    	
-    typedef tuple<string function, float probability, string functionMD5> FunctionProbability;
+    typedef tuple<string function, float probability, string functionMD5> function_probability;
     
     /* Object to carry alternative functions and probabilities for genes in a genome    
 
         probanno_id id - ID of the probabilistic annotation object    
         genome_id genome - ID of the genome the probabilistic annotation was built for
         workspace_id genome_workspace - ID of the workspace containing genome
-        mapping<feature_id, list<FunctionProbability>> rolesetProbabilities - mapping of features to list of alternative FunctionProbability objects
-        list<feature_id> skippedFeatures - list of features in genome with no probability
+        mapping<feature_id, list<function_probability>> roleset_probabilities - mapping of features to list of alternative function_probability objects
+        list<feature_id> skipped_features - list of features in genome with no probability
     */
     typedef structure {
 		probanno_id id;
 		genome_id genome;
 		workspace_id genome_workspace;
-		mapping<feature_id, list<FunctionProbability>> rolesetProbabilities;
-		list<feature_id> skippedFeatures;
+		mapping<feature_id, list<function_probability>> roleset_probabilities;
+		list<feature_id> skipped_features;
     } ProbabilisticAnnotation;
     
     /* Data structure to hold probability of a reaction
@@ -99,17 +118,17 @@ module ProbabilisticAnnotation
     	string gene_list - List of genes most likely to be attached to reaction
     	
     */
-    typedef tuple<reaction_id reaction, float probability, string type, string complex_info, string gene_list> ReactionProbability;
+    typedef tuple<reaction_id reaction, float probability, string type, string complex_info, string gene_list> reaction_probability;
     
     /* Object to hold reaction probabilities for a genome.
     
-    	genome_id genome;
-    	list<ReactionProbability> reactionProbabilities;
+    	genome_id genome - ID of the genome the reaction probabilities was built for
+    	list<reaction_probability> reaction_probabilities - list of reaction probabilities
     	
     */
     typedef structure {
     	genome_id genome;
-    	list<ReactionProbability> reactionProbabilities;
+    	list<reaction_probability> reaction_probabilities;
     } RxnProbs;
 
 	/* ************************************************************************************* */
@@ -134,9 +153,14 @@ module ProbabilisticAnnotation
 		bool overwrite;
 		bool verbose;
 		string auth;
-    } annotate_params;
+    } AnnotateParams;
 
-    funcdef annotate(annotate_params input) returns (string jobid);
+	/*
+		Generate alternative annotations for every gene in a genome together with
+		their likelihoods.  Results are stored in a ProbAnno object. Returns the
+		job ID of the submitted job.
+	*/
+    funcdef annotate(AnnotateParams input) returns (job_id jobid);
     
     /* Input parameters for the "calculate" function.
     
@@ -154,11 +178,13 @@ module ProbabilisticAnnotation
 		workspace_id rxnprobs_workspace;
     	bool verbose;
     	string auth;
-    } calculate_params;
+    } CalculateParams;
     
-    /* Compute reaction probabilities from probabilistic annotation and a template model.
-    Returns metadata for the reaction probability object 
+    /*
+    	Calculate reaction likelihoods from a probabilistic annotation and a
+    	template model.  Results are stored in a RxnProbs object.  Returns the
+    	metadata for the reaction probability object.
     */
-    funcdef calculate(calculate_params input) returns(object_metadata output);
+    funcdef calculate(CalculateParams input) returns(object_metadata output);
 	    	
 };
