@@ -976,7 +976,7 @@ class ProbabilisticAnnotation:
         rxnProbObject["id"] = input["rxnprobs"]
         rxnProbObject["reaction_probabilities"] = reactionProbs
 
-        objectMetadata = { "version": RxnProbsVersion, "num_reaction_probs": len(objectData["reaction_probabilities"]) }
+        objectMetadata = { "version": RxnProbsVersion, "num_reaction_probs": len(rxnProbObject["reaction_probabilities"]) }
 
         # Save output to the output workspace
         saveObjectParams = { "id" : input["rxnprobs"],

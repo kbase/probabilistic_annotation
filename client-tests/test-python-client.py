@@ -18,7 +18,8 @@ class TestPythonClient(unittest.TestCase):
         self._config = getConfig(os.environ["KB_TEST_CONFIG"])
 
         # Get an authorization token for the test user.
-        self._token = get_token(self._config["test_user"], self._config["test_pwd"])
+        ws = workspaceService(self._config["workspace_url"], user_id=self._config["test_user"], password=self._config["test_pwd"])
+        self._token = ws._headers['AUTHORIZATION']
         
     def test_loadGenome(self):
         ''' Load a test Genome object into the test workspace. '''
@@ -27,13 +28,13 @@ class TestPythonClient(unittest.TestCase):
         wsClient = workspaceService(self._config["workspace_url"])
         try:
             # When the workspace exists, delete it so there is a clean slate for the test.
-            wsMetadata = wsClient.get_workspacemeta( { "workspace": self._config["wsid"], "auth": self._token["access_token"] } )
-            wsClient.delete_workspace( { "workspace": self._config["wsid"], "auth": self._token["access_token"] } )
+            wsMetadata = wsClient.get_workspacemeta( { "workspace": self._config["wsid"], "auth": self._token } )
+            wsClient.delete_workspace( { "workspace": self._config["wsid"], "auth": self._token } )
         except WorkspaceServerError as e:
             # Hopefully this means the workspace does not exist.
             pass
         
-        wsMetadata = wsClient.create_workspace( { "workspace": self._config["wsid"], "default_permission": "w", "auth": self._token["access_token"] } )
+        wsMetadata = wsClient.create_workspace( { "workspace": self._config["wsid"], "default_permission": "w", "auth": self._token } )
         
         # Load the test Genome object into the workspace.
         fbaClient = fbaModelServices(self._config["fbamodelservices_url"])
@@ -41,7 +42,7 @@ class TestPythonClient(unittest.TestCase):
         genomeMetadata = fbaClient.genome_object_to_workspace( { 
             "genomeobj": testGenome,
             "workspace": self._config["wsid"],
-            "auth": self._token["access_token"] } )
+            "auth": self._token } )
         
     def test_annotate(self):
         ''' Run pa-annotate on a valid Genome object and verify that the job runs and returns a valid ProbAnno object in the expected time.'''
@@ -53,7 +54,7 @@ class TestPythonClient(unittest.TestCase):
             "genome_workspace": self._config["wsid"],
             "probanno": self._config["probannoid"],
             "probanno_workspace": self._config["wsid"],
-            "auth": self._token["access_token"] } )
+            "auth": self._token } )
         
         # Allow time for the command to run.
         time.sleep(float(self._config["runtime"]))
@@ -65,7 +66,7 @@ class TestPythonClient(unittest.TestCase):
                 "workspace": self._config["wsid"],
                 "type": "ProbAnno",
                 "id": self._config["probannoid"],
-                "auth": self._token["access_token"] } )
+                "auth": self._token } )
             self.assertEqual(output["metadata"][4], "pa-annotate")
             # TODO Could add some checking of the object data here
         except WorkspaceServerError as e:
@@ -81,7 +82,7 @@ class TestPythonClient(unittest.TestCase):
             "probanno_workspace": self._config["wsid"],
             "rxnprobs": self._config["rxnprobsid"],
             "rxnprobs_workspace": self._config["wsid"],
-            "auth": self._token["access_token"] } )
+            "auth": self._token } )
          
         # Look for the RxnProbs object in the test workspace.
         wsClient = workspaceService(self._config["workspace_url"])
@@ -90,7 +91,7 @@ class TestPythonClient(unittest.TestCase):
                 "workspace": rxnprobsMetadata[7],
                 "type": rxnprobsMetadata[1],
                 "id": rxnprobsMetadata[0],
-                "auth": self._token["access_token"] } )
+                "auth": self._token } )
             self.assertEqual(output["metadata"][4], "pa-calculate")
             # TODO Could add some checking of the object data here
         except WorkspaceServerError as e:
@@ -101,7 +102,7 @@ class TestPythonClient(unittest.TestCase):
         
         # Delete the test workspace.
         wsClient = workspaceService(self._config["workspace_url"])
-        wsClient.delete_workspace( { "workspace": self._config["wsid"], "auth": self._token["access_token"] } )
+        wsClient.delete_workspace( { "workspace": self._config["wsid"], "auth": self._token } )
         
 if __name__ == '__main__':
     # Create a suite, add tests to the suite, run the suite.
