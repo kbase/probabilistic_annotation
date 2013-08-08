@@ -734,6 +734,16 @@ class ProbabilisticAnnotation:
             statusFilePath = os.path.join(self.config["data_folder_path"], StatusFiles["status_file"])
             raise NotReadyError("Static database files are not ready.  Failed to open status file '%s'." %(statusFilePath))
 
+    def _checkIfDatabaseFilesExist(self):
+        '''
+        Check for existence of all of the database files (needed if we cannot connect to Shock - particularly for testing)
+        '''
+        for key in DatabaseFiles:
+            localPath = os.path.join(self.config["data_folder_path"], DatabaseFiles[key])
+            if not os.path.exists(localPath):
+                raise NotReadyError("Config file specified not to connect to Shock but database files not found from alternative method")
+        return
+
     def _loadDatabaseFiles(self):
         '''Load the static database files from Shock.
 
@@ -817,9 +827,27 @@ class ProbabilisticAnnotation:
             self._loadDatabaseFiles()
             status = "ready"
         except:
-            status = "failed"
-            sys.stderr.write("\nCaught exception...\n")
-            traceback.print_exc(file=sys.stderr)
+            try:
+                # We could still have already downloaded the files from somewhere else. Lets see if they all exist and are found in the expected location.
+                sys.stderr.write("WARNING: Unable to get files from Shock. We will see if you have the static files from somewhere else but they might not be the latest!\n Caught error:\n")
+                traceback.print_exc(file=sys.stderr)
+                self._checkIfDatabaseFilesExist()
+                status = "ready"
+            except:
+                try:
+                    # Attempting fallback 2 - can we get the files from somewhere else?
+                    sys.stderr.write("WARNING: Unable to get files from Shock. Attempting a fallback... (note this might not be the latest version of the files)\n")
+                    os.system("wget %s" %(config["fallback_url"]))
+                    os.system("tar xzvf PROBANNO_STATIC_DATA.tar.gz -C %s" %(os.path.abspath(os.path.join(config["data_folder_path"], ".."))))
+                    os.system("rm PROBANNO_STATIC_DATA.tar.gz")
+                    self._checkIfDatabaseFilesExist()
+                    status = "ready"
+                except:
+                    sys.stderr.write("Unable to find files in this way either.\n")
+                    status = "failed"
+                    sys.stderr.write("\nCaught exception...\n")
+                    traceback.print_exc(file=sys.stderr)
+
         writeStatusFile(config, status)
             
         #END_CONSTRUCTOR
