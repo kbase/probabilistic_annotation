@@ -32,6 +32,7 @@ SCRIPT_TESTS = $(wildcard script-tests/*.py)
 SERVER_TESTS = $(wildcard server-tests/*.t)
 
 test: test-service test-client test-scripts
+	kbws-addtype RxnProbs; \
 	@echo "running server, script and client tests"
 
 test-service:
