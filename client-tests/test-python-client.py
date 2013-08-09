@@ -25,9 +25,11 @@ class TestPythonClient(unittest.TestCase):
         # In the test environment (as of 08-09-2013) the RxnProbs object isn't defined in the workspace so it isn't allowed to save the results.
         # This is a patch until we fix that more permanently.
         try:
-            ws.add_type( { "type" : "RxnProbs" } )
+            ws.add_type( { "type" : "RxnProbs",
+                           "auth" : self._token 
+                           } )
         except:
-            # It throws an exception if the type already exists.
+            # Type already exists
             pass
 
     def test_loadGenome(self):
@@ -45,14 +47,51 @@ class TestPythonClient(unittest.TestCase):
             pass
         
         wsMetadata = wsClient.create_workspace( { "workspace": self._config["wsid"], "default_permission": "w", "auth": self._token } )
-        
+
+        # We also need to put in a mapping and a biochemistry object somewhere.
+        # To do this, I just create a "depednecy workspace" and pull them from there.
+        self._config["dependency_ws"]
+        try:
+            # When the workspace exists, delete it so there is a clean slate for the test.
+            wsMetadata = wsClient.get_workspacemeta( { "workspace": self._config["dependency_ws"], "auth": self._token } )
+            wsClient.delete_workspace( { "workspace": self._config["dependency_ws"], "auth": self._token } )
+        except WorkspaceServerError as e:
+            # Hopefully this means the workspace does not exist. (It could also mean someone messed up setting up the URLs)
+#            traceback.print_exc(file=sys.stderr)
+            pass
+
+        depWsMetadata = wsClient.create_workspace( { "workspace": self._config["dependency_ws"], "default_permission": "w", "auth": self._token } )
+
+        # Load the mapping and biochemsitry objects
+        # (Note - this won't be allowed with the new version of the workspace but it agrees with what is in there now)
+        mappingObject = json.load(open(self._config["test_mapping_object"], "r"))
+        wsClient.save_object( {
+                "id" : "default",
+                "type" : "Mapping",
+                "data" : mappingObject,
+                "auth" : self._token,
+                "workspace" : self._config["dependency_ws"]
+               } )
+
+        biochemistryObject = json.load(open(self._config["test_biochemistry_object"], "r"))
+        wsClient.save_object( {
+                "id" : "default",
+                "type" : "Biochemistry",
+                "data" : biochemistryObject,
+                "auth" : self._token,
+                "workspace" : self._config["dependency_ws"]
+               } )
+
+
         # Load the test Genome object into the workspace.
         fbaClient = fbaModelServices(self._config["fbamodelservices_url"])
         testGenome = json.load(open(self._config["genome_file"], "r"))
         genomeMetadata = fbaClient.genome_object_to_workspace( { 
             "genomeobj": testGenome,
             "workspace": self._config["wsid"],
-            "auth": self._token } )
+            "auth": self._token,
+            "mapping_workspace": self._config["dependency_ws"]
+            } )
         
     def test_annotate(self):
         ''' Run pa-annotate on a valid Genome object and verify that the job runs and returns a valid ProbAnno object in the expected time.'''
@@ -113,6 +152,7 @@ class TestPythonClient(unittest.TestCase):
         # Delete the test workspace.
         wsClient = workspaceService(self._config["workspace_url"])
         wsClient.delete_workspace( { "workspace": self._config["wsid"], "auth": self._token } )
+        wsClient.delete_workspace( { "workspace": self._config["dependency_ws"], "auth": self._token } )
         
 if __name__ == '__main__':
     # Create a suite, add tests to the suite, run the suite.
