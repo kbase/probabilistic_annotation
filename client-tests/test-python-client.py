@@ -1,6 +1,7 @@
 import sys
 import unittest
 import subprocess
+import traceback
 import time
 import os
 import json
@@ -20,7 +21,15 @@ class TestPythonClient(unittest.TestCase):
         # Get an authorization token for the test user.
         ws = workspaceService(self._config["workspace_url"], user_id=self._config["test_user"], password=self._config["test_pwd"])
         self._token = ws._headers['AUTHORIZATION']
-        
+
+        # In the test environment (as of 08-09-2013) the RxnProbs object isn't defined in the workspace so it isn't allowed to save the results.
+        # This is a patch until we fix that more permanently.
+        try:
+            ws.add_type( { "type" : "RxnProbs" } )
+        except:
+            # It throws an exception if the type already exists.
+            pass
+
     def test_loadGenome(self):
         ''' Load a test Genome object into the test workspace. '''
         
@@ -31,7 +40,8 @@ class TestPythonClient(unittest.TestCase):
             wsMetadata = wsClient.get_workspacemeta( { "workspace": self._config["wsid"], "auth": self._token } )
             wsClient.delete_workspace( { "workspace": self._config["wsid"], "auth": self._token } )
         except WorkspaceServerError as e:
-            # Hopefully this means the workspace does not exist.
+            # Hopefully this means the workspace does not exist. (It could also mean someone messed up setting up the URLs)
+#            traceback.print_exc(file=sys.stderr)
             pass
         
         wsMetadata = wsClient.create_workspace( { "workspace": self._config["wsid"], "default_permission": "w", "auth": self._token } )

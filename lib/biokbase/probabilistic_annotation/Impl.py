@@ -134,7 +134,7 @@ class ProbabilisticAnnotation:
             sys.stderr.write("ERROR - ServerError (most likely we failed to get the object out of the workspace\n")
         except:
             status = "error"
-            sys.stderr.write("ERROR: \n %s \n" %(sys.exc_info()[0]))
+            traceback.print_exc(file=sys.stderr)
         finally:
             if self.config["job_queue"] == "scheduler":
                 setStatusParams = { "jobid": job["id"], "status": status, "auth": job["auth"] }
