@@ -35,7 +35,7 @@ test: test-setup_workspace test-startservice test-service test-client test-scrip
 
 test-setup_workspace:
 	kbws-addtype RxnProbs > /dev/null; \
-        echo "running server, script and client tests"
+	echo "running server, script and client tests"
 
 test-startservice:
 	${SERV_SERVICE_DIR}/start_service;
