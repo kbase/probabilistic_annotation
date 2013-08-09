@@ -34,8 +34,8 @@ SERVER_TESTS = $(wildcard server-tests/*.t)
 test: test-setup_workspace test-service test-client test-scripts
 
 test-setup_workspace:
-        kbws-addtype RxnProbs > /dev/null; \
-        echo "running server, script and client tests"
+	kbws-addtype RxnProbs > /dev/null; \
+	echo "running server, script and client tests"
 
 test-service:
 	for t in $(SERVER_TESTS) ; do \
