@@ -31,14 +31,15 @@ CLIENT_TESTS_PYTHON = $(wildcard client-tests/*.py)
 SCRIPT_TESTS = $(wildcard script-tests/*.py)
 SERVER_TESTS = $(wildcard server-tests/*.t)
 
-test: test-setup_workspace test-startservice test-service test-client test-scripts
-
-test-setup_workspace:
-	kbws-addtype RxnProbs > /dev/null; \
-	echo "running server, script and client tests"
+test: test-startservice test-service test-client test-scripts test-stopservice
 
 test-startservice:
-	${SERV_SERVICE_DIR}/start_service;
+	# Start service and wait for stuff to download.
+	${SERV_SERVICE_DIR}/start_service; \
+	sleep 120;
+
+test-stopservice:
+	${SERV_SERVICE_DIR}/stop_service;
 
 test-service:
 	for t in $(SERVER_TESTS) ; do \
