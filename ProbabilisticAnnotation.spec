@@ -21,9 +21,6 @@ module ProbabilisticAnnotation
 	/* SIMPLE ID AND STRING TYPES */
 	/* ************************************************************************************* */
 
-	/* Indicates true or false values (false <= 0, true >=1) */
-	typedef int bool;
-    
 	/* A string identifier for a probabilistic annotation object. */
     typedef string probanno_id;
     
