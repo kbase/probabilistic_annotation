@@ -81,7 +81,6 @@ AnnotateParams is a reference to a hash where the following keys are defined:
 genome_id is a string
 workspace_id is a string
 probanno_id is a string
-bool is an int
 job_id is a string
 
 </pre>
@@ -103,7 +102,6 @@ AnnotateParams is a reference to a hash where the following keys are defined:
 genome_id is a string
 workspace_id is a string
 probanno_id is a string
-bool is an int
 job_id is a string
 
 
@@ -191,7 +189,6 @@ probanno_id is a string
 workspace_id is a string
 template_id is a string
 rxnprobs_id is a string
-bool is an int
 object_metadata is a reference to a list containing 11 items:
 	0: (id) an object_id
 	1: (type) an object_type
@@ -231,7 +228,6 @@ probanno_id is a string
 workspace_id is a string
 template_id is a string
 rxnprobs_id is a string
-bool is an int
 object_metadata is a reference to a list containing 11 items:
 	0: (id) an object_id
 	1: (type) an object_type
@@ -309,6 +305,116 @@ sub calculate
 
 
 
+=head2 get_rxnprobs
+
+  $output = $obj->get_rxnprobs($input)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$input is a GetRxnprobsParams
+$output is a reaction_probability_list
+GetRxnprobsParams is a reference to a hash where the following keys are defined:
+	rxnprobs has a value which is a rxnprobs_id
+	rxnprobs_workspace has a value which is a workspace_id
+	auth has a value which is a string
+rxnprobs_id is a string
+workspace_id is a string
+reaction_probability_list is a reference to a list where each element is a reaction_probability
+reaction_probability is a reference to a list containing 5 items:
+	0: (reaction) a reaction_id
+	1: (probability) a float
+	2: (type) a string
+	3: (complex_info) a string
+	4: (gene_list) a string
+reaction_id is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$input is a GetRxnprobsParams
+$output is a reaction_probability_list
+GetRxnprobsParams is a reference to a hash where the following keys are defined:
+	rxnprobs has a value which is a rxnprobs_id
+	rxnprobs_workspace has a value which is a workspace_id
+	auth has a value which is a string
+rxnprobs_id is a string
+workspace_id is a string
+reaction_probability_list is a reference to a list where each element is a reaction_probability
+reaction_probability is a reference to a list containing 5 items:
+	0: (reaction) a reaction_id
+	1: (probability) a float
+	2: (type) a string
+	3: (complex_info) a string
+	4: (gene_list) a string
+reaction_id is a string
+
+
+=end text
+
+=item Description
+
+Convert a reaction probability object into a human-readable table.
+
+GetRxnprobsParams is a structure
+
+=back
+
+=cut
+
+sub get_rxnprobs
+{
+    my($self, @args) = @_;
+
+# Authentication: none
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function get_rxnprobs (received $n, expecting 1)");
+    }
+    {
+	my($input) = @args;
+
+	my @_bad_arguments;
+        (ref($input) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"input\" (value was \"$input\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to get_rxnprobs:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'get_rxnprobs');
+	}
+    }
+
+    my $result = $self->{client}->call($self->{url}, {
+	method => "ProbabilisticAnnotation.get_rxnprobs",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{code},
+					       method_name => 'get_rxnprobs',
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method get_rxnprobs",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'get_rxnprobs',
+				       );
+    }
+}
+
+
+
 sub version {
     my ($self) = @_;
     my $result = $self->{client}->call($self->{url}, {
@@ -320,16 +426,16 @@ sub version {
             Bio::KBase::Exceptions::JSONRPC->throw(
                 error => $result->error_message,
                 code => $result->content->{code},
-                method_name => 'calculate',
+                method_name => 'get_rxnprobs',
             );
         } else {
             return wantarray ? @{$result->result} : $result->result->[0];
         }
     } else {
         Bio::KBase::Exceptions::HTTP->throw(
-            error => "Error invoking method calculate",
+            error => "Error invoking method get_rxnprobs",
             status_line => $self->{client}->status_line,
-            method_name => 'calculate',
+            method_name => 'get_rxnprobs',
         );
     }
 }
@@ -363,37 +469,6 @@ sub _validate_version {
 }
 
 =head1 TYPES
-
-
-
-=head2 bool
-
-=over 4
-
-
-
-=item Description
-
-Indicates true or false values (false <= 0, true >=1)
-
-
-=item Definition
-
-=begin html
-
-<pre>
-an int
-</pre>
-
-=end html
-
-=begin text
-
-an int
-
-=end text
-
-=back
 
 
 
@@ -876,11 +951,8 @@ a reference to a list containing 11 items:
 
 =item Description
 
-Annotation probability for an alternative function
-
-        string function - the name of the functional role being annotated to the feature
-        float probability - the probability that the functional role is associated with the feature
-        string functionMD5 - hash to let us know if anything has changed
+A function_probability is a (annotation, probability) pair associated with a gene
+An annotation is a "///"-delimited list of roles that could be associated with that gene.
 
 
 =item Definition
@@ -888,10 +960,9 @@ Annotation probability for an alternative function
 =begin html
 
 <pre>
-a reference to a list containing 3 items:
-0: (function) a string
+a reference to a list containing 2 items:
+0: (annotation) a string
 1: (probability) a float
-2: (functionMD5) a string
 
 </pre>
 
@@ -899,10 +970,9 @@ a reference to a list containing 3 items:
 
 =begin text
 
-a reference to a list containing 3 items:
-0: (function) a string
+a reference to a list containing 2 items:
+0: (annotation) a string
 1: (probability) a float
-2: (functionMD5) a string
 
 
 =end text
@@ -911,7 +981,7 @@ a reference to a list containing 3 items:
 
 
 
-=head2 ProbabilisticAnnotation
+=head2 ProbAnno
 
 =over 4
 
@@ -1151,6 +1221,80 @@ rxnprobs_workspace has a value which is a workspace_id
 verbose has a value which is a bool
 auth has a value which is a string
 
+
+=end text
+
+=back
+
+
+
+=head2 GetRxnprobsParams
+
+=over 4
+
+
+
+=item Description
+
+Inputs for get_rxnprobs function.
+rxnprobs_id - ID for RxnProbs object in the workspace
+workspace_id - ID for workspace in which RxnProbs object is held.
+auth - Aughorizaton token of KBase user
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+rxnprobs has a value which is a rxnprobs_id
+rxnprobs_workspace has a value which is a workspace_id
+auth has a value which is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+rxnprobs has a value which is a rxnprobs_id
+rxnprobs_workspace has a value which is a workspace_id
+auth has a value which is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 reaction_probability_list
+
+=over 4
+
+
+
+=item Description
+
+Output for get_rxnprobs function.
+It is a list of tuples convenient for output as a table.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a list where each element is a reaction_probability
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a list where each element is a reaction_probability
 
 =end text
 

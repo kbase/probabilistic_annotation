@@ -5,6 +5,18 @@ This KBase service computes likelihoods for annotations and reactions for a give
 Likelihoods are computed based on similarity to genes with literature evidence and genes
 in subsystems. More ambiguous role calls are given lower probabilities.
 
+VERSION: 1.0.1 (Released 08-16-2013)
+-----------------------------------------
+NEW FEATURES:
+- pa-getrxnprobs function to get a tabular (easily searchable and joinable) format from a RxnProbs object
+
+UPDATED FEATURES / MAJOR BUG FIXES:
+- Updated spec for ProbAnno object, should now be ready for stronger type checking.
+
+ANTICIPATED FUTURE DEVELOPMENTS:
+- Incorporation of gene synteny into probability calculations
+- Incorporation of template models in pa-calculate
+
 VERSION: 1.0 (Released 08/06/2013)
 -----------------------------------------
 NEW FEATURES:
@@ -15,5 +27,4 @@ NEW FEATURES:
 UPDATED FEATURES / MAJOR BUG FIXES: 
 - None
 
-ANTICIPATED FUTURE DEVELOPMENTS:
-- Incorporation of gene synteny into probability calculations
+

@@ -82,14 +82,13 @@ module ProbabilisticAnnotation
 	/* PROBABILISTIC ANNOTATION DATA TYPES */
 	/* ************************************************************************************* */
 
-    /* Annotation probability for an alternative function
     
-    	string function - the name of the functional role being annotated to the feature
-    	float probability - the probability that the functional role is associated with the feature
-    	string functionMD5 - hash to let us know if anything has changed
-	*/    	
-    typedef tuple<string function, float probability, string functionMD5> function_probability;
-    
+    /*
+       A function_probability is a (annotation, probability) pair associated with a gene
+       An annotation is a "///"-delimited list of roles that could be associated with that gene.
+    */
+    typedef tuple<string annotation, float probability> function_probability;
+
     /* Object to carry alternative functions and probabilities for genes in a genome    
 
         probanno_id id - ID of the probabilistic annotation object    
@@ -104,7 +103,7 @@ module ProbabilisticAnnotation
 		workspace_id genome_workspace;
 		mapping<feature_id, list<function_probability>> roleset_probabilities;
 		list<feature_id> skipped_features;
-    } ProbabilisticAnnotation;
+    } ProbAnno;
     
     /* Data structure to hold probability of a reaction
     
@@ -196,6 +195,10 @@ module ProbabilisticAnnotation
 	string auth;
     } GetRxnprobsParams;
 
+    /*
+        Output for get_rxnprobs function.
+	It is a list of tuples convenient for output as a table.
+    */
     typedef list<reaction_probability> reaction_probability_list;
 
     /*

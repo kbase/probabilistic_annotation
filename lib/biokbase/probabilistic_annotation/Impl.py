@@ -1026,3 +1026,31 @@ class ProbabilisticAnnotation:
         # return the results
         return [ output ]
         
+    def get_rxnprobs(self, input):
+        # self.ctx is set by the wsgi application class
+        # return variables are: output
+        #BEGIN get_rxnprobs
+
+        # Sanity check on input arguments
+        input = self._checkInputArguments(input, 
+                                          ["auth", "rxnprobs", "rxnprobs_workspace"], 
+                                          {}
+                                          )
+
+        wsClient = workspaceService(self.config["workspace_url"])
+        getObjectParams = { "id"        : input["rxnprobs"],
+                            "type"      : "RxnProbs",
+                            "workspace" : input["rxnprobs_workspace"],
+                            "auth"      : input["auth"]
+                            }
+
+        rxnProbsObject = wsClient.get_object(getObjectParams)
+        output = rxnProbsObject["data"]["reaction_probabilities"]
+        #END get_rxnprobs
+
+        #At some point might do deeper type checking...
+        if not isinstance(output, list):
+            raise ValueError('Method get_rxnprobs return value output is not type list as required.')
+        # return the results
+        return [ output ]
+        

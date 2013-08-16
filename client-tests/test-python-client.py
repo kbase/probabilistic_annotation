@@ -127,11 +127,12 @@ class TestPythonClient(unittest.TestCase):
         # Run the calculate() function to generate a RxnProbs object.
         paClient = ProbabilisticAnnotation(self._config["probanno_url"])
         rxnprobsMetadata = paClient.calculate( {
-            "probanno": self._config["probannoid"],
+            "probanno":           self._config["probannoid"],
             "probanno_workspace": self._config["wsid"],
-            "rxnprobs": self._config["rxnprobsid"],
+            "rxnprobs":           self._config["rxnprobsid"],
             "rxnprobs_workspace": self._config["wsid"],
-            "auth": self._token } )
+            "auth":               self._token 
+            } )
          
         # Look for the RxnProbs object in the test workspace.
         wsClient = workspaceService(self._config["workspace_url"])
@@ -145,6 +146,15 @@ class TestPythonClient(unittest.TestCase):
             # TODO Could add some checking of the object data here
         except WorkspaceServerError as e:
             self.fail(msg = "The expected object %s did not get created in the workspace %s!\n" %(self._config["rxnprobsid"], self._config["wsid"]))
+
+    def test_get_rxnprobs(self):
+        ''' Verify that we can successfully get a list of rxnprobs data from a valid RxnProbs object.'''
+        paClient = ProbabilisticAnnotation(self._config["probanno_url"])
+        rxnProbsData = paClient.get_rxnprobs( {
+                "rxnprobs":           self._config["rxnprobsid"],
+                "rxnprobs_workspace": self._config["wsid"],
+                "auth":               self._token
+                })
 
     def test_cleanup(self):
         ''' Cleanup objects created by tests. '''
@@ -160,6 +170,7 @@ if __name__ == '__main__':
     suite.addTest(TestPythonClient('test_loadGenome'))
     suite.addTest(TestPythonClient('test_annotate'))
     suite.addTest(TestPythonClient('test_calculate'))
+    suite.addTest(TestPythonClient('test_get_rxnprobs'))
     suite.addTest(TestPythonClient('test_cleanup'))
     unittest.TextTestRunner().run(suite)
     

@@ -150,6 +150,8 @@ class Application(object):
                              types = [dict])
         self.rpc_service.add(impl_ProbabilisticAnnotation.calculate, name = 'ProbabilisticAnnotation.calculate',
                              types = [dict])
+        self.rpc_service.add(impl_ProbabilisticAnnotation.get_rxnprobs, name = 'ProbabilisticAnnotation.get_rxnprobs',
+                             types = [dict])
 
 
     def __call__( self, environ, start_response):
