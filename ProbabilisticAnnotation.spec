@@ -186,5 +186,26 @@ module ProbabilisticAnnotation
     	metadata for the reaction probability object.
     */
     funcdef calculate(CalculateParams input) returns(object_metadata output);
-	    	
+
+    /*
+        Inputs for get_rxnprobs function.
+	rxnprobs_id - ID for RxnProbs object in the workspace
+	workspace_id - ID for workspace in which RxnProbs object is held.
+	auth - Aughorizaton token of KBase user
+    */
+    typedef structure {
+	rxnprobs_id rxnprobs;
+	workspace_id rxnprobs_workspace;
+	string auth;
+    } GetRxnprobsParams;
+
+    typedef list<reaction_probability> reaction_probability_list;
+
+    /*
+        Convert a reaction probability object into a human-readable table.
+
+	GetRxnprobsParams is a structure 
+    */
+    funcdef get_rxnprobs(GetRxnprobsParams input) returns(reaction_probability_list output);
+
 };
