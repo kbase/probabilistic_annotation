@@ -620,6 +620,14 @@ class ProbabilisticAnnotation:
                     TYPE = "HASCOMPLEXES"
                     if cplxToTuple[cplx][0] > maxp:
                         maxp = cplxToTuple[cplx][0]
+                        pass
+                    pass
+            # Iterate separately to get a GPR. We want to apply a cutoff here too to avoid a complex with 80% probability being linked by OR to another with a 5% probability, for example...
+            # For now I've implemented using the same cutoff as we used for which genes go with a role.
+            for cplx in rxnComplexes:
+                if cplx in cplxToTuple:
+                    if cplxToTuple[cplx][0] < maxp * float(self.config["dilution_percent"])/100.0:
+                        continue
                     if GPR == "":
                         GPR = cplxToTuple[cplx][2]
                     elif cplxToTuple[cplx][2] != "":
