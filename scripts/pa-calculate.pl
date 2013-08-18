@@ -35,11 +35,11 @@ DESCRIPTION
       -e, --showerror       Show any errors in execution
       -h, --help            Display this help message, ignore all arguments
       -o, --overwrite       Overwrite existing RxnProbs object with same name
-      --probannows          ID of workspace where ProbAnno object is stored
+      -w, --probannows          ID of workspace where ProbAnno object is stored
       -t, --templateid      ID of ModelTemplate object
       -m, --templatews      ID of workspace where ModelTemplate object is stored
       -v, --verbose         Print verbose messages
-      -w, --rxnprobsws      ID of workspace where RxnProbs object is saved
+      -r, --rxnprobsws      ID of workspace where RxnProbs object is saved
 
 EXAMPLES
       Calculate reaction likelihoods from probabilistic annotation of E. coli
@@ -59,7 +59,7 @@ my $primaryArgs = [ "ProbAnno ID", "RxnProbs ID" ];
 my ( $opt, $usage ) = describe_options(
     'pa-calculate <' . join( "> <", @{$primaryArgs} ) . '> %o',
     [ 'probannows|w=s', 'ID of workspace where ProbAnno object is stored', { "default" => workspace() } ],
-    [ 'rxnprobsws|w=s', 'ID of workspace where RxnProbs object is saved', { 'default' => workspace() } ],
+    [ 'rxnprobsws|r=s', 'ID of workspace where RxnProbs object is saved', { 'default' => workspace() } ],
     [ 'templateid|t=s', "ID of ModelTemplate object", { "default" => undef } ],
     [ 'templatews|m=s', "ID of workspace where ModelTemplate object is stored", { "default" => undef } ],
     [ 'showerror|e:i', 'Show any errors in execution', { "default" => 0 } ],
