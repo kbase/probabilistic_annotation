@@ -21,6 +21,8 @@ module ProbabilisticAnnotation
 	/* SIMPLE ID AND STRING TYPES */
 	/* ************************************************************************************* */
 
+    typedef int bool;
+
 	/* A string identifier for a probabilistic annotation object. */
     typedef string probanno_id;
     
