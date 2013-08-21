@@ -74,6 +74,12 @@ def getUniqueGenes(results, solnum, reaction_list, addedReactionsOnly = False):
             unique_genes.add(gene)
     return unique_genes
 
+def safeAverage(numarray):
+    try:
+        avg = sum(numarray)/len(numarray)
+        return avg
+    except ZeroDivisionError:
+        return None
 
 probanno_results = parse_result_table(args[0])
 non_probanno_results = parse_result_table(args[1])
@@ -98,8 +104,8 @@ for sol in probanno_results.keys():
 
     # Get unique genes for interesting sets
     common_newgenes                 = getUniqueGenes(probanno_results, sol, common_reactions, addedReactionsOnly = options.addedonly)
-    unique_to_probanno_newgenes     = getUniqueGenes(probanno_results, sol, common_reactions, addedReactionsOnly = options.addedonly)
-    unique_to_non_probanno_newgenes = getUniqueGenes(non_probanno_results, sol, common_reactions, addedReactionsOnly = options.addedonly)
+    unique_to_probanno_newgenes     = getUniqueGenes(probanno_results, sol, unique_to_probanno, addedReactionsOnly = options.addedonly) - common_newgenes
+    unique_to_non_probanno_newgenes = getUniqueGenes(non_probanno_results, sol, unique_to_non_probanno, addedReactionsOnly = options.addedonly) - common_newgenes
 
     n_common_newgenes = len(common_newgenes)
     n_unique_to_probanno_newgenes = len(unique_to_probanno_newgenes)
@@ -111,9 +117,9 @@ for sol in probanno_results.keys():
     unique_to_non_probanno_probabilities  = getProbabilities(non_probanno_results, sol, unique_to_non_probanno, addedReactionsOnly = options.addedonly)
 
     # Get average probabilities for these sets
-    common_avg              =  sum(common_probabilities)/len(common_probabilities)
-    unq_to_probanno_avg     =  sum(unique_to_probanno_probabilities)/len(unique_to_probanno_probabilities)
-    unq_to_non_probanno_avg =  sum(unique_to_non_probanno_probabilities)/len(unique_to_non_probanno_probabilities)
+    common_avg              =  safeAverage(common_probabilities)
+    unq_to_probanno_avg     =  safeAverage(unique_to_probanno_probabilities)
+    unq_to_non_probanno_avg =  safeAverage(unique_to_non_probanno_probabilities)
 
     n_common  = len(common_reactions)
     n_unq_to_probanno = len(unique_to_probanno)
