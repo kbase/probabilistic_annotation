@@ -9,7 +9,13 @@ import sys
 usage = "%prog [Probanno_result_table] [Non_probanno_result_table]"
 description = """Generate summary statistics like number of uniquely-added reactions, etc."""
 parser = optparse.OptionParser(usage=usage, description=description)
+parser.add_option("-o", "--added_only", help="Set this flag to ONLY include added reactions (not reversibility changes) in counts of genes (though not reactions) and in average probability calculations.",
+                  action="store_true", dest="addedonly", default=False)
 (options, args) = parser.parse_args()
+
+if len(args) < 2:
+    print usage
+    exit(1)
 
 def parse_result_table(filename):
     ''' Parse a results table into a useful data structure keyed by solution number then other information
@@ -68,6 +74,7 @@ def getUniqueGenes(results, solnum, reaction_list, addedReactionsOnly = False):
             unique_genes.add(gene)
     return unique_genes
 
+
 probanno_results = parse_result_table(args[0])
 non_probanno_results = parse_result_table(args[1])
 
@@ -90,18 +97,18 @@ for sol in probanno_results.keys():
     unique_to_non_probanno = non_probanno_reactions - probanno_reactions
 
     # Get unique genes for interesting sets
-    common_newgenes                 = getUniqueGenes(probanno_results, sol, common_reactions, addedReactionsOnly = True)
-    unique_to_probanno_newgenes     = getUniqueGenes(probanno_results, sol, common_reactions, addedReactionsOnly = True)
-    unique_to_non_probanno_newgenes = getUniqueGenes(non_probanno_results, sol, common_reactions, addedReactionsOnly = True)
+    common_newgenes                 = getUniqueGenes(probanno_results, sol, common_reactions, addedReactionsOnly = options.addedonly)
+    unique_to_probanno_newgenes     = getUniqueGenes(probanno_results, sol, common_reactions, addedReactionsOnly = options.addedonly)
+    unique_to_non_probanno_newgenes = getUniqueGenes(non_probanno_results, sol, common_reactions, addedReactionsOnly = options.addedonly)
 
     n_common_newgenes = len(common_newgenes)
     n_unique_to_probanno_newgenes = len(unique_to_probanno_newgenes)
     n_unique_to_non_probanno_newgenes = len(unique_to_non_probanno_newgenes)
 
     # Get probability distributions for interesting sets
-    common_probabilities                  = getProbabilities(probanno_results, sol, common_reactions, addedReactionsOnly = True)
-    unique_to_probanno_probabilities      = getProbabilities(probanno_results, sol, unique_to_probanno, addedReactionsOnly = True)
-    unique_to_non_probanno_probabilities  = getProbabilities(non_probanno_results, sol, unique_to_non_probanno, addedReactionsOnly = True)
+    common_probabilities                  = getProbabilities(probanno_results, sol, common_reactions, addedReactionsOnly = options.addedonly)
+    unique_to_probanno_probabilities      = getProbabilities(probanno_results, sol, unique_to_probanno, addedReactionsOnly = options.addedonly)
+    unique_to_non_probanno_probabilities  = getProbabilities(non_probanno_results, sol, unique_to_non_probanno, addedReactionsOnly = options.addedonly)
 
     # Get average probabilities for these sets
     common_avg              =  sum(common_probabilities)/len(common_probabilities)
