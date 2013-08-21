@@ -81,6 +81,7 @@ AnnotateParams is a reference to a hash where the following keys are defined:
 genome_id is a string
 workspace_id is a string
 probanno_id is a string
+bool is an int
 job_id is a string
 
 </pre>
@@ -102,6 +103,7 @@ AnnotateParams is a reference to a hash where the following keys are defined:
 genome_id is a string
 workspace_id is a string
 probanno_id is a string
+bool is an int
 job_id is a string
 
 
@@ -189,6 +191,7 @@ probanno_id is a string
 workspace_id is a string
 template_id is a string
 rxnprobs_id is a string
+bool is an int
 object_metadata is a reference to a list containing 11 items:
 	0: (id) an object_id
 	1: (type) an object_type
@@ -228,6 +231,7 @@ probanno_id is a string
 workspace_id is a string
 template_id is a string
 rxnprobs_id is a string
+bool is an int
 object_metadata is a reference to a list containing 11 items:
 	0: (id) an object_id
 	1: (type) an object_type
@@ -469,6 +473,37 @@ sub _validate_version {
 }
 
 =head1 TYPES
+
+
+
+=head2 bool
+
+=over 4
+
+
+
+=item Description
+
+*************************************************************************************
+
+
+=item Definition
+
+=begin html
+
+<pre>
+an int
+</pre>
+
+=end html
+
+=begin text
+
+an int
+
+=end text
+
+=back
 
 
 
