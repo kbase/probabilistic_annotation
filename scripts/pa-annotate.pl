@@ -36,7 +36,6 @@ DESCRIPTION
       -e, --showerror    Show any errors in execution
       --genomews         ID of workspace where Genome object is stored
       -h, --help         Display this help message, ignore all arguments
-      -o, --overwrite    Overwrite existing ProbAnno object with same name
       -v, --verbose      Print verbose messages
       -w, --probannows   ID of workspace where ProbAnno object is saved
 
@@ -61,7 +60,6 @@ my ( $opt, $usage ) = describe_options(
     'pa-annotate <' . join( "> <", @{$primaryArgs} ) . '> %o',
     [ 'probannows|w=s', 'ID of workspace where ProbAnno object is saved', { "default" => workspace() } ],
     [ 'genomews=s', 'ID of workspace where Genome object is stored', { "default" => "KBaseCDMGenomes" } ],
-    [ 'overwrite|o:i', "Overwrite existing ProbAnno object with same name", { "default" => 0 } ],
     [ 'showerror|e:i', 'Show any errors in execution', { "default" => 0 } ],
     [ 'verbose|v:i', 'Print verbose messages', { "default" => 0 } ],
     [ 'help|h', 'Show help text' ],
@@ -94,7 +92,6 @@ my $translation = {
     "ProbAnno ID" => "probanno",
     genomews      => "genome_workspace",
     probannows    => "probanno_workspace",
-    overwrite     => "overwrite",
 };
 
 # Instantiate parameters for function.

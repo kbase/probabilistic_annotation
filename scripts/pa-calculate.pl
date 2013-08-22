@@ -34,8 +34,7 @@ DESCRIPTION
       Options:
       -e, --showerror       Show any errors in execution
       -h, --help            Display this help message, ignore all arguments
-      -o, --overwrite       Overwrite existing RxnProbs object with same name
-      -w, --probannows          ID of workspace where ProbAnno object is stored
+      -w, --probannows      ID of workspace where ProbAnno object is stored
       -t, --templateid      ID of ModelTemplate object
       -m, --templatews      ID of workspace where ModelTemplate object is stored
       -v, --verbose         Print verbose messages
