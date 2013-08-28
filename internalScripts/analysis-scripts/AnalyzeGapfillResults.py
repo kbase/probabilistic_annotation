@@ -32,10 +32,13 @@ wsClient = workspaceService("http://kbase.us/services/workspace/")
 
 ### Get the model object
 #
-models = fbaClient.get_models( { "models" : [ options.modelid ],
+try:
+    models = fbaClient.get_models( { "models" : [ options.modelid ],
                                  "workspaces" : [ options.ws ],
                                  "auth"   : options.auth
                                  })
+except:
+    raise IOError("ERROR: Getting model %s from workspace %s failed (most likely this means the model does not exist in that workspace)" %(options.modelid, options.ws))
 
 # Get IDs for all the reactions and genes in the model
 rxns_in_model = set()
@@ -53,7 +56,7 @@ if len(gapfills) < 1:
     sys.stderr.write("Integrated gapfillings not found. Trying unintegrated...\n")
     gapfills = models[0]["unintegrated_gapfillings"]
     if len(gapfills) < 1:
-        raise IOError("Specified gapfill does not have any integrated or unintegrated gapfillings!")
+        raise IOError("Specified gapfill %s does not have any integrated or unintegrated gapfillings!" %(options.modelid))
 
 # If a RxnProbs object is specified, use it to get the probabilities, GPRs and genes associated with
 # each reaction
@@ -71,7 +74,10 @@ if options.rxnprobsid is not None:
         pass
     pass
 
+# KBase
 geneFinder = re.compile("kb\|g\.\d+\.peg\.\d+")
+# SEED
+geneFinder2 = re.compile("fig\|\d+\.\d+\.peg\.\d+")
 
 for gapfill in gapfills:
     gapfill_uuid = gapfill[1]
@@ -90,7 +96,7 @@ for gapfill in gapfills:
     try:
         fba_formulation_uuid = gapfill_object_workspace["data"]["fbaFormulation_uuid"]
     except KeyError:
-        sys.stderr.write("WARNING: Gapfill with UUID %s had no FBA result attached to it...\n" %(gapfill_uuid))
+        sys.stderr.write("WARNING: Gapfill with UUID %s had no FBA result attached to it...(in model %s)\n" %(gapfill_uuid, options.modelid))
         continue
 
     fba_formulation_object = wsClient.get_object( { "workspace" : "NO_WORKSPACE",
@@ -104,7 +110,7 @@ for gapfill in gapfills:
     try:
         problem_report_text = fba_formulation_object["data"]["fbaResults"][0]["outputfiles"]["ProblemReport.txt"]
     except KeyError:
-        sys.stderr.write("WARNING: No ProblemReport.txt was attached to FBA Results object %s\n" %(fba_formulation_uuid))
+        sys.stderr.write("WARNING: No ProblemReport.txt was attached to FBA Results object %s in model %s\n" %(fba_formulation_uuid, options.modelid))
         continue
 
     #####################################################
@@ -171,7 +177,7 @@ for gapfill in gapfills:
 
         rxnids = tuple(sorted(rxnids))
         if rxnids not in solution_rxns_to_objective:
-            raise IOError("Solution mismatch between ProblemReport.txt and the Gapfill object from kbfba-getgapfills")
+            raise IOError("Solution mismatch between ProblemReport.txt and the Gapfill object from kbfba-getgapfills in model %s" %(options.modelid))
 
         for rxnid in rxnids:
             # Solution number, reaction ID, and objective value for the solution numbers...
@@ -193,6 +199,11 @@ for gapfill in gapfills:
             if rxnid in rxnToGapfillGpr:
                 gpr = rxnToGapfillGpr[rxnid]
                 for match in geneFinder.findall(gpr):
+                    if match not in genes_in_model:
+                        newgenes.append(match)
+                        pass
+                    pass
+                for match in geneFinder2.findall(gpr):
                     if match not in genes_in_model:
                         newgenes.append(match)
                         pass
