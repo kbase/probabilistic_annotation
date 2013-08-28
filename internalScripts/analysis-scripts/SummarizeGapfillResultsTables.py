@@ -11,6 +11,7 @@ description = """Generate summary statistics like number of uniquely-added react
 parser = optparse.OptionParser(usage=usage, description=description)
 parser.add_option("-o", "--added_only", help="Set this flag to ONLY include added reactions (not reversibility changes) in counts of genes (though not reactions) and in average probability calculations.",
                   action="store_true", dest="addedonly", default=False)
+parser.add_option("-g", "--print_genes", help="Print detailed gene information instead of summaries.", action="store_true", dest="printgenes", default=False)
 (options, args) = parser.parse_args()
 
 if len(args) < 2:
@@ -84,7 +85,10 @@ def safeAverage(numarray):
 probanno_results = parse_result_table(args[0])
 non_probanno_results = parse_result_table(args[1])
 
-print "\t".join( [ "probanno_filename", "non_probanno_filename", "solution number compared", 
+if options.printgenes:
+    print "\t".join( [ "reaction", "likelihood", "whenfound", "solnum" ] )
+else:
+    print "\t".join( [ "probanno_filename", "non_probanno_filename", "solution number compared", 
                    "number_common", "number_probanno_only", "number_nonprobanno_only",
                    "average_common", "average_probanno_only", "average_nonprobanno_only",
                    "unique_genes_common", "unique_genes_probanno_only", "unique_genes_nonprobanno_only"]
@@ -101,6 +105,21 @@ for sol in probanno_results.keys():
     common_reactions       = probanno_reactions & non_probanno_reactions
     unique_to_probanno      = probanno_reactions - non_probanno_reactions
     unique_to_non_probanno = non_probanno_reactions - probanno_reactions
+
+    if options.printgenes:
+        for reaction in common_reactions:
+            if options.addedonly and probanno_results[sol]["rxninfo"][reaction]["revchange"] == "1":
+                continue
+            print "%s\t%s\t%s\t%s" %(reaction, str(probanno_results[sol]["rxninfo"][reaction]["likelihood"]), "COMMON", sol)
+        for reaction in unique_to_probanno:
+            if options.addedonly and probanno_results[sol]["rxninfo"][reaction]["revchange"] == "1":
+                continue
+            print "%s\t%s\t%s\t%s" %(reaction, str(probanno_results[sol]["rxninfo"][reaction]["likelihood"]), "PROBANNO_ONLY", sol)
+        for reaction in unique_to_non_probanno:
+            if options.addedonly and non_probanno_results[sol]["rxninfo"][reaction]["revchange"] == "1":
+                continue
+            print "%s\t%s\t%s\t%s" %(reaction, str(non_probanno_results[sol]["rxninfo"][reaction]["likelihood"]), "NON_PROBANNO_ONLY", sol)
+        continue
 
     # Get unique genes for interesting sets
     common_newgenes                 = getUniqueGenes(probanno_results, sol, common_reactions, addedReactionsOnly = options.addedonly)
