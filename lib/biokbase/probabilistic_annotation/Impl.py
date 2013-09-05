@@ -19,6 +19,10 @@ RxnProbsVersion = 1
 class NotReadyError(Exception):
     pass
 
+# Exception thrown when static database file is missing from Shock.
+class MissingFileError(Exception):
+    pass
+
 # Exception thrown when no features are found in Genome object
 class NoFeaturesError(Exception):
     pass
@@ -49,12 +53,14 @@ Module Description:
 The purpose of the Probabilistic Annotation service is to provide users with
 alternative annotations for genes, each attached to a likelihood score, and to
 translate these likelihood scores into likelihood scores for the existence of
-reactions in metabolic models.
+reactions in metabolic models.  With the Probabilistic Annotation service:
 
-- Allows users to quickly assess the quality of an annotation.
+- Users can quickly assess the quality of an annotation.
+
 - Reaction likelihood computations allow users to estimate the quality of
   metabolic networks generated using the automated reconstruction tools in
   other services.
+
 - Combining reaction likelihoods with gapfilling both directly incorporates
   available genetic evidence into the gapfilling process and provides putative
   gene annotations automatically, reducing the effort needed to search for
@@ -773,6 +779,8 @@ class ProbabilisticAnnotation:
             # Get info about the file stored in Shock.
             query = "lookupname=ProbAnnoData/"+DatabaseFiles[key]
             nodelist = shockClient.query(query)
+            if len(nodelist) == 0:
+                raise MissingFileError("Database file %s is not available from %s\n" %(DatabaseFiles[key], self.config["shock_url"]))
             node = nodelist[0]
             
             # Downlaod the file if the checksum does not match or the file is not available on this system.
