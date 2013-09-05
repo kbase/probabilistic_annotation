@@ -19,6 +19,10 @@ RxnProbsVersion = 1
 class NotReadyError(Exception):
     pass
 
+# Exception thrown when static database file is missing from Shock.
+class MissingFileError(Exception):
+    pass
+
 # Exception thrown when no features are found in Genome object
 class NoFeaturesError(Exception):
     pass
@@ -775,6 +779,8 @@ class ProbabilisticAnnotation:
             # Get info about the file stored in Shock.
             query = "lookupname=ProbAnnoData/"+DatabaseFiles[key]
             nodelist = shockClient.query(query)
+            if len(nodelist) == 0:
+                raise MissingFileError("Database file %s is not available from %s\n" %(DatabaseFiles[key], self.config["shock_url"]))
             node = nodelist[0]
             
             # Downlaod the file if the checksum does not match or the file is not available on this system.
