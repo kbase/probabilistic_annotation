@@ -10,13 +10,15 @@ use Bio::KBase::workspaceService::Helpers qw(auth workspace printObjectMeta);
 my $manpage =
 "
 NAME
-      pa-getrxnprobs -- update or view url of the probabilistic annotation service endpoint
+      pa-getrxnprobs -- Get a table of reaction probabilities from a rxnprobs object
 
 SYNOPSIS
       pa-getrxnprobs [RxnProbs ID] [Workspace]
 
 DESCRIPTION
       Get a table of reaction probabilities from a RxnProbs object.
+      Each reaction in the rxnprobs object is given a single row in the output table.
+      Reactions with no complexes linked to them will have no rows in the table.
       
       Options:
       -h, --help         display this help message, ignore all arguments
@@ -24,7 +26,10 @@ DESCRIPTION
 EXAMPLES
       > pa-getrxnprobs 'kb|g.0.rxnprobs' 'MyWorkspace'
       reaction_id   probability   complex_diagnostic   complex_details   putative_GPR
-      
+
+SEE ALSO
+      pa-calculate
+     
 AUTHORS
       Matt Benedict, Mike Mundy
 ";
