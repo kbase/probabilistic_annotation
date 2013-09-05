@@ -899,7 +899,8 @@ class ProbabilisticAnnotation:
         if self.config["job_queue"] == "scheduler":
             wsClient = workspaceService(self.config["workspace_url"])
             job = wsClient.queue_job(queueJobParams)
-            jobid = job["id"]           
+            jobid = job["id"]
+            sys.stderr.write("Submitted job job.%d to the KBase queue\n" %(jobid))
         # Run the job on the local machine.
         else:
             jid = randint(1,1000000)
