@@ -876,7 +876,6 @@ class ProbabilisticAnnotation:
         ''' Compute probabilistic annotations from the specified genome object.
 
         input is a dictionary that must contain the following keys:
-        auth : Auth string
         genome: Name of genome object
         genome_workspace: Workspace from which to grab the genome object
         probanno: Name of probanno object to output
@@ -889,7 +888,7 @@ class ProbabilisticAnnotation:
         '''
 
         input = self._checkInputArguments(input, 
-                                          ["auth", "genome", "genome_workspace", "probanno", "probanno_workspace"],
+                                          [ "genome", "genome_workspace", "probanno", "probanno_workspace"],
                                           { "verbose" : False }
                                           )
         
@@ -898,10 +897,11 @@ class ProbabilisticAnnotation:
         
         # Store the path to the config file so the job script can set the configuration.
         input["kb_deployment_config"] = os.environ["KB_DEPLOYMENT_CONFIG"]
+        input["auth"] = self.ctx["token"]
         
         # Use the same parameters for both job queue methods.
         queueCommand = "pa-annotate " + input["genome"] + " " + input["probanno"]
-        queueJobParams = { "type": "ProbAnno", "auth": input["auth"], "queuecommand": queueCommand, "jobdata": input }
+        queueJobParams = { "type": "ProbAnno", "auth": self.ctx["token"], "queuecommand": queueCommand, "jobdata": input }
         
         # Queue a job to run annotate command using the workspace scheduler.
         if self.config["job_queue"] == "scheduler":
@@ -939,7 +939,6 @@ class ProbabilisticAnnotation:
         ''' Compute reaction probabilities from a probabilistic annotation.
 
         input is a dictionary that must contain the following keys:
-        auth : Auth string
         probanno: Name of probanno object to input
         probanno_workspace: Workspace from which to grab the probanno object
         rxnprobs: Name of reaction probability object
@@ -951,7 +950,7 @@ class ProbabilisticAnnotation:
 
         # Sanity check on input arguments
         input = self._checkInputArguments(input, 
-                                          ["probanno", "probanno_workspace", "auth", "rxnprobs", "rxnprobs_workspace"], 
+                                          ["probanno", "probanno_workspace", "rxnprobs", "rxnprobs_workspace"], 
                                           { "verbose" : False ,
                                             "template_model" : None,
                                             "template_model_workspace" : None
@@ -965,7 +964,7 @@ class ProbabilisticAnnotation:
         wsClient = workspaceService(self.config["workspace_url"])
         
         # Get the ProbAnno object from the specified workspace.
-        getObjectParams = { "type": "ProbAnno", "id": input["probanno"], "workspace": input["probanno_workspace"], "auth": input["auth"] }
+        getObjectParams = { "type": "ProbAnno", "id": input["probanno"], "workspace": input["probanno_workspace"], "auth": self.ctx["token"] }
         probannoObject = wsClient.get_object(getObjectParams)
         if "version" not in probannoObject["metadata"][10] or probannoObject["metadata"][10]["version"] != ProbAnnoVersion:
             raise WrongVersionError("ProbAnno object version is not %d" %(ProbAnnoVersion))
@@ -1030,7 +1029,7 @@ class ProbabilisticAnnotation:
                              "metadata" : objectMetadata,
                              "workspace" : input["rxnprobs_workspace"],
                              "command" : "pa-calculate",
-                             "auth" : input["auth"]
+                             "auth" : self.ctx["token"]
                              }
 
         output = wsClient.save_object(saveObjectParams)
@@ -1050,7 +1049,7 @@ class ProbabilisticAnnotation:
 
         # Sanity check on input arguments
         input = self._checkInputArguments(input, 
-                                          ["auth", "rxnprobs", "rxnprobs_workspace"], 
+                                          [ "rxnprobs", "rxnprobs_workspace" ], 
                                           {}
                                           )
 
@@ -1058,7 +1057,7 @@ class ProbabilisticAnnotation:
         getObjectParams = { "id"        : input["rxnprobs"],
                             "type"      : "RxnProbs",
                             "workspace" : input["rxnprobs_workspace"],
-                            "auth"      : input["auth"]
+                            "auth"      : self.ctx["token"]
                             }
 
         rxnProbsObject = wsClient.get_object(getObjectParams)

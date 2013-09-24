@@ -7,7 +7,6 @@ import os
 import json
 from biokbase.workspaceService.Client import workspaceService
 from biokbase.workspaceService.Client import ServerError as WorkspaceServerError
-from biokbase.auth.auth_token import get_token
 from biokbase.fbaModelServices.Client import fbaModelServices
 from biokbase.probabilistic_annotation.Client import ProbabilisticAnnotation
 from biokbase.probabilistic_annotation.DataParser import getConfig
@@ -97,13 +96,12 @@ class TestPythonClient(unittest.TestCase):
         ''' Run pa-annotate on a valid Genome object and verify that the job runs and returns a valid ProbAnno object in the expected time.'''
 
         # Run the annotate() function to generate a ProbAnno object.
-        paClient = ProbabilisticAnnotation(self._config["probanno_url"])
+        paClient = ProbabilisticAnnotation(self._config["probanno_url"], token=self._token)
         jobid = paClient.annotate( {
             "genome": self._config["genomeid"],
             "genome_workspace": self._config["wsid"],
             "probanno": self._config["probannoid"],
-            "probanno_workspace": self._config["wsid"],
-            "auth": self._token } )
+            "probanno_workspace": self._config["wsid"] } )
         
         # Allow time for the command to run.
         time.sleep(float(self._config["runtime"]))
@@ -125,13 +123,12 @@ class TestPythonClient(unittest.TestCase):
         ''' Run pa-calculate on a valid ProbAnno object and verify that the job runs and returns a valid RxnProbs object.'''
         
         # Run the calculate() function to generate a RxnProbs object.
-        paClient = ProbabilisticAnnotation(self._config["probanno_url"])
+        paClient = ProbabilisticAnnotation(self._config["probanno_url"], token=self._token)
         rxnprobsMetadata = paClient.calculate( {
             "probanno":           self._config["probannoid"],
             "probanno_workspace": self._config["wsid"],
             "rxnprobs":           self._config["rxnprobsid"],
-            "rxnprobs_workspace": self._config["wsid"],
-            "auth":               self._token 
+            "rxnprobs_workspace": self._config["wsid"] 
             } )
          
         # Look for the RxnProbs object in the test workspace.
@@ -149,11 +146,10 @@ class TestPythonClient(unittest.TestCase):
 
     def test_get_rxnprobs(self):
         ''' Verify that we can successfully get a list of rxnprobs data from a valid RxnProbs object.'''
-        paClient = ProbabilisticAnnotation(self._config["probanno_url"])
+        paClient = ProbabilisticAnnotation(self._config["probanno_url"], token=self._token)
         rxnProbsData = paClient.get_rxnprobs( {
                 "rxnprobs":           self._config["rxnprobsid"],
-                "rxnprobs_workspace": self._config["wsid"],
-                "auth":               self._token
+                "rxnprobs_workspace": self._config["wsid"]
                 })
 
     def test_cleanup(self):
