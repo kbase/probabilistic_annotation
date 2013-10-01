@@ -74,8 +74,8 @@ test-client:
 # DEPLOYMENT
 deploy: deploy-dir deploy-client deploy-service
 
-deploy-service: deploy-libs deploy-scripts deploy-service-files deploy-cfg
-deploy-client: deploy-libs deploy-scripts deploy-docs
+deploy-service: deploy-dir deploy-libs deploy-scripts deploy-service-files deploy-cfg
+deploy-client: deploy-dir deploy-libs deploy-scripts deploy-docs
 
 deploy-scripts: deploy-perlscripts deploy-pythonscripts
 
