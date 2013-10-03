@@ -54,7 +54,7 @@ test-service:
 test-scripts:
 	for t in $(SCRIPT_TESTS) ; do \
 		if [ -f $$t ] ; then \
-			PYTHONPATH="$(TARGET)/lib:" TARGET=$(TARGET) KB_TEST_CONFIG=test.cfg python $$t ; \
+			KB_TEST_CONFIG=test.cfg python $$t ; \
 			if [ $$? -ne 0 ] ; then \
 				exit 1 ; \
 			fi \
@@ -64,7 +64,7 @@ test-scripts:
 test-client:
 	for t in $(CLIENT_TESTS_PYTHON) ; do \
 		if [ -f $$t ] ; then \
-			PYTHONPATH="$(TARGET)/lib:" KB_TEST_CONFIG=test.cfg python $$t ; \
+			KB_TEST_CONFIG=test.cfg python $$t ; \
 			if [ $$? -ne 0 ] ; then \
 				exit 1 ; \
 			fi \

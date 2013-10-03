@@ -10,7 +10,7 @@ class TestAnnotateScript(unittest.TestCase):
     '''
         
     def setUp(self):
-        self.cmd = os.path.join(os.environ["TARGET"], "bin/pa-annotate")
+        self.cmd = os.path.join(os.environ["KB_TOP"], "bin/pa-annotate")
 
     def test_help(self):
         '''Run pa-annotate --help and verify that the major sections in the help text are present'''
