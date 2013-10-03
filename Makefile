@@ -71,20 +71,16 @@ test-client:
 		fi \
 	done
 
-# DEPLOYMENT
-deploy: deploy-dir deploy-client deploy-service
+# Deployment
+
+deploy: deploy-client deploy-service
+
+# Deploy service start and stop scripts.
 
 deploy-service: deploy-libs deploy-scripts deploy-service-files deploy-cfg
-deploy-client: deploy-libs deploy-scripts deploy-docs
-
-deploy-scripts: deploy-perlscripts deploy-pythonscripts
-
-deploy-dir:
-	if [ ! -d $(SERV_SERVICE_DIR) ] ; then mkdir -p $(SERV_SERVICE_DIR) ; fi
-	if [ ! -d docs ] ; then mkdir -p docs ; fi
-	if [ ! -d ${SERV_SERVICE_DIR}/webroot/ ]; then mkdir -p ${SERV_SERVICE_DIR}/webroot/ ; fi
 
 deploy-service-files:
+	if [ ! -d $(SERV_SERVICE_DIR) ] ; then mkdir -p $(SERV_SERVICE_DIR) ; fi
 	tpage $(SERV_TPAGE_ARGS) service/process.tt > $(SERV_SERVICE_DIR)/process.$(SERV_SERVICE); \
 	chmod +x $(SERV_SERVICE_DIR)/process.$(SERV_SERVICE); \
 	tpage $(SERV_TPAGE_ARGS) service/start_service.tt > $(SERV_SERVICE_DIR)/start_service; \
@@ -92,20 +88,18 @@ deploy-service-files:
 	tpage $(SERV_TPAGE_ARGS) service/stop_service.tt > $(SERV_SERVICE_DIR)/stop_service; \
 	chmod +x $(SERV_SERVICE_DIR)/stop_service;
 
-deploy-perlscripts:
-	# These three are needed to make these variables appear in the wrapped script
-	export KB_TOP=$(TARGET); \
-	export KB_RUNTIME=$(DEPLOY_RUNTIME); \
-	export KB_PERL_PATH=$(TARGET)/lib bash ; \
-	for src in $(SRC_PERL) ; do \
-		basefile=`basename $$src`; \
-		base=`basename $$src .pl`; \
-		cp $$src $(TARGET)/plbin ; \
-		$(WRAP_PERL_SCRIPT) "$(TARGET)/plbin/$$basefile" $(TARGET)/bin/$$base ; \
-	done
+# Deploy client artifacts, including the application programming interface
+# libraries, command line scripts, and associated reference documentation.
+
+deploy-client: deploy-libs deploy-scripts deploy-docs
+
+# Deploy command line scripts.  The scripts are "wrapped" so users do not
+# need to modify their environment to run KBase scripts.
+
+deploy-scripts: deploy-perl-scripts deploy-pythonscripts
 
 deploy-pythonscripts:
-	# These three are needed to make these variables appear in the wrapped script
+	# Same as rule from Makefile.common.rules but also wraps internal scripts.
 	export KB_TOP=$(TARGET); \
 	export KB_RUNTIME=$(DEPLOY_RUNTIME); \
 	export KB_PYTHON_PATH=$(TARGET)/lib bash ; \
@@ -116,12 +110,21 @@ deploy-pythonscripts:
 		$(WRAP_PYTHON_SCRIPT) "$(TARGET)/pybin/$$basefile" $(TARGET)/bin/$$base ; \
 	done
 
-deploy-docs:
-	# pod2html doesn't work on the Python client (whcih has no docstrings anyway) but it does work on the Perl client.
-	# Note - we can also run pydoc -w on our Impl.py file to get some documentation for those functions
-	# but the formatting isn't consistent with what the other services use...
-	$(KB_RUNTIME)/bin/pod2html -t "${SERVICE_NAME}" lib/Bio/KBase/${SERVICE_NAME}/Client.pm > docs/${SERVICE_NAME}.html
-	cp docs/*html $(SERV_SERVICE_DIR)/webroot/
+# Deploy documentation of the application programming interface.
+# (Waiting for resolution on documentation of command line scripts).
+
+deploy-docs: build-docs
+	if [ ! -d $(SERVICE_DIR)/webroot ] ; then mkdir -p $(SERVICE_DIR)/webroot ; fi
+	cp docs/*html $(SERVICE_DIR)/webroot/.
+
+build-docs:
+	# pod2html doesn't work on the Python client (which has no docstrings anyway)
+	# but it does work on the Perl client.
+	# Note - we could run pydoc -w on our Impl.py file to get some documentation
+	# for those functions but the formatting isn't consistent with what the other
+	# services use.
+	if [ ! -d docs ] ; then mkdir -p docs ; fi
+	pod2html -t "${SERVICE_NAME}" lib/Bio/KBase/${SERVICE_NAME}/Client.pm > docs/${SERVICE_NAME}.html
 
 compile-typespec:
 	mkdir -p lib/biokbase/${SERVICE_NAME}
