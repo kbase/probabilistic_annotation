@@ -32,13 +32,13 @@ wsClient = workspaceService("http://kbase.us/services/workspace/")
 
 ### Get the model object
 #
-try:
-    models = fbaClient.get_models( { "models" : [ options.modelid ],
+#try:
+models = fbaClient.get_models( { "models" : [ options.modelid ],
                                  "workspaces" : [ options.ws ],
                                  "auth"   : options.auth
                                  })
-except:
-    raise IOError("ERROR: Getting model %s from workspace %s failed (most likely this means the model does not exist in that workspace)" %(options.modelid, options.ws))
+#except:
+#    raise IOError("ERROR: Getting model %s from workspace %s failed (most likely this means the model does not exist in that workspace)" %(options.modelid, options.ws))
 
 # Get IDs for all the reactions and genes in the model
 rxns_in_model = set()
@@ -117,34 +117,35 @@ for gapfill in gapfills:
     # PARSE ProblemReport.txt to get gapfill solutions  #
     #####################################################
 
-    # The parsed file is an array and the text we want is in the second row (not sure if this is ALWAYS true)
-    problem_string = problem_report_text[1]
-    # It has lots of stuff that is semicolon-delimited and the solution we want is the third column.
-    spl_problem_string = problem_string.split(";")
-    solution_string = spl_problem_string[2]
-    # And it is formatted as follows... Recursive MILP [objective]:[+-][rxnid],[+-][rxnid],...| ( repeating).
-    # So lets strip off the Recursive MILP...
-    solution_string = solution_string.replace("Recursive MILP ", "")
-    # Lets also remove any rogue spaces just in case.
-    solution_string = solution_string.replace(" ", "")
-    # Now we have pipe-delmited lists of solutions.
-    solution_list = solution_string.split("|")
-    solution_rxns_to_objective = {}
-    for sln in solution_list:
-        # Separate the objective value from the list of reactions.
-        obj_list = sln.split(":")
-        try:
-            objective = float(obj_list[0])
-        except ValueError:
-            # The ProblemReport.txt can report empty solutions too (they just look like ")" or something). We don't want those.
-            continue
-        rxn_list_string = obj_list[1]
-        # Remove + and - signs from the reactions.
-        rxn_list_string = rxn_list_string.replace("+","").replace("-", "")
-        # Sort the list so that we dont have to worry about the reactions
-        # being in a different order from what we get below.
-        rxn_list = sorted(rxn_list_string.split(","))
-        solution_rxns_to_objective[tuple(rxn_list)] = objective
+    # For iterative gapfilling there is one problem report string for each target reaction that had a successful gapfill.
+    # The first row, though, is a header row, so we just start at the second row.
+    for problem_string in problem_report_text[1:]:
+        # It has lots of stuff that is semicolon-delimited and the solution we want is the third column.
+        spl_problem_string = problem_string.split(";")
+        solution_string = spl_problem_string[2]
+        # And it is formatted as follows... Recursive MILP [objective]:[+-][rxnid],[+-][rxnid],...| ( repeating).
+        # So lets strip off the Recursive MILP...
+        solution_string = solution_string.replace("Recursive MILP ", "")
+        # Lets also remove any rogue spaces just in case.
+        solution_string = solution_string.replace(" ", "")
+        # Now we have pipe-delmited lists of solutions.
+        solution_list = solution_string.split("|")
+        solution_rxns_to_objective = {}
+        for sln in solution_list:
+            # Separate the objective value from the list of reactions.
+            obj_list = sln.split(":")
+            try:
+                objective = float(obj_list[0])
+            except ValueError:
+                # The ProblemReport.txt can report empty solutions too (they just look like ")" or something). We don't want those.
+                continue
+            rxn_list_string = obj_list[1]
+            # Remove + and - signs from the reactions.
+            rxn_list_string = rxn_list_string.replace("+","").replace("-", "")
+            # Sort the list so that we dont have to worry about the reactions
+            # being in a different order from what we get below.
+            rxn_list = sorted(rxn_list_string.split(","))
+            solution_rxns_to_objective[tuple(rxn_list)] = objective
 
     ### Grab the gapfill object associated with that UUID using the FBA object
     # We are mostly using this as a sanity check to make sure that the reactions
@@ -173,11 +174,13 @@ for gapfill in gapfills:
         #
         rxnids = set()
         for addedrxn in reactionAdds:
+            print addedrxn
             rxnids.add(addedrxn[0])
 
         rxnids = tuple(sorted(rxnids))
         if rxnids not in solution_rxns_to_objective:
-            raise IOError("Solution mismatch between ProblemReport.txt and the Gapfill object from kbfba-getgapfills in model %s" %(options.modelid))
+#            raise IOError("Solution mismatch between ProblemReport.txt and the Gapfill object from kbfba-getgapfills in model %s" %(options.modelid))
+            sys.stderr.write("WARNING: Solution mismatch between ProblemReport.txt and the Gapfill object from kbfba-getgapfills in model %s (this is only OK if you're analyzing complete gapfill)\n" %(options.modelid))
 
         for rxnid in rxnids:
             # Solution number, reaction ID, and objective value for the solution numbers...
@@ -214,7 +217,11 @@ for gapfill in gapfills:
             nnew = str(len(newgenes))
             newgenes = ";".join(newgenes)
 
-            print "\t".join( [ str(ii), rxnid, str(solution_rxns_to_objective[rxnids]), gapfill_uuid, p, revchange, gpr, newgenes, nnew ] )
+            # This doesn't work for complete gapfilling. I just want to get a hack aroud it.
+            try:
+                print "\t".join( [ str(ii), rxnid, str(solution_rxns_to_objective[rxnids]), gapfill_uuid, p, revchange, gpr, newgenes, nnew ] )
+            except KeyError:
+                print "\t".join( [ str(ii), rxnid, str(None), gapfill_uuid, p, revchange, gpr, newgenes, nnew ] )
         
         ii += 1
 
