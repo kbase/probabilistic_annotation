@@ -128,7 +128,14 @@ module ProbabilisticAnnotation
     	
     */
     typedef structure {
+	rxnprobs_id id;
+	int version;
+	template_id template_model;
+	workspace_id template_workspace;
     	genome_id genome;
+	workspace_id genome_workspace;
+	probanno_id probanno;
+	workspace_id probanno_workspace;
     	list<reaction_probability> reaction_probabilities;
     } RxnProbs;
 
