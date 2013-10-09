@@ -7,6 +7,7 @@ from jsonrpcbase import JSONRPCService, InvalidParamsError, KeywordError,\
   JSONRPCError, log, ServerError, ParseError, InvalidRequestError
 from os import environ
 from ConfigParser import ConfigParser
+import biokbase.nexus
 
 DEPLOY = 'KB_DEPLOYMENT_CONFIG'
 SERVICE = 'KB_SERVICE_NAME'
@@ -146,12 +147,20 @@ class Application(object):
 
     def __init__(self):
         self.rpc_service = JSONRPCServiceCustom()
+        self.method_authentication = dict()
         self.rpc_service.add(impl_ProbabilisticAnnotation.annotate, name = 'ProbabilisticAnnotation.annotate',
                              types = [dict])
+        self.method_authentication[ 'ProbabilisticAnnotation.annotate' ] = 'required'
         self.rpc_service.add(impl_ProbabilisticAnnotation.calculate, name = 'ProbabilisticAnnotation.calculate',
                              types = [dict])
+        self.method_authentication[ 'ProbabilisticAnnotation.calculate' ] = 'required'
         self.rpc_service.add(impl_ProbabilisticAnnotation.get_rxnprobs, name = 'ProbabilisticAnnotation.get_rxnprobs',
                              types = [dict])
+        self.method_authentication[ 'ProbabilisticAnnotation.get_rxnprobs' ] = 'required'
+        self.auth_client = biokbase.nexus.Client( config = { 'server' : 'nexus.api.globusonline.org',
+                                                    'verify_ssl' : False,
+                                                    'client' : None,
+                                                    'client_secret': None})
 
 
     def __call__( self, environ, start_response):
@@ -183,6 +192,28 @@ class Application(object):
                 rpc_result = json.dumps(err)
             else:
                 try:
+                    token = environ.get( 'HTTP_AUTHORIZATION')
+                    # parse out the method being requested and check if it
+                    # has an authentication requirement
+                    auth_req = self.method_authentication.get(req['method'], "none")
+                    if auth_req != "none":
+                        if token is None and auth_req == 'required':
+                            err = ServerError()
+                            err.data = "Authentication required for ProbabilisticAnnotation but no authentication header was passed"
+                            raise err
+                        elif token is None and auth_req == 'optional':
+                            pass
+                        else:
+                            try:
+                                user, clientid, nexus_host = self.auth_client.validate_token(token)
+                                ctx['user_id'] = user
+                                ctx['authenticated'] = 1
+                                ctx['token'] = token
+                            except Exception, e:
+                                if auth_req == 'required':
+                                    err = ServerError()
+                                    err.data = "Token validation failed: %s" % e
+                                    raise err
                     # push the context object into the implementation instance's namespace
                     impl_ProbabilisticAnnotation.ctx = ctx
                     rpc_result = self.rpc_service.call( request_body)

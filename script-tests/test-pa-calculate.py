@@ -6,7 +6,7 @@ import os
 class TestCalculateScript(unittest.TestCase):
         
     def setUp(self):
-        self.cmd = os.path.join(os.environ["TARGET"], "bin/pa-calculate")
+        self.cmd = os.path.join(os.environ["KB_TOP"], "bin/pa-calculate")
 
     def test_help(self):
         '''Run pa-calculate --help and verify that the major sections in the help text are present'''

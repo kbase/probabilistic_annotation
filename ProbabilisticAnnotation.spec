@@ -143,6 +143,9 @@ module ProbabilisticAnnotation
 	/* FUNCTION DEFINITIONS */
 	/* ************************************************************************************* */
 
+	/* All functions require authentication. */
+	authentication required;
+
     /* Input parameters for the "annotate" function.
 
        genome_id genome - ID of Genome object
@@ -151,7 +154,6 @@ module ProbabilisticAnnotation
        workspace_id probanno_workspace - ID workspace where ProbAnno object is saved
        bool overwrite - True to overwrite existing ProbAnno object with same name
 	   bool verbose - True to print verbose messages
-       string auth - Authentication token of KBase user
     */
     typedef structure {
 		genome_id genome;
@@ -160,7 +162,6 @@ module ProbabilisticAnnotation
 		workspace_id probanno_workspace;
 		bool overwrite;
 		bool verbose;
-		string auth;
     } AnnotateParams;
 
 	/*
@@ -175,7 +176,6 @@ module ProbabilisticAnnotation
 		probanno_id probanno - ID of ProbAnno object
 		workspace_id probanno_workspace - ID of workspace where ProbAnno object is stored
 		bool verbose - True to print verbose messages
-		string auth - Authentication token of KBase user
     */
     typedef structure {
     	probanno_id probanno;
@@ -185,7 +185,6 @@ module ProbabilisticAnnotation
 		rxnprobs_id rxnprobs;
 		workspace_id rxnprobs_workspace;
     	bool verbose;
-    	string auth;
     } CalculateParams;
     
     /*
@@ -199,12 +198,10 @@ module ProbabilisticAnnotation
         Inputs for get_rxnprobs function.
 	rxnprobs_id - ID for RxnProbs object in the workspace
 	workspace_id - ID for workspace in which RxnProbs object is held.
-	auth - Aughorizaton token of KBase user
     */
     typedef structure {
 	rxnprobs_id rxnprobs;
 	workspace_id rxnprobs_workspace;
-	string auth;
     } GetRxnprobsParams;
 
     /*

@@ -7,7 +7,7 @@ from biokbase.probabilistic_annotation.DataParser import getConfig
 class TestUrlScript(unittest.TestCase):
     
     def setUp(self):
-        self.cmd = os.path.join(os.environ["TARGET"], "bin/pa-url")
+        self.cmd = os.path.join(os.environ["KB_TOP"], "bin/pa-url")
         self.config = getConfig(os.environ["KB_TEST_CONFIG"])
         
     def test_current(self):

@@ -5,6 +5,7 @@ use strict;
 use Data::Dumper;
 use URI;
 use Bio::KBase::Exceptions;
+use Bio::KBase::AuthToken;
 
 # Client version should match Impl version
 # This is a Semantic Version number,
@@ -47,6 +48,28 @@ sub new
 	url => $url,
     };
 
+    #
+    # This module requires authentication.
+    #
+    # We create an auth token, passing through the arguments that we were (hopefully) given.
+
+    {
+	my $token = Bio::KBase::AuthToken->new(@args);
+	
+	if (!$token->error_message)
+	{
+	    $self->{token} = $token->token;
+	    $self->{client}->{token} = $token->token;
+	}
+        else
+        {
+	    #
+	    # All methods in this module require authentication. In this case, if we
+	    # don't have a token, we can't continue.
+	    #
+	    die "Authentication failed: " . $token->error_message;
+	}
+    }
 
     my $ua = $self->{client}->ua;	 
     my $timeout = $ENV{CDMI_TIMEOUT} || (30 * 60);	 
@@ -79,7 +102,6 @@ AnnotateParams is a reference to a hash where the following keys are defined:
 	probanno_workspace has a value which is a workspace_id
 	overwrite has a value which is a bool
 	verbose has a value which is a bool
-	auth has a value which is a string
 genome_id is a string
 workspace_id is a string
 probanno_id is a string
@@ -101,7 +123,6 @@ AnnotateParams is a reference to a hash where the following keys are defined:
 	probanno_workspace has a value which is a workspace_id
 	overwrite has a value which is a bool
 	verbose has a value which is a bool
-	auth has a value which is a string
 genome_id is a string
 workspace_id is a string
 probanno_id is a string
@@ -125,7 +146,7 @@ sub annotate
 {
     my($self, @args) = @_;
 
-# Authentication: none
+# Authentication: required
 
     if ((my $n = @args) != 1)
     {
@@ -188,7 +209,6 @@ CalculateParams is a reference to a hash where the following keys are defined:
 	rxnprobs has a value which is a rxnprobs_id
 	rxnprobs_workspace has a value which is a workspace_id
 	verbose has a value which is a bool
-	auth has a value which is a string
 probanno_id is a string
 workspace_id is a string
 template_id is a string
@@ -228,7 +248,6 @@ CalculateParams is a reference to a hash where the following keys are defined:
 	rxnprobs has a value which is a rxnprobs_id
 	rxnprobs_workspace has a value which is a workspace_id
 	verbose has a value which is a bool
-	auth has a value which is a string
 probanno_id is a string
 workspace_id is a string
 template_id is a string
@@ -269,7 +288,7 @@ sub calculate
 {
     my($self, @args) = @_;
 
-# Authentication: none
+# Authentication: required
 
     if ((my $n = @args) != 1)
     {
@@ -327,7 +346,6 @@ $output is a reaction_probability_list
 GetRxnprobsParams is a reference to a hash where the following keys are defined:
 	rxnprobs has a value which is a rxnprobs_id
 	rxnprobs_workspace has a value which is a workspace_id
-	auth has a value which is a string
 rxnprobs_id is a string
 workspace_id is a string
 reaction_probability_list is a reference to a list where each element is a reaction_probability
@@ -350,7 +368,6 @@ $output is a reaction_probability_list
 GetRxnprobsParams is a reference to a hash where the following keys are defined:
 	rxnprobs has a value which is a rxnprobs_id
 	rxnprobs_workspace has a value which is a workspace_id
-	auth has a value which is a string
 rxnprobs_id is a string
 workspace_id is a string
 reaction_probability_list is a reference to a list where each element is a reaction_probability
@@ -379,7 +396,7 @@ sub get_rxnprobs
 {
     my($self, @args) = @_;
 
-# Authentication: none
+# Authentication: required
 
     if ((my $n = @args) != 1)
     {
@@ -1172,7 +1189,6 @@ Input parameters for the "annotate" function.
        workspace_id probanno_workspace - ID workspace where ProbAnno object is saved
        bool overwrite - True to overwrite existing ProbAnno object with same name
            bool verbose - True to print verbose messages
-       string auth - Authentication token of KBase user
 
 
 =item Definition
@@ -1187,7 +1203,6 @@ probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
 overwrite has a value which is a bool
 verbose has a value which is a bool
-auth has a value which is a string
 
 </pre>
 
@@ -1202,7 +1217,6 @@ probanno has a value which is a probanno_id
 probanno_workspace has a value which is a workspace_id
 overwrite has a value which is a bool
 verbose has a value which is a bool
-auth has a value which is a string
 
 
 =end text
@@ -1224,7 +1238,6 @@ Input parameters for the "calculate" function.
             probanno_id probanno - ID of ProbAnno object
             workspace_id probanno_workspace - ID of workspace where ProbAnno object is stored
             bool verbose - True to print verbose messages
-            string auth - Authentication token of KBase user
 
 
 =item Definition
@@ -1240,7 +1253,6 @@ template_model_workspace has a value which is a workspace_id
 rxnprobs has a value which is a rxnprobs_id
 rxnprobs_workspace has a value which is a workspace_id
 verbose has a value which is a bool
-auth has a value which is a string
 
 </pre>
 
@@ -1256,7 +1268,6 @@ template_model_workspace has a value which is a workspace_id
 rxnprobs has a value which is a rxnprobs_id
 rxnprobs_workspace has a value which is a workspace_id
 verbose has a value which is a bool
-auth has a value which is a string
 
 
 =end text
@@ -1276,7 +1287,6 @@ auth has a value which is a string
 Inputs for get_rxnprobs function.
 rxnprobs_id - ID for RxnProbs object in the workspace
 workspace_id - ID for workspace in which RxnProbs object is held.
-auth - Aughorizaton token of KBase user
 
 
 =item Definition
@@ -1287,7 +1297,6 @@ auth - Aughorizaton token of KBase user
 a reference to a hash where the following keys are defined:
 rxnprobs has a value which is a rxnprobs_id
 rxnprobs_workspace has a value which is a workspace_id
-auth has a value which is a string
 
 </pre>
 
@@ -1298,7 +1307,6 @@ auth has a value which is a string
 a reference to a hash where the following keys are defined:
 rxnprobs has a value which is a rxnprobs_id
 rxnprobs_workspace has a value which is a workspace_id
-auth has a value which is a string
 
 
 =end text
