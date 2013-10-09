@@ -2,11 +2,12 @@
 
 import optparse
 from biokbase.fbaModelServices.Client import *
+from biokbase.workspaceService.Client import *
 
 usage = "%prog -w workspace -a auth -m [Model ID] (options)"
 description = ''' Produce a (model, gapfill_solutionid) tab-delimited file for use when integrating gapfill solutions. '''
 parser = optparse.OptionParser(usage=usage, description=description)
-parser.add_option("-s", "--solution", help="Solution number to integrate, starting from 0 (D: 0)", action="store", type="str", dest="solution", default="0")
+parser.add_option("-s", "--solution", help="Solution number to integrate, starting from 0 (D: 0. Use -1 to get ALL solutions, which is recommended for iterative gapfilling)", action="store", type="str", dest="solution", default="0")
 parser.add_option("-a", "--auth", help="auth token", action="store", type="str", dest="auth", default=None)
 parser.add_option("-w", "--workspace", help="workspace in which model is found", action="store", type="str", dest="ws", default=None)
 parser.add_option("-m", "--modelid", help="Model ID to search for gapfills", action="store", type="str", dest="modelid", default=None)
@@ -17,6 +18,7 @@ if options.ws is None or options.auth is None or options.modelid is None:
     raise IOError("workspace, auth and model are required arguments.")
 
 fbaClient = fbaModelServices(options.url)
+wsClient = workspaceService("http://kbase.us/services/workspace/")
 
 try:
     models = fbaClient.get_models( { "models" : [ options.modelid ],
@@ -35,5 +37,17 @@ if len(gapfills) < 1:
 
 for gapfill in gapfills:
     gapfill_uuid = gapfill[1]
-    gapfill_solutionid = "%s.solution.%s" %(gapfill_uuid, options.solution)
-    print "%s\t%s" %(options.modelid, gapfill_solutionid)
+    if options.solution == -1:
+        gapfill = wsClient.get_object( { "auth" : options.auth,
+                                         "workspace" : options.ws,
+                                         "workspace" : "NO_WORKSPACE",
+                                         "type" : "GapFill",
+                                         "id"   : gapfill_uuid
+                                         })
+        for ii in range(len(gapfill["data"]["gapfillingSolutions"])):
+            gapfill_solutionid = "%s.solution.%s" %(gapfill_uuid, ii)
+            print "%s\t%s" %(options.modelid, gapfill_solutionid)
+        pass
+    else:
+        gapfill_solutionid = "%s.solution.%s" %(gapfill_uuid, options.solution)
+        print "%s\t%s" %(options.modelid, gapfill_solutionid)
