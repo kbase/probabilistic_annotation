@@ -1,0 +1,4 @@
+This directory contains small versions of the static data files that should be used for TESTING ONLY.
+DO NOT USE THESE FOR PRODUCTION.
+
+The test protein is E coli's enolase, same one that's in the probanno file.
