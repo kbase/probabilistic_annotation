@@ -1,0 +1,5 @@
+When running the tests please MAKE SURE to use the deploy_test.cfg and NOT deploy.cfg as the configuration file for deployment.
+
+I'm working on automating this but haven't managed to get it to work correctly. deploy.cfg is set up for production (downloads the "real"
+static data files from Shock). deploy_test.cfg is set up for testing and uses miniaturized versions of the static data files
+to speed up tests and to avoid having to connect to an external server.

@@ -31,12 +31,12 @@ CLIENT_TESTS_PYTHON = $(wildcard client-tests/*.py)
 SCRIPT_TESTS = $(wildcard script-tests/*.py)
 SERVER_TESTS = $(wildcard server-tests/*.t)
 
-test: test-startservice test-service test-client test-scripts test-stopservice
+test: deploy-test-config test-startservice test-service test-client test-scripts test-stopservice
 
 test-startservice:
-	# Start service and wait for stuff to download.
+	# Start service and wait for tests for existence of files to run
 	${SERV_SERVICE_DIR}/start_service; \
-	sleep 120;
+	sleep 5;
 
 test-stopservice:
 	${SERV_SERVICE_DIR}/stop_service;
@@ -70,6 +70,16 @@ test-client:
 			fi \
 		fi \
 	done
+
+deploy-test-config:
+	# note - This DOES NOT WORK CORRECTLY. But I tried... I really did...
+	if [ -f $(DEPLOY_RUNTIME)/deployment.cfg ]; then \
+		if [ ! -f $(DEPLOY_RUNTIME)/deployment.cfg.bk ]; then \
+			echo "Existing deployment.cfg copied to deployment.cfg.bk"; \
+			mv $(DEPLOY_RUNTIME)/deployment.cfg $(DEPLOY_RUNTIME)/deployment.cfg.bk; \
+		fi; \
+	fi; \
+	cp deploy_test.cfg $(DEPLOY_RUNTIME)/deployment.cfg;
 
 # Deployment
 
