@@ -10,7 +10,7 @@ jsonFilename = os.path.join(sys.argv[1], "jobfile.json")
 job = json.load(open(jsonFilename, "r"))
 
 # Read the config from the file specified in the job data.
-config = getConfig(job["jobdata"]["kb_deployment_config"])
+config = job["jobdata"]["config"]
 
 # Let the server know that it is being called from a job.
 config["generate_data_option"] = "runjob"

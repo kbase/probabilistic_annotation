@@ -1,6 +1,7 @@
 #BEGIN_HEADER
 import sys, tempfile, shutil
 import os, traceback
+import time
 from random import randint
 from biokbase.probabilistic_annotation.DataExtractor import *
 from biokbase.probabilistic_annotation.DataParser import *
@@ -102,18 +103,22 @@ class ProbabilisticAnnotation:
         # Create a workspace client.
         wsClient = workspaceService(self.config["workspace_url"])
 
-        # The input parameters to annotate() were stored in the jobdata for the job.
-        input = job["jobdata"]
+        # The input parameters and user context for annotate() were stored in the jobdata for the job.
+        input = job["jobdata"]["input"]
+        self.ctx = job["jobdata"]["context"]
 
         status = None
 
-        try:        
+        try:
+            # Make sure the database files are available.
+            self._checkIfDatabaseFilesExist()
+
             # Get the Genome object from the specified workspace.
-            getObjectParams = { "type": "Genome", "id": input["genome"], "workspace": input["genome_workspace"], "auth": input["auth"] }
+            getObjectParams = { "type": "Genome", "id": input["genome"], "workspace": input["genome_workspace"], "auth": self.ctx["token"] }
             genomeObject = wsClient.get_object(getObjectParams)
             
             # Create a temporary directory for storing blast input and output files.
-            workFolder = os.path.join(self.config["work_folder_path"], "jobs", job["id"])
+            workFolder = self._makeJobDirectory(job["id"], False)
             
             # Convert Genome object to fasta file.
             fastaFile = self._genomeToFasta(input, genomeObject, workFolder)
@@ -131,8 +136,9 @@ class ProbabilisticAnnotation:
             status = "done"
 
             # Remove the temporary directory only if our job succeeds. If it does that means there were no errors so we don't need it.
-            if self.config["debug"] == False:
+            if not self.config["debug"] or self.config["debug"] == "0":
                 shutil.rmtree(workFolder)
+
         except ServerError:
             # We failed to get the object out of the workspace
             # This doesn't quite work the way I want it to...
@@ -140,11 +146,11 @@ class ProbabilisticAnnotation:
             sys.stderr.write("ERROR - ServerError (most likely we failed to get the object out of the workspace\n")
         except:
             status = "error"
+            sys.stderr.write("Caught exception\n")
             traceback.print_exc(file=sys.stderr)
         finally:
-            if self.config["job_queue"] == "scheduler":
-                setStatusParams = { "jobid": job["id"], "status": status, "auth": job["auth"] }
-                wsClient.set_job_status(setStatusParams)           
+            setStatusParams = { "jobid": job["id"], "status": status, "currentStatus": "running", "auth": self.ctx["token"] }
+            wsClient.set_job_status(setStatusParams)
 
         return
         
@@ -215,7 +221,7 @@ class ProbabilisticAnnotation:
         roleset_string = "\\\" separating all roles of a protein with a single function (order does not matter)
         '''
     
-        sys.stderr.write("Performing marble-picking on rolesets...")
+        sys.stderr.write("Performing marble-picking on rolesets for genome %s..." %(input["genome"]))
     
         # Read in the target roles (this function returns the roles as lists!)
         targetIdToRole, targetRoleToId = readFilteredOtuRoles(self.config)
@@ -302,7 +308,7 @@ class ProbabilisticAnnotation:
 
         The probabilistic annotation object adds fields for the probability of each role being linked to each gene.'''
     
-        sys.stderr.write("Building ProbAnno object for genome %s..." %(input["genome"]))
+        sys.stderr.write("Building ProbAnno object %s/%s for genome %s..." %(input["probanno_workspace"], input["probanno"], input["genome"]))
         targetToRoles, rolesToTargets = readFilteredOtuRoles(self.config)
         targetToRoleSet = {}
         for target in targetToRoles:
@@ -344,7 +350,7 @@ class ProbabilisticAnnotation:
         objectMetadata = { "version": ProbAnnoVersion, "num_rolesets": len(objectData["roleset_probabilities"]),
                            "num_skipped_features": len(objectData["skipped_features"]) }
         saveObjectParams = { "type": "ProbAnno", "id": input["probanno"], "workspace": input["probanno_workspace"],
-                             "auth": input["auth"], "data": objectData, "metadata": objectMetadata, "command": "pa-annotate" }
+                             "auth": self.ctx["token"], "data": objectData, "metadata": objectMetadata, "command": "pa-annotate" }
         metadata = wsClient.save_object(saveObjectParams)
         
         sys.stderr.write("done\n")
@@ -735,6 +741,24 @@ class ProbabilisticAnnotation:
             
         return True
     
+    def _makeJobDirectory(self, jobid, save):
+        '''Make working directory for a job.
+        
+        jobid: Job identifier
+        save: Set to True to save an existing job directory.
+        
+        Returns path to job directory.
+        '''
+        
+        jobDirectory = os.path.join(self.config["work_folder_path"], "jobs", jobid)
+        # Unfortunately job IDs can be reused.
+        if save and os.path.exists(jobDirectory):
+            savedDirectory = '%s.%d' %(jobDirectory, randint(1,1000000))
+            os.rename(jobDirectory, savedDirectory)
+        if not os.path.exists(jobDirectory):
+            os.makedirs(jobDirectory, 0775)
+        return jobDirectory
+
     def _checkDatabaseFiles(self):
         '''Check the status of the static database files.
 
@@ -810,7 +834,7 @@ class ProbabilisticAnnotation:
         '''Constructor for ProbabilisticAnnotation object.
 
         config: Contents of a config file in a hash. The config file should look like the deploy.cfg file
-        but be in the location pointed to by KB_DEPLOYMENT_OONFIG
+        but be in the location pointed to by KB_DEPLOYMENT_CONFIG
         '''
         if config == None:
             # There needs to be a config for the server to work.
@@ -818,6 +842,10 @@ class ProbabilisticAnnotation:
         else:
             self.config = config
         
+        # Just return when instantiated to run a job.
+        if self.config["generate_data_option"] == "runjob":
+            return
+
         # Convert flag to boolean value (a number greater than zero or the string 'True' turns the flag on).
         if self.config["debug"].isdigit():
             if int(self.config["debug"]) > 0:
@@ -895,34 +923,53 @@ class ProbabilisticAnnotation:
         # Make sure the static database files are ready.
         self._checkDatabaseFiles()
         
-        # Store the path to the config file so the job script can set the configuration.
-        input["kb_deployment_config"] = os.environ["KB_DEPLOYMENT_CONFIG"]
-        input["auth"] = self.ctx["token"]
+        # Save the input to this function, the context of the user, and the config in the job.
+        jobData = { "input": input, "context": self.ctx, "config": self.config }
         
-        # Use the same parameters for both job queue methods.
+        # Set the initial state of a local job to 'running' so a scheduler does not start it.
+        if self.config["job_queue"] == "local":
+            state = "running"
+        else:
+            state = "queued"
         queueCommand = "pa-annotate " + input["genome"] + " " + input["probanno"]
-        queueJobParams = { "type": "ProbAnno", "auth": self.ctx["token"], "queuecommand": queueCommand, "jobdata": input }
+        queueJobParams = { "type": "ProbAnno", "auth": self.ctx["token"], "state": state, "queuecommand": queueCommand, "jobdata": jobData }
         
         # Queue a job to run annotate command using the workspace scheduler.
-        if self.config["job_queue"] == "scheduler":
-            wsClient = workspaceService(self.config["workspace_url"])
+        wsClient = workspaceService(self.config["workspace_url"])
+        try:
             job = wsClient.queue_job(queueJobParams)
-            jobid = job["id"]
-            sys.stderr.write("Submitted job job.%d to the KBase queue\n" %(jobid))
+        except HTTPError as e:
+            # The following is a workaround for poor performance of the ID server.
+            # Eventually the job gets an ID assigned and a job object is created.
+            if e.code == 503:
+                sys.stderr.write("Waiting for '%s' job to be queued ...\n" %(queueCommand))
+                jobQueued = False
+                while not jobQueued:
+                    time.sleep(30)
+                     # Get the list of jobs for the user and wait for the job to show up.
+                    jobList = wsClient.get_jobs( { 'auth': self.ctx["token"] } )
+                    for job in jobList:
+                        # Cross your fingers that nobody runs two jobs with the same parameters.
+                        if job['queuecommand'] == queueCommand:
+                            jobQueued = True
+                            sys.stderr.write("Job %s queued for '%s'\n" %(job["id"], queueCommand))
+        jobid = job["id"]
+
         # Run the job on the local machine.
-        else:
-            jid = randint(1,1000000)
-            queueJobParams["id"] = "localjob.%d" %(jid)
-            jobDirectory = os.path.join(self.config["work_folder_path"], "jobs", "localjob.%d" %(jid))
-            os.makedirs(jobDirectory, 0770)
+        if self.config["job_queue"] == "local":
+            # Set job status to running so start time is recorded in job object.
+            setStatusParams = { "jobid": jobid, "status": "running", "currentStatus": "running", "auth": self.ctx["token"] }
+            wsClient.set_job_status(setStatusParams)
+
+            # Create job directory, store job object, and start the job. 
+            jobDirectory = self._makeJobDirectory(jobid, True)
             jsonFilename = os.path.join(jobDirectory, "jobfile.json")
             outputFilename = os.path.join(jobDirectory, "stdout.log")
             errorFilename = os.path.join(jobDirectory, "stderr.log")
-            json.dump(queueJobParams, open(jsonFilename, "w"), indent=4)
-            cmdline = "nohup %s %s >%s 2>%s &" %(self.config["annotate_job_script_path"], jobDirectory, outputFilename, errorFilename)
+            json.dump(job, open(jsonFilename, "w"), indent=4)
+            jobScript = os.path.join(os.environ['KB_TOP'], 'bin/probanno-runjob')
+            cmdline = "nohup %s %s >%s 2>%s &" %(jobScript, jobDirectory, outputFilename, errorFilename)
             status = os.system(cmdline)
-            sys.stderr.write("Submitted local job %d using directory %s\n" %(jid, jobDirectory))
-            jobid = "%d" %(jid)
     
         #END annotate
 
