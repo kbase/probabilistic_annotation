@@ -57,14 +57,36 @@ def wait_for_job(jobid, wsClient, token):
             
 if __name__ == "__main__":
     # Parse options.
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, prog='Workflow')
-    parser.add_argument('genome', help='ID of genome (e.g. kb|g.422)', action='store', default=None)
+    description=''' Workflow.py
+
+    DESCRIPTION:
+           Performs the following steps in our analysis pipeline:
+           1: Load a genome from the specified source (default: SEED) into the workspace
+           2: Generate probabilistic annotation for the genome
+           3: Calcualte rxnprobs from the probabilistic annotation
+           4: Generate a draft model (ungapfilled) from the genome
+           5: Run non-probanno gapfill (on complete media)
+           6: Run probanno gapfill (on complete media)
+           7: Integrate the non-probanno gapfill solution on complete media (no GPRs)
+           8: Integrate the probanno gapfill on complete media (including GPRs)
+           9: Check for non-zero growth for both probanno and non-probannog gapfill. Report failure if growth < 1E-5
+           IF a knockout phenotype is provided:
+           FOR EACH knockout phenotype media condition:
+               9: Gapfill to that media
+              10: Integrate the solution
+              11: Check for growth on that media. Report failure if growth < 1E-5.
+    '''
+
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, prog='Workflow', description=description)
+    parser.add_argument('genome', help='ID of genome that matches the source (e.g. 83333.1 for SEED, kb|g.0 for kbase)', action='store', default=None)
     parser.add_argument('-?', '--usage', help='show usage information', action='store_true', dest='usage')
     parser.add_argument('-w', '--workspace', help='workspace for storing objects', action='store', dest='workspace')
-    parser.add_argument('--num-solutions', help='number of solutions to find for gap fill', action='store', dest='numsolutions', default=10)
-    parser.add_argument('--ws-url', help='url for workspace service', action='store', dest='wsurl', default='http://www.kbase.us/services/workspace')
-    parser.add_argument('--fba-url', help='url for fba model service', action='store', dest='fbaurl', default='http://bio-data-1.mcs.anl.gov/services/fba')
-    parser.add_argument('--pa-url', help='url for probabilistic annotation service', action='store', dest='paurl', default='http://www.kbase.us/services/probabilistic_annotation')
+    parser.add_argument('--genome_source', help='Source for genome. Valid values include "kbase", "seed", "rast". (Default is seed)', action='store', default='seed')
+    parser.add_argument('--num-solutions', help='Number of solutions to find for gap fill', action='store', dest='numsolutions', default=10)
+    parser.add_argument('--ws-url', help='URL for workspace service', action='store', dest='wsurl', default='http://www.kbase.us/services/workspace')
+    parser.add_argument('--fba-url', help='URL for fba model service', action='store', dest='fbaurl', default='http://bio-data-1.mcs.anl.gov/services/fba')
+    parser.add_argument('--pa-url', help='URL for probabilistic annotation service', action='store', dest='paurl', default='http://www.kbase.us/services/probabilistic_annotation')
+    parser.add_argument('--knockoutdata', help='OPTIONAL. Provide a knockout data PhenotypeSet and we will create a new model gapfilled to each media in it.', action='store', default=None)
     args = parser.parse_args()
     
     if args.usage:
@@ -78,8 +100,6 @@ if __name__ == "__main__":
     fbaClient = fbaModelServices(args.fbaurl)
     print token
     
-    # Check up on the workspace.
-    # Delete if requested.
     step = 0
     try:
         print '+++ Step %d: Initialize' %(step)
@@ -91,12 +111,12 @@ if __name__ == "__main__":
         print '  [OK]'
         
         step += 1
-        print '+++ Step %d: Load genome' %(step)
+        print '+++ Step %d: Load genome from the specified source' %(step)
         print '  Loading genome to %s/%s ...' %(args.workspace, args.genome)
         loadGenomeParams = dict()
         loadGenomeParams['genome'] = args.genome
         loadGenomeParams['workspace'] = args.workspace
-        loadGenomeParams['source'] = 'kbase'
+        loadGenomeParams['source'] = args.source
         loadGenomeParams['auth'] = token
         genomeMeta = fbaClient.genome_to_workspace(loadGenomeParams)
         print '  [OK]'
@@ -149,6 +169,7 @@ if __name__ == "__main__":
         stdGapfillFormulation['directionpen'] = 4
         stdGapfillFormulation['singletranspen'] = 25
         stdGapfillFormulation['biomasstranspen'] = 25
+        stdGapfillFormulation['transpen'] = 25
         stdGapfillFormulation['num_solutions'] = args.numsolutions
         stdGapfillParams = dict()
         stdGapfillParams['model'] = draftModel
@@ -175,10 +196,14 @@ if __name__ == "__main__":
         gapfills = models[0]["unintegrated_gapfillings"]
         if len(gapfills) < 1:
             raise IOError("Model %s/%s does not have any unintegrated gapfillings!" %(args.workspace, stdModel))
-        for gapfill in gapfills:
-            gapfill_uuid = gapfill[1]
-            gapfill_solutionid = "%s.solution.%s" %(gapfill_uuid, options.solution)
-            print "%s\t%s" %(options.modelid, gapfill_solutionid)
+        # This part I think isn't quite right. But it might be a start. Should look in my script to get gapfill solution IDs, 
+        # I think there are some caveats like sometimes the first gapfill solution is empty for whatever reason!
+#        for gapfill in gapfills:
+#            gapfill_uuid = gapfill[1]
+#            gapfill_solutionid = "%s.solution.%s" %(gapfill_uuid, options.solution)
+#            print "%s\t%s" %(options.modelid, gapfill_solutionid)
+        # This is a placeholder so I know the name of the variable that will be saved.
+        stdSolutionToIntegrate = None
         
         print '  [OK]'
         
@@ -190,6 +215,7 @@ if __name__ == "__main__":
         probGapfillFormulation['directionpen'] = 4
         probGapfillFormulation['singletranspen'] = 25
         probGapfillFormulation['biomasstranspen'] = 25
+        probGapfillFormulation['transpen'] = 25
         probGapfillFormulation['num_solutions'] = args.numsolutions
         probGapfillFormulation['probabilisticReactions'] = rxnprobs
         probGapfillFormulation['probabilisticAnnotation_workspace'] = args.workspace
@@ -206,7 +232,73 @@ if __name__ == "__main__":
         print '  Waiting for job %s to end ...' %(job['id'])
         wait_for_job(job['id'], wsClient, token)
         print '  [OK]'
-        
+
+        # Will need to generate this one too. Procedure should be the same and we could probably use a function to do this in general.
+        probSolutionToIntegrate = None
+
+        step += 1
+        stdIntModel = "%s.model.std.int" %(args.genome)
+        print "+++ Step %d: Integrate standard gapfilling solution 0 on complete media (NOTE - you should check that the solution is optimal)" %(step)
+        stdIntegrateSolutionParams = dict()
+        stdIntegrateSolutionParams['model'] = stdModel
+        stdIntegrateSolutionParams['model_workspace'] = workspace
+        stdIntegrateSolutionParams['out_model'] = stdIntModel
+        stdIntegrateSolutionParams['workspace'] = workspace
+        stdIntegrateSolutionParams['auth'] = token
+        stdIntegrateSolutionParams['gapfillSolutions'] = [ stdSolutionToIntegrate ]
+        stdIntModelMeta = fbaClient.integrate_reconciliation_solutions(stdIntegrateSolutionParams)
+
+        step += 1
+        probIntModel = "%s.model.pa.int" %(args.genome)
+        print "+++ Step %d: Integrate probanno gapfilling solution 0 on complete media (NOTE - you should check that the solution is optimal)" %(step)
+        probIntegrateSolutionParams = dict()
+        probIntegrateSolutionParams['model'] = probModel
+        probIntegrateSolutionParams['model_workspace'] = workspace
+        probIntegrateSolutionParams['out_model'] = probIntModel
+        probIntegrateSolutionParams['workspace'] = workspace
+        probIntegrateSolutionParams['auth'] = token
+        probIntegrateSolutionParams['gapfillSolutions'] = [ probSolutionToIntegrate ]
+        # Important! Include the rxnprobs! If this fails, it means we're using an old version of fbaModelServices. Which is bad.
+        probIntegrateSolutionParams['rxnprobs'] = rxnprobs
+        probIntegrateSolutionParams['rxnprobs_workspace'] = workspace
+        probIntModelMeta = fbaClient.integrate_reconciliation_solutions(probIntegrateSolutionParams)
+
+        step += 1
+        stdCompleteFba = "%s.model.std.int.fba" %(args.genome)
+        print "+++ Step %d: a: Check for growth of standard gapfill model on complete media (all available transporters to the cell are turned on)" %(step)
+        # Note - I'm not 100% sure but I THINK you don't need to define a formulation object unless you're changing the media. Even then it might do it for you if you pass it in the parameters.
+        # This needs some testing.
+        stdCompleteFbaParams = dict()
+        stdCompleteFbaParams['model'] = stdIntModel
+        stdCompleteFbaParams['workspace'] = workspace
+        stdCompleteFbaParams['auth'] = token
+        stdFbaMeta = fbaClient.runfba(stdCompleteFbaParams)
+        # TODO - how to check nonzero growth? I THINK this is somewhere in the metadata.
+
+        probCompleteFba = "%s.model.pa.int.fba" %(args.genome)
+        print "+++ Step %d: b: Check for growth of probanno gapfill model on complete media (all available transporters to the cell are turned on)" %(step)
+        probCompleteFbaParams = dict()
+        probCompleteFbaParams['model'] = probIntModel
+        probCompleteFbaParams['workspace'] = workspace
+        probCompleteFbaParams['auth'] = token
+        probFbaMeta = fbaClient.runfba(probCompleteFbaParams)
+        # TODO - how to check for nonzero growth?
+
+        if args.knockoutdata is not None:
+            step += 1
+            print "+++ Step %d: Gapfill to media conditions specified in the knockout data (NOT YET IMPLEMENTED)" %(step)
+            # Get a unique list of media conditions and workspaces in the phenotype object
+            # Sanity check - do we have so many media that it probably isn't a knockout phenotype dataset?
+            # Iterate over media and gapfill with normal and probanno gapfill"
+
+            step += 1
+            print "+++ Step %d: Gapfill to media conditions specified in the knockout data (NOT YET IMPLEMENTED)" %(step)
+            # Iterate over the media again and integrate the solutions on normal and probanno gapfill (use rxnprobs for probanno)
+
+            step += 1
+            print "+++ Step %d: Gapfill to media conditions specified in the knockout data (NOT YET IMPLEMENTED)" %(step)
+            # Iterate over the media a third time and check for growth on that media
+
     except Exception as e:
         print '  [ERROR]'
         traceback.print_exc(file=sys.stderr)
