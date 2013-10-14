@@ -4,6 +4,7 @@ import os
 import sys
 import time
 import json
+import argparse
 from biokbase.probabilistic_annotation.DataParser import getConfig
 from biokbase.probabilistic_annotation.DataParser import DatabaseFiles
 from biokbase.probabilistic_annotation.DataParser import StatusFiles
@@ -12,14 +13,9 @@ from biokbase.probabilistic_annotation.Shock import Client as ShockClient
 # Main script function
 if __name__ == "__main__":
 
-    # First parameter is the path to the config file.
-    if len(sys.argv) != 2:
-        if "KB_TOP" not in os.environ:
-            sys.stderr.write("KB_TOP environment variable is not set.\n")
-            exit(1)
-        configFilename = None
-    else:
-        configFilename = sys.argv[1]
+    parser = argparse.ArgumentParser(prog='probanno-savedata')
+    parser.add_argument('configFilename', help='path to config file', action='store', default=None)
+    args = parser.parse_args()
 
     # Read the config from the file.
     config = getConfig(configFilename)

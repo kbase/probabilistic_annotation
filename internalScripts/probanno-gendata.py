@@ -1,6 +1,10 @@
 #! /usr/bin/python
 
-import sys, time, os, traceback
+import sys
+import time
+import os
+import traceback
+import argparse
 from biokbase.probabilistic_annotation.DataParser import *
 from biokbase.probabilistic_annotation.DataExtractor import *
 
@@ -119,17 +123,12 @@ def generate_data(config):
 # Main script function
 if __name__ == "__main__":
 
-    # First parameter is the path to the config file.
-    if len(sys.argv) != 2:
-        if "KB_TOP" not in os.environ:
-            sys.stderr.write("KB_TOP environment variable is not set.\n")
-            exit(1)
-        configFilename = None
-    else:
-        configFilename = sys.argv[1]
-        
+    parser = argparse.ArgumentParser(prog='probanno-gendata')
+    parser.add_argument('configFilename', help='path to config file', action='store', default=None)
+    args = parser.parse_args()
+
     # Read the config from the file.
-    config = getConfig(configFilename)
+    config = getConfig(args.configFilename)
     
     # Generate the static database files.
     try:
