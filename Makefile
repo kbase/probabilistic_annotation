@@ -31,14 +31,17 @@ CLIENT_TESTS_PYTHON = $(wildcard client-tests/*.py)
 SCRIPT_TESTS = $(wildcard script-tests/*.py)
 SERVER_TESTS = $(wildcard server-tests/*.t)
 
-test: deploy-test-config test-startservice test-service test-client test-scripts test-stopservice
+test: test-startservice test-service test-client test-scripts test-stopservice
 
-test-startservice:
+test-startservice: set-test-config
 	# Start service and wait for tests for existence of files to run
-	${SERV_SERVICE_DIR}/start_service; \
-	sleep 5;
+	echo "Starting service with test environment configuration"
+	${SERV_SERVICE_DIR}/start_service
+	sleep 5
 
-test-stopservice:
+test-stopservice: reset-test-config
+	# Stop service and restore configuration
+	echo "Stopping service and restoring deployment configuration"
 	${SERV_SERVICE_DIR}/stop_service;
 
 test-service:
@@ -71,15 +74,21 @@ test-client:
 		fi \
 	done
 
-deploy-test-config:
-	# note - This DOES NOT WORK CORRECTLY. But I tried... I really did...
-	if [ -f $(DEPLOY_RUNTIME)/deployment.cfg ]; then \
-		if [ ! -f $(DEPLOY_RUNTIME)/deployment.cfg.bk ]; then \
-			echo "Existing deployment.cfg copied to deployment.cfg.bk"; \
-			mv $(DEPLOY_RUNTIME)/deployment.cfg $(DEPLOY_RUNTIME)/deployment.cfg.bk; \
-		fi; \
-	fi; \
-	cp deploy_test.cfg $(DEPLOY_RUNTIME)/deployment.cfg;
+set-test-config:
+	# Replace the deployment.cfg with the special version for the test environment.
+	if [ -f $(TARGET)/deployment.cfg ] ; then \
+		mv $(TARGET)/deployment.cfg $(TARGET)/deployment.cfg.probanno-test ; \
+		echo "Saved existing deployment.cfg to deployment.cfg.probanno-test" ; \
+	fi
+	cp deploy_test.cfg $(TARGET)/deployment.cfg;
+
+reset-test-config:
+	# Restore original deployment.cfg.
+	if [ -f $(TARGET)/deployment.cfg.probanno-test ] ; then \
+		rm $(TARGET)/deployment.cfg ; \
+		mv $(TARGET)/deployment.cfg.probanno-test $(TARGET)/deployment.cfg ; \
+		echo "Restored deployment.cfg from deployment.cfg.probanno-test" ; \
+	fi
 
 # Deployment
 
