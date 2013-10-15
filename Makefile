@@ -26,23 +26,27 @@ SERV_TPAGE_ARGS = --define kb_top=$(TARGET) --define kb_runtime=$(KB_RUNTIME) --
 all: compile-typespec
 
 # TESTS
-# Note I don't have any test scripts yet but when I make them they'll go in these locations
 CLIENT_TESTS_PYTHON = $(wildcard client-tests/*.py)
 SCRIPT_TESTS = $(wildcard script-tests/*.py)
 SERVER_TESTS = $(wildcard server-tests/*.t)
+
+# The test rule is run after a successful deployment and uses the deployment
+# environment (i.e. $KB_TOP/user-env.sh has been run to initialize the environment).
+# Note that the service must NOT be started before running the test rule as a
+# special test configuration is required for running on the test servers.
 
 test: test-startservice test-service test-client test-scripts test-stopservice
 
 test-startservice: set-test-config
 	# Start service and wait for tests for existence of files to run
 	echo "Starting service with test environment configuration"
-	${SERV_SERVICE_DIR}/start_service
+	$(KB_TOP)/services/${SERVICE_NAME}/start_service
 	sleep 5
 
 test-stopservice: reset-test-config
 	# Stop service and restore configuration
 	echo "Stopping service and restoring deployment configuration"
-	${SERV_SERVICE_DIR}/stop_service;
+	$(KB_TOP)/services/${SERVICE_NAME}/stop_service;
 
 test-service:
 	for t in $(SERVER_TESTS) ; do \
@@ -76,17 +80,17 @@ test-client:
 
 set-test-config:
 	# Replace the deployment.cfg with the special version for the test environment.
-	if [ -f $(TARGET)/deployment.cfg ] ; then \
-		mv $(TARGET)/deployment.cfg $(TARGET)/deployment.cfg.probanno-test ; \
+	if [ -f $(KB_TOP)/deployment.cfg ] ; then \
+		mv $(KB_TOP)/deployment.cfg $(KB_TOP)/deployment.cfg.probanno-test ; \
 		echo "Saved existing deployment.cfg to deployment.cfg.probanno-test" ; \
 	fi
-	cp deploy_test.cfg $(TARGET)/deployment.cfg;
+	cp deploy_test.cfg $(KB_TOP)/deployment.cfg;
 
 reset-test-config:
 	# Restore original deployment.cfg.
-	if [ -f $(TARGET)/deployment.cfg.probanno-test ] ; then \
-		rm $(TARGET)/deployment.cfg ; \
-		mv $(TARGET)/deployment.cfg.probanno-test $(TARGET)/deployment.cfg ; \
+	if [ -f $(KB_TOP)/deployment.cfg.probanno-test ] ; then \
+		rm $(KB_TOP)/deployment.cfg ; \
+		mv $(KB_TOP)/deployment.cfg.probanno-test $(KB_TOP)/deployment.cfg ; \
 		echo "Restored deployment.cfg from deployment.cfg.probanno-test" ; \
 	fi
 
