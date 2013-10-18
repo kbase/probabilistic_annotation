@@ -46,6 +46,8 @@ class Workflow:
         hasObjectParams['id'] = id
         hasObjectParams['workspace'] = self.args.workspace
         hasObjectParams['auth'] = self.token
+        # note - there is a has_object command, which is probably faster (since you don't have to
+        # send the whole object across the pipe)
         try:
             exists = self.wsClient.get_object(hasObjectParams)
         except:
@@ -65,8 +67,11 @@ class Workflow:
 
     def _waitForJob(self, jobid):
         done = False
+        totaltime = 0
+        increment = 60
         while not done:
-            time.sleep(60)
+            time.sleep(increment)
+            totaltime += 60
             jobList = self.wsClient.get_jobs( { 'jobids': [ jobid ], 'auth': self.token } )
             if jobList[0]['status'] == 'done':
                 done = True
@@ -74,17 +79,72 @@ class Workflow:
                 print '  [ERROR]'
                 print jobList[0]
                 raise JobError("Job '%s' finished with an error" %(jobid))
+            if totaltime > self.args.maxtime:
+                print '  [ERROR]'
+                print jobList[0]
+                raise JobError("Job %s did not finish within specified maximum time of %d seconds" %(jobid, self.args.maxtime))
         return
+
+    ''' Load genome into the workspace from the specified source. (Note - this step is the same for all types of Gapfill)'''
+
+    def _loadGenome(self):
+        loadGenomeParams = dict()
+        loadGenomeParams['genome'] = self.args.genome
+        loadGenomeParams['workspace'] = self.args.workspace
+        loadGenomeParams['source'] = self.args.source
+        loadGenomeParams['auth'] = self.token
+        genomeMeta = self.fbaClient.genome_to_workspace(loadGenomeParams)
+        return genomeMeta
+
+    ''' Build draft model object from a genome. (Note - this step is the same for all types of Gapfill) '''
+
+    def _buildDraftModel(self, draftModel):
+        draftModelParams = dict()
+        draftModelParams['genome'] = self.args.genome
+        draftModelParams['genome_workspace'] = self.args.workspace
+        draftModelParams['model'] = draftModel
+        draftModelParams['workspace'] = self.args.workspace
+        draftModelParams['auth'] = self.token
+        draftModelMeta = self.fbaClient.genome_to_fbamodel(draftModelParams) 
+        return draftModelMeta
+
+    ''' Run a Probabilistic Annotation on your genome. Note - this is the same for probanno gapfill of both normal and iterative varieties ''' 
+
+    def _runProbAnno(self, probanno):
+        annotateParams = dict()
+        annotateParams['genome'] = self.args.genome
+        annotateParams['genome_workspace'] = self.args.workspace
+        annotateParams['probanno'] = probanno
+        annotateParams['probanno_workspace'] = self.args.workspace
+        jobid = self.paClient.annotate(annotateParams)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+        print '  Waiting for job %s to end ...' %(jobid)
+        self._waitForJob(jobid)
+        return
+
+    ''' Run a Calculate (to get RxnProbs) job on your genome. Note - this is the same for probanno gapfill of both normal and iterative varieties '''
+    def _runCalculate(self, rxnprobs):
+        calculateParams = dict()
+        calculateParams['probanno'] = self.probanno
+        calculateParams['probanno_workspace'] = self.args.workspace
+        calculateParams['rxnprobs'] = rxnprobs
+        calculateParams['rxnprobs_workspace'] = self.args.workspace
+        rxnprobsMeta = self.paClient.calculate(calculateParams)
+        return rxnprobsMeta
 
     ''' Run gap fill on a draft model. '''
 
-    def _gapfill(self, draftModel, model, rxnprobs):
+    def _gapfill(self, draftModel, model, rxnprobs, iterative=False):
         gapfillFormulation = dict()
         gapfillFormulation['directionpen'] = 4
         gapfillFormulation['singletranspen'] = 25
         gapfillFormulation['biomasstranspen'] = 25
         gapfillFormulation['transpen'] = 25
-        gapfillFormulation['num_solutions'] = self.args.numsolutions
+        if iterative and numsolutions > 1:
+            print "WARNING: Numsolutions > 1 for iterative gapfilling is not allowed. We will ignore that argument for this run."
+        else:
+            gapfillFormulation['num_solutions'] = self.args.numsolutions
+
         if rxnprobs != None:
             gapfillFormulation['probabilisticReactions'] = rxnprobs
             gapfillFormulation['probabilisticAnnotation_workspace'] = self.args.workspace
@@ -96,13 +156,18 @@ class Workflow:
         gapfillParams['formulation'] = gapfillFormulation
         gapfillParams['solver'] = 'CPLEX'
         gapfillParams['auth'] = self.token
+        if iterative:
+            gapfillParams['completeGapfill'] = True
+
         job = self.fbaClient.queue_gapfill_model(gapfillParams)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         print '  Waiting for job %s to end ...' %(job['id'])
         self._waitForJob(job['id'])
 
-    ''' Find the first solution after running gap fill. '''
-    def _findSolution(self, model):
+    ''' Find the first solution after running gap fill. Or, if getAll is specified (needed for iterative gapfill),
+        find all of the solutions after running gap fill. '''
+
+    def _findGapfillSolution(self, model, getAll = False):
         # Get the Model object data.
         getModelParams = dict()
         getModelParams['models'] = [ model ]
@@ -113,34 +178,42 @@ class Workflow:
         if len(gapfillList) < 1:
             raise IOError("Model %s/%s does not have any unintegrated gapfillings!" %(self.args.workspace, model))
         
-        
         # Just use the first gapfill
         print gapfillList
         gapfill = gapfillList[0]
         gapfill_uuid = gapfill[1]
 
         # Get the hidden GapFill object attached to the Model object.
+        # The solutions that we need to integrate are in there. and we need
+        # to reach into it to find out how many there are \ if there was a valid solution found.
         getObjectParams = dict()
         getObjectParams['id'] = gapfill_uuid
         getObjectParams['type'] = 'GapFill'
         getObjectParams['workspace'] = 'NO_WORKSPACE'
         getObjectParams['auth'] = self.token
         gapfillObject = self.wsClient.get_object(getObjectParams)
+        gapfillSolutionIds = []
         for ii in range(len(gapfillObject['data']['gapfillingSolutions'])):
             gapfill_solutionid = '%s.solution.%s' %(gapfill_uuid, ii)
             print '%s\t%s' %(model, gapfill_solutionid)
-        return '%s.solution.0' %(gapfill_uuid)
+            gapfillSolutionIds.append(gapfill_soutionid)
 
-    ''' Integrate the specified solution into the specified model. '''
+        if getAll:
+            return gapfillSolutionIds
+        else:
+            return gapfillSolutionIds[0]
 
-    def _integrateSolution(self, model, integratedModel, solution, rxnprobs):
+    ''' Integrate the specified solutions into the specified model. solutions is an array of solutions to integrate (needed
+    for iterative gapfilling) '''
+
+    def _integrateSolution(self, model, integratedModel, solutions, rxnprobs):
         integrateSolutionParams = dict()
         integrateSolutionParams['model'] = model
         integrateSolutionParams['model_workspace'] = self.args.workspace
         integrateSolutionParams['out_model'] = integratedModel
         integrateSolutionParams['workspace'] = self.args.workspace
         integrateSolutionParams['auth'] = self.token
-        integrateSolutionParams['gapfillSolutions'] = [ solution ]
+        integrateSolutionParams['gapfillSolutions'] = solutions
         if rxnprobs != None:
             probIntegrateSolutionParams['rxnprobs'] = rxnprobs
             probIntegrateSolutionParams['rxnprobs_workspace'] = self.workspace
@@ -186,12 +259,7 @@ class Workflow:
         print '+++ Step %d: Load genome from the specified source' %(step)
         if self._isObjectMissing('Genome', self.args.genome):
             print '  Loading genome to %s/%s ...' %(self.args.workspace, self.args.genome)
-            loadGenomeParams = dict()
-            loadGenomeParams['genome'] = self.args.genome
-            loadGenomeParams['workspace'] = self.args.workspace
-            loadGenomeParams['source'] = self.args.source
-            loadGenomeParams['auth'] = self.token
-            genomeMeta = self.fbaClient.genome_to_workspace(loadGenomeParams)
+            genomeMeta = self._loadGenome()
         else:
             print '  Found genome %s/%s ...' %(self.args.workspace, self.args.genome)
         print '  [OK] %s'  %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -201,13 +269,7 @@ class Workflow:
         print '+++ Step %d: Build draft model' %(step)
         if self._isObjectMissing('Model', self.draftModel):
             print '  Saving draft model to %s/%s ...' %(self.args.workspace, self.draftModel)
-            draftModelParams = dict()
-            draftModelParams['genome'] = self.args.genome
-            draftModelParams['genome_workspace'] = self.args.workspace
-            draftModelParams['model'] = self.draftModel
-            draftModelParams['workspace'] = self.args.workspace
-            draftModelParams['auth'] = self.token
-            draftModelMeta = self.fbaClient.genome_to_fbamodel(draftModelParams)
+            draftModelMeta = self._buildDraftModel(self.draftModel)
         else:
             print '  Found draft model %s/%s' %(self.args.workspace, self.draftModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -223,9 +285,9 @@ class Workflow:
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        print '+++ Step %d: Find standard gap fill unintegrated solutions'
+        print '+++ Step %d: Find standard gap fill unintegrated solutions (we only will integrate the first solution)'
         print '  Checking gap fill model %s/%s ...' %(self.args.workspace, self.stdModel)
-        stdSolutionToIntegrate = self._findSolution(self.stdModel)
+        stdSolutionToIntegrate = self._findGapfillSolution(self.stdModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
@@ -233,7 +295,7 @@ class Workflow:
         print '+++ Step %d: Integrate standard gapfilling solution 0 on complete media (NOTE - you should check that the solution is optimal)' %(step)
         if self._isObjectMissing('Model', self.stdIntModel):
             print '  Integrating solution %s into model %s/%s ...' %(stdSolutionToIntegrate, self.args.workspace, self.stdIntModel)
-            self.integrateSolution(self.stdModel, self.stdIntModel, stdSolutionToIntegrate, None)
+            self.integrateSolutions(self.stdModel, self.stdIntModel, [ stdSolutionToIntegrate ], None)
         else:
             print '  Found integrated standard gap fill model %s/%s' %(self.args.workspace, self.stdIntModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -266,12 +328,7 @@ class Workflow:
         print '+++ Step %d: Load genome from the specified source' %(step)
         if self._isObjectMissing('Genome', self.args.genome):
             print '  Loading genome to %s/%s ...' %(self.args.workspace, self.args.genome)
-            loadGenomeParams = dict()
-            loadGenomeParams['genome'] = self.args.genome
-            loadGenomeParams['workspace'] = self.args.workspace
-            loadGenomeParams['source'] = self.args.source
-            loadGenomeParams['auth'] = self.token
-            genomeMeta = self.fbaClient.genome_to_workspace(loadGenomeParams)
+            genomeMeta = self._loadGenome()
         else:
             print '  Found genome %s/%s ...' %(self.args.workspace, self.args.genome)
         print '  [OK] %s'  %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -281,13 +338,7 @@ class Workflow:
         print '+++ Step %d: Build draft model' %(step)
         if self._isObjectMissing('Model', self.draftModel):
             print '  Saving draft model to %s/%s ...' %(self.args.workspace, self.draftModel)
-            draftModelParams = dict()
-            draftModelParams['genome'] = self.args.genome
-            draftModelParams['genome_workspace'] = self.args.workspace
-            draftModelParams['model'] = self.draftModel
-            draftModelParams['workspace'] = self.args.workspace
-            draftModelParams['auth'] = self.token
-            draftModelMeta = self.fbaClient.genome_to_fbamodel(draftModelParams)
+            draftModelMeta = self._buildDraftModel(self.draftModel)
         else:
             print '  Found draft model %s/%s' %(self.args.workspace, self.draftModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -297,15 +348,7 @@ class Workflow:
         print '+++ Step %d: Create probabilistic annotation for genome' %(step)
         if self._isObjectMissing(self.probanno):
             print '  Submitting job and saving probabilistic annotation to %s/%s ...' %(self.args.workspace, self.probanno)
-            annotateParams = dict()
-            annotateParams['genome'] = self.args.genome
-            annotateParams['genome_workspace'] = self.args.workspace
-            annotateParams['probanno'] = self.probanno
-            annotateParams['probanno_workspace'] = self.args.workspace
-            jobid = self.paClient.annotate(annotateParams)
-            print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
-            print '  Waiting for job %s to end ...' %(jobid)
-            self._waitForJob(jobid)
+            self._runProbAnno(self.probanno)
         else:
             print '  Found probabilistic annotation %s/%s' %(self.args.workspace, self.probanno)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -315,12 +358,7 @@ class Workflow:
         print '+++ Step %d: Calculate reaction probabilities' %(step)
         if self._isObjectMissing(self.rxnprobs):
             print '  Saving reaction probabilities to %s/%s ...' %(self.args.workspace, self.rxnprobs)
-            calculateParams = dict()
-            calculateParams['probanno'] = self.probanno
-            calculateParams['probanno_workspace'] = self.args.workspace
-            calculateParams['rxnprobs'] = self.rxnprobs
-            calculateParams['rxnprobs_workspace'] = self.args.workspace
-            rxnprobsMeta = self.paClient.calculate(calculateParams)
+            rxnprobsMeta = self._runCalculate(self.rxnprobs)
         else:
            print '  Found reaction probabilities %s/%s' %(self.args.workspace, self.rxnprobs)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -338,22 +376,26 @@ class Workflow:
         step += 1
         print '+++ Step %d: Find probabilistic unintegrated solutions' %(step)
         print '  Checking gap fill model %s/%s ...' %(self.args.workspace, self.probModel)
-        probSolutionToIntegrate = self._findSolution(self.probModel)
+        probSolutionToIntegrate = self._findGapfillSolution(self.probModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
         self.probIntModel = "%s.model.pa.int" %(self.args.genome)
         print "+++ Step %d: Integrate probanno gapfilling solution 0 on complete media (NOTE - you should check that the solution is optimal)" %(step)
         print '  Integrating solution %s into model %s/%s ...' %(probSolutionToIntegrate, self.args.workspace, self.probIntModel)
-        self._integrateSolution(self.probModel, self.probIntModel, probSolutionToIntegrate, self.rxnprobs)
+        if self._isObjectMissing('Model', self.probIntModel):
+            print '  Integrating iterative gapfilling solutions  into model %s/%s ...' %(self.args.workspace, self.probIntModel)
+            self._integrateSolution(self.probModel, self.probIntModel, [ probSolutionToIntegrate ], self.rxnprobs)
+        else:
+            print '  Found integrated probanno gap fill model %s/%s' %(self.args.workspace, self.probIntModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        self.probCompleteFba = "%s.model.std.int.fba" %(self.args.genome)
+        self.probCompleteFba = "%s.model.pa.int.fba" %(self.args.genome)
         print "+++ Step %d: Check for growth of probabilistic gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
         if self._isObjectMissing('Model', self.probCompleteFba):
             print '  Running fba and saving complete media standard gap fill model to %s/%s' %(self.args.workspace, self.probCompleteFba)
-            self._runFBA(self.stdCompleteFba)
+            self._runFBA(self.probCompleteFba)
         else:
             print '  Found complete media standard gap fill model %s/%s'  %(self.args.workspace, self.probCompleteFba)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -361,7 +403,7 @@ class Workflow:
         return
 
     def runIterative(self):
-        print '=== Iterative Gap Fill Workflow ==='
+        print '=== Iterative Gap Fill Workflow (non-probanno) ==='
 
         step = 0
         print '+++ Step %d: Initialize' %(step)
@@ -372,6 +414,153 @@ class Workflow:
         wsMeta = self.wsClient.get_workspacemeta( { 'workspace': self.args.workspace, 'auth': self.token } )
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
+        step += 1
+        print '+++ Step %d: Load genome from the specified source' %(step)
+        if self._isObjectMissing('Genome', self.args.genome):
+            print '  Loading genome to %s/%s ...' %(self.args.workspace, self.args.genome)
+            genomeMeta = self._loadGenome()
+        else:
+            print '  Found genome %s/%s ...' %(self.args.workspace, self.args.genome)
+        print '  [OK] %s'  %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        self.draftModel = '%s.model' %(self.args.genome)
+        print '+++ Step %d: Build draft model' %(step)
+        if self._isObjectMissing('Model', self.draftModel):
+            print '  Saving draft model to %s/%s ...' %(self.args.workspace, self.draftModel)
+            draftModelMeta = self._buildDraftModel(self.draftModel)
+        else:
+            print '  Found draft model %s/%s' %(self.args.workspace, self.draftModel)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))      
+
+        step += 1
+        self.stdIterativeModel = '%s.model.std.iterative' %(self.args.genome)
+        print '+++ Step %d: Run standard iterative gap fill on complete media' %(step)
+        if self._isObjectMissing('Model', self.stdIterativeModel):
+            print '  Submitting job and saving standard gap fill model to %s/%s ...' %(self.args.workspace, self.stdIterativeModel)
+            self._gapfill(self.draftModel, self.stdIterativeModel, None, iterative=True)
+        else:
+            print '  Found standard gap fill model %s/%s' %(self.args.workspace, self.stdIterativeModel)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        print '+++ Step %d: Find standard gap fill unintegrated solutions (we only will integrate the first solution)'
+        print '  Checking gap fill model %s/%s ...' %(self.args.workspace, self.stdIterativeModel)
+        stdIterativeSolutionsToIntegrate = self._findGapfillSolution(self.stdIterativeModel, getAll=True)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        self.stdIterativeIntModel = "%s.model.std.iterative.int" %(self.args.genome)
+        print '+++ Step %d: Integrate standard gapfilling solution 0 on complete media (NOTE - you should check that the solution is optimal)' %(step)
+        if self._isObjectMissing('Model', self.stdIterativeIntModel):
+            print '  Integrating iterative gapfilling solutions  into model %s/%s ...' %(self.args.workspace, self.stdIterativeIntModel)
+            self.integrateSolutions(self.stdIterativeModel, self.stdIterativeIntModel, stdIterativeSolutionsToIntegrate, None)
+        else:
+            print '  Found integrated standard gap fill model %s/%s' %(self.args.workspace, self.stdIterativeIntModel)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        self.stdIterativeCompleteFba = "%s.model.std.iterative.int.fba" %(self.args.genome)
+        print "+++ Step %d: Check for growth of standard gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
+        if self._isObjectMissing('Model', self.stdIterativeCompleteFba):
+            print '  Running fba and saving complete media standard gap fill model to %s/%s' %(self.args.workspace, self.stdIterativeCompleteFba)
+            self._runFBA(self.stdIterativeCompleteFba)
+        else:
+            print '  Found complete media standard gap fill model %s/%s'  %(self.args.workspace, self.stdCompleteFba)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        return
+
+    def runIterativeProbabilistic(self):
+        print '=== Iterative Gap Fill Workflow (with probanno) ==='
+
+        step = 0
+        print '+++ Step %d: Initialize' %(step)
+        print '  Probabilistic annotation service url is %s' %(self.args.paurl)
+        print '  Workspace service url is %s' %(self.args.wsurl)
+        print '  FBA model service url is %s' %(self.args.fbaurl)
+        print '  Checking workspace %s ...' %(self.args.workspace)
+        wsMeta = self.wsClient.get_workspacemeta( { 'workspace': self.args.workspace, 'auth': self.token } )
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        print '+++ Step %d: Load genome from the specified source' %(step)
+        if self._isObjectMissing('Genome', self.args.genome):
+            print '  Loading genome to %s/%s ...' %(self.args.workspace, self.args.genome)
+            genomeMeta = self._loadGenome()
+        else:
+            print '  Found genome %s/%s ...' %(self.args.workspace, self.args.genome)
+        print '  [OK] %s'  %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        self.draftModel = '%s.model' %(self.args.genome)
+        print '+++ Step %d: Build draft model' %(step)
+        if self._isObjectMissing('Model', self.draftModel):
+            print '  Saving draft model to %s/%s ...' %(self.args.workspace, self.draftModel)
+            draftModelMeta = self._buildDraftModel(self.draftModel)
+        else:
+            print '  Found draft model %s/%s' %(self.args.workspace, self.draftModel)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))      
+
+        step += 1
+        self.probanno = '%s.probanno' %('ProbAnno', self.args.genome)
+        print '+++ Step %d: Create probabilistic annotation for genome' %(step)
+        if self._isObjectMissing(self.probanno):
+            print '  Submitting job and saving probabilistic annotation to %s/%s ...' %(self.args.workspace, self.probanno)
+            self._runProbAnno(self.probanno)
+        else:
+            print '  Found probabilistic annotation %s/%s' %(self.args.workspace, self.probanno)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+            
+        step += 1
+        self.rxnprobs = '%s.rxnprobs' %('RxnProbs', self.args.genome)
+        print '+++ Step %d: Calculate reaction probabilities' %(step)
+        if self._isObjectMissing(self.rxnprobs):
+            print '  Saving reaction probabilities to %s/%s ...' %(self.args.workspace, self.rxnprobs)
+            rxnprobsMeta = self._runCalculate(self.rxnprobs)
+        else:
+           print '  Found reaction probabilities %s/%s' %(self.args.workspace, self.rxnprobs)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        #### Above this line, everything about this is exactly the same as for probanno without iterative gapfill
+
+        step += 1
+        self.probIterativeModel = '%s.model.pa.iterative' %(self.args.genome)
+        print '+++ Step %d: Run iterative probabilistic gap fill on complete media' %(step)
+        if self._isObjectMissing('Model', self.probIterativeModel):
+            print '  Submitting job and saving probabilistic gap fill model to %s/%s ...' %(self.args.workspace, self.probIterativeModel)
+            self._gapfill(self.draftModel, self.probIterativeModel, self.rxnprobs)
+        else:
+            print '  Found probabilistic gap fill model %s/%s' %(self.args.workspace, self.probIterativeModel)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        print '+++ Step %d: Find probabilistic unintegrated solutions' %(step)
+        print '  Checking gap fill model %s/%s ...' %(self.args.workspace, self.probIterativeModel)
+        probSolutionsToIntegrate = self._findGapfillSolution(self.probIterativeModel, getAll=True)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        self.probIterativeIntModel = "%s.model.pa.iterative.int" %(self.args.genome)
+        print "+++ Step %d: Integrate probanno gapfilling solution 0 on complete media (NOTE - you should check that the solution is optimal)" %(step)
+        print '  Integrating iterative probanno gapfill solutions into model %s/%s ...' %(self.args.workspace, self.probIterativeIntModel)
+        if self._isObjectMissing('Model', self.probIterativeIntModel):
+            print '  Integrating iterative gapfilling solutions  into model %s/%s ...' %(self.args.workspace, self.probIterativeIntModel)
+            self._integrateSolution(self.probIterativeModel, self.probIterativeIntModel, probSolutionsToIntegrate, self.rxnprobs)
+        else:
+            print '  Found integrated probanno gap fill model %s/%s' %(self.args.workspace, self.probIterativeIntModell)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        self.probIterativeCompleteFba = "%s.model.pa.iterative.int.fba" %(self.args.genome)
+        print "+++ Step %d: Check for growth of probabilistic gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
+        if self._isObjectMissing('Model', self.probIterativeCompleteFba):
+            print '  Running fba and saving complete media standard gap fill model to %s/%s' %(self.args.workspace, self.probIterativeCompleteFba)
+            self._runFBA(self.probIterativeCompleteFba)
+        else:
+            print '  Found complete media standard gap fill model %s/%s'  %(self.args.workspace, self.probIterativeCompleteFba)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+        
         return
 
 if __name__ == "__main__":
@@ -404,12 +593,16 @@ if __name__ == "__main__":
     parser.add_argument('--force', help='Force rebuilding of all objects', action='store_true', dest='force', default=False)
     parser.add_argument('--standard', help='Run standard gap fill workflow', action='store_true', dest='standard', default=True)
     parser.add_argument('--prob', help='Run probabilistic gap fill workflow', action='store_true', dest='standard', default=False)
-    parser.add_argument('--iterative', help='Run iterative gap fill workflow', action='store_true', dest='complete', default=False)
-    parser.add_argument('--num-solutions', help='Number of solutions to find for gap fill', action='store', dest='numsolutions', default=10)
+    parser.add_argument('--iterative', help='Run standard iterative gap fill workflow ', action='store_true', dest='complete', default=False)
+    parser.add_argument('--iterativeprob', help='Run probabilistic iterative gap fill workflow ', action='store_true', dest='completeprob', default=False)
+    parser.add_argument('--num-solutions', help='Number of solutions to find for gap fill (ignored for iterative gap filling)', action='store', dest='numsolutions', default=10)
     parser.add_argument('--ws-url', help='URL for workspace service', action='store', dest='wsurl', default='http://www.kbase.us/services/workspace')
     parser.add_argument('--fba-url', help='URL for fba model service', action='store', dest='fbaurl', default='http://bio-data-1.mcs.anl.gov/services/fba')
     parser.add_argument('--pa-url', help='URL for probabilistic annotation service', action='store', dest='paurl', default='http://www.kbase.us/services/probabilistic_annotation')
     parser.add_argument('--knockoutdata', help='OPTIONAL. Provide a knockout data PhenotypeSet and we will create a new model gapfilled to each media in it.', action='store', default=None)
+    parser.add_argument('--maxtime', 
+                        help='OPTIONAL. Maximum amount of time to wait for a job to finish (by default the maximum is 2 hour for normal gapfill jobs and probanno jobs and 4 days for iterative gapfill)',
+                        action='store', default=None)
     args = parser.parse_args()
     
     if args.usage:
@@ -421,11 +614,29 @@ if __name__ == "__main__":
             print 'All objects will be rebuilt because --force option was specified.'
         workflow = Workflow(args)
         if args.standard:
+            oldmax = args.maxtime
+            if args.maxtime is None:
+                args.maxtime = 7200
             workflow.runStandard()
+            args.maxtime = oldmax
         if args.prob:
+            oldmax = args.maxtime
+            if args.maxtime is None:
+                args.maxtime = 7200
             workflow.runProbabilistic()
+            args.maxtime = oldmax
         if args.complete:
+            oldmax = args.maxtime
+            if args.maxtime is None:
+                args.maxtime = 345600
             workflow.runIterative()
+            args.maxtime = oldmax
+        if args.completeprob:
+            oldmax = args.maxtime
+            if args.maxtime is None:
+                args.maxtime = 345600
+            workflow.runIterativeProbabilistic()
+            args.maxtime = oldmax
     except Exception as e:
         print '  [ERROR]'
         traceback.print_exc(file=sys.stderr)
