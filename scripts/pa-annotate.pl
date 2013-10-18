@@ -34,10 +34,10 @@ DESCRIPTION
       
       Options:
       -e, --showerror    Show any errors in execution
-      --genomews         ID of workspace where Genome object is stored
+      --genomews         ID of workspace where Genome object is stored (default is the current workspace)
       -h, --help         Display this help message, ignore all arguments
       -v, --verbose      Print verbose messages
-      -w, --probannows   ID of workspace where ProbAnno object is saved
+      -w, --probannows   ID of workspace where ProbAnno object is to be saved (default is the current workspace)
 
 EXAMPLES
       Generate probabilistic annotation for E. coli K12 genome:
@@ -58,8 +58,8 @@ AUTHORS
 my $primaryArgs = [ "Genome ID", "ProbAnno ID" ];
 my ( $opt, $usage ) = describe_options(
     'pa-annotate <' . join( "> <", @{$primaryArgs} ) . '> %o',
-    [ 'probannows|w=s', 'ID of workspace where ProbAnno object is saved', { "default" => workspace() } ],
-    [ 'genomews=s', 'ID of workspace where Genome object is stored', { "default" => "KBaseCDMGenomes" } ],
+    [ 'probannows|w=s', 'ID of workspace where ProbAnno object is saved (default is the current workspace)', { "default" => workspace() } ],
+    [ 'genomews=s', 'ID of workspace where Genome object is stored (default is the current workspace)', { "default" => workspace() } ],
     [ 'showerror|e:i', 'Show any errors in execution', { "default" => 0 } ],
     [ 'verbose|v:i', 'Print verbose messages', { "default" => 0 } ],
     [ 'help|h', 'Show help text' ],

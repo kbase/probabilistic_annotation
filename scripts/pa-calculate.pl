@@ -34,11 +34,11 @@ DESCRIPTION
       Options:
       -e, --showerror       Show any errors in execution
       -h, --help            Display this help message, ignore all arguments
-      -w, --probannows      ID of workspace where ProbAnno object is stored
-      -t, --templateid      ID of ModelTemplate object
+      -w, --probannows      ID of workspace where ProbAnno object is stored (default is the current workspace)
+      -t, --templateid      ID of ModelTemplate object (default is to use all reactions in the biochemistry)
       -m, --templatews      ID of workspace where ModelTemplate object is stored
       -v, --verbose         Print verbose messages
-      -r, --rxnprobsws      ID of workspace where RxnProbs object is saved
+      -r, --rxnprobsws      ID of workspace where RxnProbs object is to be saved (default is the current workspace)
 
 EXAMPLES
       Calculate reaction likelihoods from probabilistic annotation of E. coli
@@ -57,8 +57,8 @@ AUTHORS
 my $primaryArgs = [ "ProbAnno ID", "RxnProbs ID" ];
 my ( $opt, $usage ) = describe_options(
     'pa-calculate <' . join( "> <", @{$primaryArgs} ) . '> %o',
-    [ 'probannows|w=s', 'ID of workspace where ProbAnno object is stored', { "default" => workspace() } ],
-    [ 'rxnprobsws|r=s', 'ID of workspace where RxnProbs object is saved', { 'default' => workspace() } ],
+    [ 'probannows|w=s', 'ID of workspace where ProbAnno object is stored (default is the current workspace)', { "default" => workspace() } ],
+    [ 'rxnprobsws|r=s', 'ID of workspace where RxnProbs object is saved (default is the current workspace)', { 'default' => workspace() } ],
     [ 'templateid|t=s', "ID of ModelTemplate object", { "default" => undef } ],
     [ 'templatews|m=s', "ID of workspace where ModelTemplate object is stored", { "default" => undef } ],
     [ 'showerror|e:i', 'Show any errors in execution', { "default" => 0 } ],
