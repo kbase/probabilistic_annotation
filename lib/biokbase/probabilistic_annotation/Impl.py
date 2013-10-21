@@ -878,19 +878,10 @@ class ProbabilisticAnnotation:
                 self._checkIfDatabaseFilesExist()
                 status = "ready"
             except:
-                try:
-                    # Attempting fallback 2 - can we get the files from somewhere else?
-                    sys.stderr.write("WARNING: Unable to get files from Shock. Attempting a fallback... (note this might not be the latest version of the files)\n")
-                    os.system("wget %s" %(config["fallback_url"]))
-                    os.system("tar xzvf PROBANNO_STATIC_DATA.tar.gz -C %s" %(os.path.abspath(os.path.join(config["data_folder_path"], ".."))))
-                    os.system("rm PROBANNO_STATIC_DATA.tar.gz")
-                    self._checkIfDatabaseFilesExist()
-                    status = "ready"
-                except:
-                    sys.stderr.write("Unable to find files in this way either.\n")
-                    status = "failed"
-                    sys.stderr.write("\nCaught exception...\n")
-                    traceback.print_exc(file=sys.stderr)
+                sys.stderr.write("Unable to find files in this way either.\n")
+                status = "failed"
+                sys.stderr.write("\nCaught exception...\n")
+                traceback.print_exc(file=sys.stderr)
 
         writeStatusFile(config, status)
             
