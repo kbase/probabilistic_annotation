@@ -63,7 +63,7 @@ annotation likelihoods using the following command.
 </pre></code>
 </p>
 <p>
-This command takes a significant amount of time to run (since it has to run BLAST against a rather large database), so it is placed on a queue and given a job ID. Use the kbws-checkjobs command to see if your job has finished running. Once it is done running the results will be saved in a ProbAnno typed object with the specified ID. 
+This command takes a significant amount of time to run (since it has to run BLAST against a rather large database), so it is placed on a queue and given a job ID. Use the kbws-checkjobs command to see if your job has finished running. Once it is done running the results will be saved in a ProbAnno typed object with the specified ID.
 </p>
 <p>
 The probabilistic annotation object can be used as an input to gapfilling using the --probanno flag for kbfba-gapfill (reaction likelihoods are computed and then used to modify the weights in the objective function). See the help for that function for details.
@@ -72,7 +72,7 @@ The probabilistic annotation object can be used as an input to gapfilling using 
 </div><div><h3>3. Calculating reaction likelihoods for your genome</h3>
 </a>
 <p>
-The pa-calculate command takes a probabilistic annotation (as genegeated from the <a href="#STEP2">pa-annotate command</a>) as input and calculates likelihoods for every reaction in the database (soon to be user-specified, currently it is the default database containing KEGG reactions plus reactions from several manually-curated models). 
+The pa-calculate command takes a probabilistic annotation (as generated from the <a href="#STEP2">pa-annotate command</a>) as input and calculates likelihoods for every reaction in the database (soon to be user-specified, currently it is the default database containing KEGG reactions plus reactions from several manually-curated models). 
 </p>
 <p>
 The pa-calculate command has the following usage:
@@ -103,4 +103,40 @@ The RxnProbs object can currently be used as input to the gapfilling function to
 However, if you do this you must make sure that the same template model is used for gapfilling and for computing the probabilities. If you want to avoid this issue, we recommend using the 
 probabilisitc annotation directly (--probanno) instead.
 </p>
+</div>
+<a name="STEP4">
+</div><div><h3>4. Getting reaction likelihoods in a human-readable form</h3>
+</a>
+<p>
+The pa-getrxnprobs command converts a RxnProbs object into a tab-delimited table with the following columns:
+<pre>
+[Reaction ID]  [Probability]  [Complex_diagnostic]  [Complex_details]  [Putative_GPR]
+</pre>
+<li>
+Reaction ID is the ModelSEED ID for the reaction. Only reactions that have complexes associated are in the list
+(others can be assumed to have a likelihood of 0 based on the currently-availble biochemistry in the model seed).
+</li>
+<li>
+Probability is the computed likelihood of the reaction, with a maximum value of 1 and a minimum value of 0.
+</li>
+<li>
+Complex diagnostic is a string specifying whether a reaction is complex-associated or not. It is used for debugging.
+</li>
+<li>
+Complex_details specifies details of each role associated with each complex. It lists the likelihood of each role
+and whether or not any representatives of that role were present in the subsystems. If there are no roles assocaited
+with the complex, it says that too. This helps you identify why a particular reaction has 0 likelihood.
+</li>
+<li>
+Putative_GPR is the gene-protein-reaction relationship obtained by tracing back from reactions to the most likely
+genes associated with those reactions.
+</li>
+<p>
+The pa-getrxnprobs command has the following usage:
+<pre><code>
+        $ pa-getrxnprobs [RxnProbs ID] [Workspace]
+        -h, --help         display this help message, ignore all arguments
+</pre></code>
+</p>
+
 </div>
