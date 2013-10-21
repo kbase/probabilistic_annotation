@@ -8,9 +8,6 @@ import argparse
 from biokbase.probabilistic_annotation.DataParser import *
 from biokbase.probabilistic_annotation.DataExtractor import *
 
-MINN = 0
-COUNT = 50000
-
 def safeRemove(filename):
     try:
         # Check for file existence
@@ -40,14 +37,14 @@ def generate_data(config):
     # Get lists of OTUs
     filename = os.path.join(config["data_folder_path"], DatabaseFiles["otu_id_file"])
     sys.stderr.write("OTU data is in file %s\n  generating file..." %(filename))
-    otus, prokotus = getOtuGenomeIds(MINN, COUNT, config)
+    otus, prokotus = getOtuGenomeIds(0, 5000, config) # Data build V2 size is 1274
     writeOtuData(otus, prokotus, config)
     sys.stderr.write("%d otus, %d prokotus...done\n" %(len(otus), len(prokotus)))
     
     # Get a list of subsystem FIDs
     filename = os.path.join(config["data_folder_path"], DatabaseFiles["subsystem_fid_file"])
     sys.stderr.write("List of subsystem FIDs is in file %s\n  generating file..." %(filename))
-    sub_fids = subsystemFids(MINN, COUNT, config)
+    sub_fids = subsystemFids(0, 5000, config) # Data build V2 size is 2057
     writeSubsystemFids(sub_fids, config)
     sys.stderr.write("%d items in list...done\n" %(len(sub_fids)))
     
@@ -56,7 +53,7 @@ def generate_data(config):
     # number of roles for which we have representatives.
     filename = os.path.join(config["data_folder_path"], DatabaseFiles["dlit_fid_file"])
     sys.stderr.write("List of DLit FIDs is in file %s\n  generating file..." %(filename))
-    dlit_fids = getDlitFids(MINN, COUNT, config)
+    dlit_fids = getDlitFids(0, 15000, config) # Data build V2 size is 12469
     writeDlitFids(dlit_fids, config)
     sys.stderr.write("%d items in list...done\n" %(len(dlit_fids)))
     
@@ -86,7 +83,7 @@ def generate_data(config):
     # prokaryotes here.
     filename = os.path.join(config["data_folder_path"], DatabaseFiles["subsystem_otu_fid_roles_file"])
     sys.stderr.write("List of filtered OTUs is in file %s\n  generating file..." %(filename))
-    otudict = getOtuGenomeDictionary(MINN, COUNT, config)
+    otudict = getOtuGenomeDictionary(0, 5000, config) # Data build V2 size is 1274
     otu_fidsToRoles, otu_rolesToFids, missing_roles = filterFidsByOtusBetter(all_fidsToRoles, all_rolesToFids, otudict, config)
     writeFilteredOtuRoles(otu_fidsToRoles, config)
     sys.stderr.write("%d items in list...done\n" %(len(otu_fidsToRoles)))
@@ -105,7 +102,7 @@ def generate_data(config):
     #    Because we need all the roles in a complex to get the probability of that complex.
     filename = os.path.join(config["data_folder_path"], DatabaseFiles["complexes_roles_file"])
     sys.stderr.write("Complexes to roles mapping is in file %s\n  generating file..." %(filename))
-    complexToRequiredRoles, requiredRolesToComplexes = complexRoleLinks(MINN, COUNT, config)
+    complexToRequiredRoles, requiredRolesToComplexes = complexRoleLinks(0, 5000, config) # Data build V2 size is 2369
     writeComplexRoles(complexToRequiredRoles, config)
     sys.stderr.write("%d items in mapping...done\n" %(len(complexToRequiredRoles)))
     
@@ -113,7 +110,7 @@ def generate_data(config):
     # Again it is easier to go in this direction since we'll be filtering multiple complexes down to a single reaction.
     filename = os.path.join(config["data_folder_path"], DatabaseFiles["reaction_complexes_file"])    
     sys.stderr.write("Reactions to complexes mapping is in file %s\n  generating file..." %(filename))
-    rxnToComplexes, complexesToReactions = reactionComplexLinks(MINN, COUNT, config)
+    rxnToComplexes, complexesToReactions = reactionComplexLinks(0, 35000, config) # Data build V2 size is 33733
     writeReactionComplex(rxnToComplexes, config)
     sys.stderr.write("%d items in mapping...done\n" %(len(rxnToComplexes)))
     

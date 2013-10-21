@@ -1153,7 +1153,14 @@ Object to hold reaction probabilities for a genome.
 
 <pre>
 a reference to a hash where the following keys are defined:
+id has a value which is a rxnprobs_id
+version has a value which is an int
+template_model has a value which is a template_id
+template_workspace has a value which is a workspace_id
 genome has a value which is a genome_id
+genome_workspace has a value which is a workspace_id
+probanno has a value which is a probanno_id
+probanno_workspace has a value which is a workspace_id
 reaction_probabilities has a value which is a reference to a list where each element is a reaction_probability
 
 </pre>
@@ -1163,7 +1170,14 @@ reaction_probabilities has a value which is a reference to a list where each ele
 =begin text
 
 a reference to a hash where the following keys are defined:
+id has a value which is a rxnprobs_id
+version has a value which is an int
+template_model has a value which is a template_id
+template_workspace has a value which is a workspace_id
 genome has a value which is a genome_id
+genome_workspace has a value which is a workspace_id
+probanno has a value which is a probanno_id
+probanno_workspace has a value which is a workspace_id
 reaction_probabilities has a value which is a reference to a list where each element is a reaction_probability
 
 

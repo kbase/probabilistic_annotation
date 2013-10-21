@@ -197,7 +197,7 @@ def filterFidsByOtusBetter(fidsToRoles, rolesToFids, oturepsToMembers, config):
     orgdict = []
      # Break the complete list into smaller sub-lists to avoid timeouts
     start = 0
-    increment = 100000
+    increment = 5000
     end = start + increment - 1
     counter = (len(fidlist) / increment) + 1
     while counter != 0:
@@ -277,7 +277,7 @@ def fidsToRoles(fidlist, config):
     
     # Break the complete list into smaller sub-lists to avoid timeouts
     start = 0
-    increment = 100000
+    increment = 5000
     end = start + increment - 1
     counter = (len(fidlist) / increment) + 1
     fidsToRoles = {}
@@ -320,7 +320,7 @@ def fidsToSequences(fidlist, config):
     cdmi = CDMI_API(config["cdmi_url"])
     fidlist = list(set(fidlist))
     start = 0
-    increment = 50000
+    increment = 5000
     end = start + increment - 1
     counter = (len(fidlist) / increment) + 1
     seqs = {}

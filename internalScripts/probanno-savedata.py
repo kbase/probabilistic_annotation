@@ -18,7 +18,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Read the config from the file.
-    config = getConfig(configFilename)
+    config = getConfig(args.configFilename)
     
     # Get an authorization token.
     try:
