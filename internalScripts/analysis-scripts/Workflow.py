@@ -221,13 +221,14 @@ class Workflow:
 
     ''' Run FBA to see if the specified model produces growth. '''
 
-    def _runFBA(self, model):
+    def _runFBA(self, model, fba):
         # Note - I'm not 100% sure but I THINK you don't need to define a formulation object unless you're changing the media. Even then it might do it for you if you pass it in the parameters.
         # This needs some testing.
         runFbaParams = dict()
         runFbaParams['model'] = model
         runFbaParams['workspace'] = self.args.workspace
         runFbaParams['auth'] = self.token
+        runFbaParams['fba'] = fba
         stdFbaMeta = self.fbaClient.runfba(runFbaParams)
         # TODO - how to check nonzero growth? I THINK this is somewhere in the metadata.
 
@@ -304,10 +305,10 @@ class Workflow:
         self.stdCompleteFba = "%s.model.std.int.fba" %(self.args.genome)
         print "+++ Step %d: Check for growth of standard gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
         if self._isObjectMissing('Model', self.stdCompleteFba):
-            print '  Running fba and saving complete media standard gap fill model to %s/%s' %(self.args.workspace, self.stdCompleteFba)
-            self._runFBA(self.stdCompleteFba)
+            print '  Running fba and saving complete media standard gap fill FBA object to %s/%s' %(self.args.workspace, self.stdCompleteFba)
+            self._runFBA(self.stdIntModel, self.stdCompleteFba)
         else:
-            print '  Found complete media standard gap fill model %s/%s'  %(self.args.workspace, self.stdCompleteFba)
+            print '  Found complete media standard gap fill FBA object %s/%s'  %(self.args.workspace, self.stdCompleteFba)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         return
@@ -394,10 +395,10 @@ class Workflow:
         self.probCompleteFba = "%s.model.pa.int.fba" %(self.args.genome)
         print "+++ Step %d: Check for growth of probabilistic gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
         if self._isObjectMissing('Model', self.probCompleteFba):
-            print '  Running fba and saving complete media standard gap fill model to %s/%s' %(self.args.workspace, self.probCompleteFba)
-            self._runFBA(self.probCompleteFba)
+            print '  Running fba and saving complete media standard gap fill FBA object to %s/%s' %(self.args.workspace, self.probCompleteFba)
+            self._runFBA(self.probIntModel, self.probCompleteFba)
         else:
-            print '  Found complete media standard gap fill model %s/%s'  %(self.args.workspace, self.probCompleteFba)
+            print '  Found complete media probanno gap fill FBA object %s/%s'  %(self.args.workspace, self.probCompleteFba)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         return
@@ -431,7 +432,7 @@ class Workflow:
             draftModelMeta = self._buildDraftModel(self.draftModel)
         else:
             print '  Found draft model %s/%s' %(self.args.workspace, self.draftModel)
-        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))      
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
         self.stdIterativeModel = '%s.model.std.iterative' %(self.args.genome)
@@ -463,10 +464,10 @@ class Workflow:
         self.stdIterativeCompleteFba = "%s.model.std.iterative.int.fba" %(self.args.genome)
         print "+++ Step %d: Check for growth of standard gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
         if self._isObjectMissing('Model', self.stdIterativeCompleteFba):
-            print '  Running fba and saving complete media standard gap fill model to %s/%s' %(self.args.workspace, self.stdIterativeCompleteFba)
-            self._runFBA(self.stdIterativeCompleteFba)
+            print '  Running fba and saving complete media standard gap fill FBA object to %s/%s' %(self.args.workspace, self.stdIterativeCompleteFba)
+            self._runFBA(self.stdIterativeIntModel, self.stdIterativeCompleteFba)
         else:
-            print '  Found complete media standard gap fill model %s/%s'  %(self.args.workspace, self.stdCompleteFba)
+            print '  Found complete media iterative standard gap fill FBA object %s/%s'  %(self.args.workspace, self.stdCompleteFba)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         return
@@ -543,22 +544,22 @@ class Workflow:
         step += 1
         self.probIterativeIntModel = "%s.model.pa.iterative.int" %(self.args.genome)
         print "+++ Step %d: Integrate probanno gapfilling solution 0 on complete media (NOTE - you should check that the solution is optimal)" %(step)
-        print '  Integrating iterative probanno gapfill solutions into model %s/%s ...' %(self.args.workspace, self.probIterativeIntModel)
+        print '  Integrating iterative probanno gapfill solutions into model %s/%s (note this takes a very long time)...' %(self.args.workspace, self.probIterativeIntModel)
         if self._isObjectMissing('Model', self.probIterativeIntModel):
             print '  Integrating iterative gapfilling solutions  into model %s/%s ...' %(self.args.workspace, self.probIterativeIntModel)
             self._integrateSolution(self.probIterativeModel, self.probIterativeIntModel, probSolutionsToIntegrate, self.rxnprobs)
         else:
-            print '  Found integrated probanno gap fill model %s/%s' %(self.args.workspace, self.probIterativeIntModell)
+            print '  Found integrated probanno iterative gap fill model %s/%s' %(self.args.workspace, self.probIterativeIntModell)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
         self.probIterativeCompleteFba = "%s.model.pa.iterative.int.fba" %(self.args.genome)
         print "+++ Step %d: Check for growth of probabilistic gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
         if self._isObjectMissing('Model', self.probIterativeCompleteFba):
-            print '  Running fba and saving complete media standard gap fill model to %s/%s' %(self.args.workspace, self.probIterativeCompleteFba)
-            self._runFBA(self.probIterativeCompleteFba)
+            print '  Running fba and saving complete media standard gap fill FBA object to %s/%s' %(self.args.workspace, self.probIterativeCompleteFba)
+            self._runFBA(self.probIterativeIntModel, self.probIterativeCompleteFba)
         else:
-            print '  Found complete media standard gap fill model %s/%s'  %(self.args.workspace, self.probIterativeCompleteFba)
+            print '  Found complete media probanno iterative gap fill FBA object %s/%s'  %(self.args.workspace, self.probIterativeCompleteFba)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         
         return
