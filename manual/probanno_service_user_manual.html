@@ -112,6 +112,7 @@ The pa-getrxnprobs command converts a RxnProbs object into a tab-delimited table
 <pre>
 [Reaction ID]  [Probability]  [Complex_diagnostic]  [Complex_details]  [Putative_GPR]
 </pre>
+<ul>
 <li>
 Reaction ID is the ModelSEED ID for the reaction. Only reactions that have complexes associated are in the list
 (others can be assumed to have a likelihood of 0 based on the currently-availble biochemistry in the model seed).
@@ -131,6 +132,7 @@ with the complex, it says that too. This helps you identify why a particular rea
 Putative_GPR is the gene-protein-reaction relationship obtained by tracing back from reactions to the most likely
 genes associated with those reactions.
 </li>
+</ul>
 <p>
 The pa-getrxnprobs command has the following usage:
 <pre><code>
