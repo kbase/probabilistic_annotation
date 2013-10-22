@@ -140,6 +140,13 @@ class Workflow:
         gapfillFormulation['singletranspen'] = 25
         gapfillFormulation['biomasstranspen'] = 25
         gapfillFormulation['transpen'] = 25
+        gapfillFormulation['allowedcmps'] = [ 'c', 'e', 'p' ]
+        gapfillFormulation['nobiomasshyp'] = 1
+        if iterative:
+            # This is necessary to prevent ModelSEED from defaulting to just optimizing biomass.
+            gapfillFormulation['formulation'] = {}
+            gapfillFormulation['formulation']['objectiveTerms'] = []
+
         if iterative and self.args.numsolutions > 1:
             print "  [WARNING]: Number of solutions > 1 for iterative gap fill is not allowed. We will ignore that argument for this run."
         else:
@@ -157,7 +164,7 @@ class Workflow:
         gapfillParams['solver'] = 'CPLEX'
         gapfillParams['auth'] = self.token
         if iterative:
-            gapfillParams['completeGapfill'] = 1
+            gapfillParams['completeGapfill'] = '1'
             print 'turned on iterative'
 
         job = self.fbaClient.queue_gapfill_model(gapfillParams)
