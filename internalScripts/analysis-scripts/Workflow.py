@@ -178,14 +178,13 @@ class Workflow:
         if len(gapfillList) < 1:
             raise IOError("Model %s/%s does not have any unintegrated gapfillings!" %(self.args.workspace, model))
         
-        # Just use the first gapfill
-        print gapfillList
+        # Just use the first unintegrated gap fill solution.
         gapfill = gapfillList[0]
         gapfill_uuid = gapfill[1]
 
         # Get the hidden GapFill object attached to the Model object.
-        # The solutions that we need to integrate are in there. and we need
-        # to reach into it to find out how many there are \ if there was a valid solution found.
+        # The solutions that we need to integrate are in there and we need to reach into 
+        # it to find out how many there are and if there was a valid solution found.
         getObjectParams = dict()
         getObjectParams['id'] = gapfill_uuid
         getObjectParams['type'] = 'GapFill'
@@ -195,18 +194,17 @@ class Workflow:
         gapfillSolutionIds = []
         for ii in range(len(gapfillObject['data']['gapfillingSolutions'])):
             gapfill_solutionid = '%s.solution.%s' %(gapfill_uuid, ii)
-            print '%s\t%s' %(model, gapfill_solutionid)
-            gapfillSolutionIds.append(gapfill_soutionid)
+            gapfillSolutionIds.append(gapfill_solutionid)
 
         if getAll:
             return gapfillSolutionIds
         else:
-            return gapfillSolutionIds[0]
+            return [ gapfillSolutionIds[0] ]
 
     ''' Integrate the specified solutions into the specified model. solutions is an array of solutions to integrate (needed
     for iterative gapfilling) '''
 
-    def _integrateSolution(self, model, integratedModel, solutions, rxnprobs):
+    def _integrateSolutions(self, model, integratedModel, solutions, rxnprobs):
         integrateSolutionParams = dict()
         integrateSolutionParams['model'] = model
         integrateSolutionParams['model_workspace'] = self.args.workspace
@@ -214,6 +212,7 @@ class Workflow:
         integrateSolutionParams['workspace'] = self.args.workspace
         integrateSolutionParams['auth'] = self.token
         integrateSolutionParams['gapfillSolutions'] = solutions
+        integrateSolutionParams['gapgenSolutions'] = [ ]
         if rxnprobs != None:
             probIntegrateSolutionParams['rxnprobs'] = rxnprobs
             probIntegrateSolutionParams['rxnprobs_workspace'] = self.workspace
@@ -229,8 +228,21 @@ class Workflow:
         runFbaParams['workspace'] = self.args.workspace
         runFbaParams['auth'] = self.token
         runFbaParams['fba'] = fba
-        stdFbaMeta = self.fbaClient.runfba(runFbaParams)
-        # TODO - how to check nonzero growth? I THINK this is somewhere in the metadata.
+        fbaMeta = self.fbaClient.runfba(runFbaParams)
+
+        return
+
+    def _getObjectiveValue(self, fba):
+        # Get the FBA object and extract the objective.
+        getObjectParams = dict()
+        getObjectParams['id'] = fba
+        getObjectParams['type'] = 'FBA'
+        getObjectParams['workspace'] = self.args.workspace
+        getObjectParams['auth'] = self.token
+        fbaObject = self.wsClient.get_object(getObjectParams)
+        for result in fbaObject['data']['fbaResults']:
+            print '  Objective value is %s' %(result['objectiveValue'])
+        return
 
     def __init__(self, args):
         # Save the arguments.
@@ -245,7 +257,7 @@ class Workflow:
     ''' Run the workflow. '''
 
     def runStandard(self):
-        print '=== Standard Gap Fill Workflow ==='
+        print '=== Started Standard Gap Fill Workflow ==='
 
         step = 0
         print '+++ Step %d: Initialize' %(step)
@@ -286,17 +298,18 @@ class Workflow:
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        print '+++ Step %d: Find standard gap fill unintegrated solutions (we only will integrate the first solution)'
+        print '+++ Step %d: Find standard gap fill unintegrated solutions (we only will integrate the first solution)' %(step)
         print '  Checking gap fill model %s/%s ...' %(self.args.workspace, self.stdModel)
-        stdSolutionToIntegrate = self._findGapfillSolution(self.stdModel)
+        solutionList = self._findGapfillSolution(self.stdModel)
+        print '  Found unintegrated solution %s' %(solutionList[0])
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
         self.stdIntModel = "%s.model.std.int" %(self.args.genome)
-        print '+++ Step %d: Integrate standard gapfilling solution 0 on complete media (NOTE - you should check that the solution is optimal)' %(step)
+        print '+++ Step %d: Integrate standard gap fill solution 0 on complete media (NOTE - you should check that the solution is optimal)' %(step)
         if self._isObjectMissing('Model', self.stdIntModel):
-            print '  Integrating solution %s into model %s/%s ...' %(stdSolutionToIntegrate, self.args.workspace, self.stdIntModel)
-            self.integrateSolutions(self.stdModel, self.stdIntModel, [ stdSolutionToIntegrate ], None)
+            print '  Integrating solution %s into model %s/%s ...' %(solutionList[0], self.args.workspace, self.stdIntModel)
+            self._integrateSolutions(self.stdModel, self.stdIntModel, solutionList, None)
         else:
             print '  Found integrated standard gap fill model %s/%s' %(self.args.workspace, self.stdIntModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -304,12 +317,15 @@ class Workflow:
         step += 1
         self.stdCompleteFba = "%s.model.std.int.fba" %(self.args.genome)
         print "+++ Step %d: Check for growth of standard gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
-        if self._isObjectMissing('Model', self.stdCompleteFba):
+        if self._isObjectMissing('FBA', self.stdCompleteFba):
             print '  Running fba and saving complete media standard gap fill FBA object to %s/%s' %(self.args.workspace, self.stdCompleteFba)
             self._runFBA(self.stdIntModel, self.stdCompleteFba)
         else:
             print '  Found complete media standard gap fill FBA object %s/%s'  %(self.args.workspace, self.stdCompleteFba)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+        self._getObjectiveValue(self.stdCompleteFba)
+
+        print '=== Completed Standard Gap Fill Workflow ==='
 
         return
 
@@ -593,9 +609,9 @@ if __name__ == "__main__":
     parser.add_argument('-w', '--workspace', help='workspace for storing objects', action='store', dest='workspace')
     parser.add_argument('--force', help='Force rebuilding of all objects', action='store_true', dest='force', default=False)
     parser.add_argument('--standard', help='Run standard gap fill workflow', action='store_true', dest='standard', default=True)
-    parser.add_argument('--prob', help='Run probabilistic gap fill workflow', action='store_true', dest='standard', default=False)
-    parser.add_argument('--iterative', help='Run standard iterative gap fill workflow ', action='store_true', dest='complete', default=False)
-    parser.add_argument('--iterativeprob', help='Run probabilistic iterative gap fill workflow ', action='store_true', dest='completeprob', default=False)
+    parser.add_argument('--prob', help='Run probabilistic gap fill workflow', action='store_true', dest='prob', default=False)
+    parser.add_argument('--iterative', help='Run standard iterative gap fill workflow ', action='store_true', dest='iterative', default=False)
+    parser.add_argument('--iterativeprob', help='Run probabilistic iterative gap fill workflow ', action='store_true', dest='iterativeprob', default=False)
     parser.add_argument('--num-solutions', help='Number of solutions to find for gap fill (ignored for iterative gap filling)', action='store', dest='numsolutions', default=10)
     parser.add_argument('--ws-url', help='URL for workspace service', action='store', dest='wsurl', default='http://www.kbase.us/services/workspace')
     parser.add_argument('--fba-url', help='URL for fba model service', action='store', dest='fbaurl', default='http://bio-data-1.mcs.anl.gov/services/fba')
@@ -626,13 +642,13 @@ if __name__ == "__main__":
                 args.maxtime = 7200
             workflow.runProbabilistic()
             args.maxtime = oldmax
-        if args.complete:
+        if args.iterative:
             oldmax = args.maxtime
             if args.maxtime is None:
                 args.maxtime = 345600
             workflow.runIterative()
             args.maxtime = oldmax
-        if args.completeprob:
+        if args.iterativeprob:
             oldmax = args.maxtime
             if args.maxtime is None:
                 args.maxtime = 345600
