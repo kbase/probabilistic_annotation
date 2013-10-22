@@ -140,8 +140,8 @@ class Workflow:
         gapfillFormulation['singletranspen'] = 25
         gapfillFormulation['biomasstranspen'] = 25
         gapfillFormulation['transpen'] = 25
-        if iterative and numsolutions > 1:
-            print "WARNING: Numsolutions > 1 for iterative gapfilling is not allowed. We will ignore that argument for this run."
+        if iterative and self.args.numsolutions > 1:
+            print "  [WARNING]: Number of solutions > 1 for iterative gap fill is not allowed. We will ignore that argument for this run."
         else:
             gapfillFormulation['num_solutions'] = self.args.numsolutions
 
@@ -157,7 +157,9 @@ class Workflow:
         gapfillParams['solver'] = 'CPLEX'
         gapfillParams['auth'] = self.token
         if iterative:
-            gapfillParams['completeGapfill'] = True
+            gapfillParams['completeGapfill'] = 1
+            print 'turned on iterative'
+        return
 
         job = self.fbaClient.queue_gapfill_model(gapfillParams)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -278,52 +280,52 @@ class Workflow:
         print '  [OK] %s'  %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        self.draftModel = '%s.model' %(self.args.genome)
+        draftModel = '%s.model' %(self.args.genome)
         print '+++ Step %d: Build draft model' %(step)
-        if self._isObjectMissing('Model', self.draftModel):
-            print '  Saving draft model to %s/%s ...' %(self.args.workspace, self.draftModel)
-            draftModelMeta = self._buildDraftModel(self.draftModel)
+        if self._isObjectMissing('Model', draftModel):
+            print '  Saving draft model to %s/%s ...' %(self.args.workspace, draftModel)
+            draftModelMeta = self._buildDraftModel(draftModel)
         else:
-            print '  Found draft model %s/%s' %(self.args.workspace, self.draftModel)
+            print '  Found draft model %s/%s' %(self.args.workspace, draftModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        self.stdModel = '%s.model.std' %(self.args.genome)
+        stdModel = '%s.model.std' %(self.args.genome)
         print '+++ Step %d: Run standard gap fill on complete media' %(step)
-        if self._isObjectMissing('Model', self.stdModel):
-            print '  Submitting job and saving standard gap fill model to %s/%s ...' %(self.args.workspace, self.stdModel)
-            self._gapfill(self.draftModel, self.stdModel, None)
+        if self._isObjectMissing('Model', stdModel):
+            print '  Submitting job and saving standard gap fill model to %s/%s ...' %(self.args.workspace, stdModel)
+            self._gapfill(draftModel, stdModel, None)
         else:
-            print '  Found standard gap fill model %s/%s' %(self.args.workspace, self.stdModel)
+            print '  Found standard gap fill model %s/%s' %(self.args.workspace, stdModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
         print '+++ Step %d: Find standard gap fill unintegrated solutions (we only will integrate the first solution)' %(step)
-        print '  Checking gap fill model %s/%s ...' %(self.args.workspace, self.stdModel)
-        solutionList = self._findGapfillSolution(self.stdModel)
+        print '  Checking gap fill model %s/%s ...' %(self.args.workspace, stdModel)
+        solutionList = self._findGapfillSolution(stdModel)
         print '  Found unintegrated solution %s' %(solutionList[0])
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        self.stdIntModel = "%s.model.std.int" %(self.args.genome)
+        stdIntModel = "%s.model.std.int" %(self.args.genome)
         print '+++ Step %d: Integrate standard gap fill solution 0 on complete media (NOTE - you should check that the solution is optimal)' %(step)
-        if self._isObjectMissing('Model', self.stdIntModel):
-            print '  Integrating solution %s into model %s/%s ...' %(solutionList[0], self.args.workspace, self.stdIntModel)
-            self._integrateSolutions(self.stdModel, self.stdIntModel, solutionList, None)
+        if self._isObjectMissing('Model', stdIntModel):
+            print '  Integrating solution %s into model %s/%s ...' %(solutionList[0], self.args.workspace, stdIntModel)
+            self._integrateSolutions(stdModel, stdIntModel, solutionList, None)
         else:
-            print '  Found integrated standard gap fill model %s/%s' %(self.args.workspace, self.stdIntModel)
+            print '  Found integrated standard gap fill model %s/%s' %(self.args.workspace, stdIntModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        self.stdCompleteFba = "%s.model.std.int.fba" %(self.args.genome)
+        stdCompleteFba = "%s.model.std.int.fba" %(self.args.genome)
         print "+++ Step %d: Check for growth of standard gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
         if self._isObjectMissing('FBA', self.stdCompleteFba):
-            print '  Running fba and saving complete media standard gap fill FBA object to %s/%s' %(self.args.workspace, self.stdCompleteFba)
-            self._runFBA(self.stdIntModel, self.stdCompleteFba)
+            print '  Running fba and saving complete media standard gap fill FBA object to %s/%s' %(self.args.workspace, stdCompleteFba)
+            self._runFBA(stdIntModel, stdCompleteFba)
         else:
-            print '  Found complete media standard gap fill FBA object %s/%s'  %(self.args.workspace, self.stdCompleteFba)
+            print '  Found complete media standard gap fill FBA object %s/%s'  %(self.args.workspace, stdCompleteFba)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
-        self._getObjectiveValue(self.stdCompleteFba)
+        self._getObjectiveValue(stdCompleteFba)
 
         print '=== Completed Standard Gap Fill Workflow ==='
 
@@ -351,72 +353,72 @@ class Workflow:
         print '  [OK] %s'  %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        self.draftModel = '%s.model' %(self.args.genome)
+        draftModel = '%s.model' %(self.args.genome)
         print '+++ Step %d: Build draft model' %(step)
-        if self._isObjectMissing('Model', self.draftModel):
-            print '  Saving draft model to %s/%s ...' %(self.args.workspace, self.draftModel)
-            draftModelMeta = self._buildDraftModel(self.draftModel)
+        if self._isObjectMissing('Model', draftModel):
+            print '  Saving draft model to %s/%s ...' %(self.args.workspace, draftModel)
+            draftModelMeta = self._buildDraftModel(draftModel)
         else:
-            print '  Found draft model %s/%s' %(self.args.workspace, self.draftModel)
+            print '  Found draft model %s/%s' %(self.args.workspace, draftModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        self.probanno = '%s.probanno' %(self.args.genome)
+        probanno = '%s.probanno' %(self.args.genome)
         print '+++ Step %d: Create probabilistic annotation for genome' %(step)
-        if self._isObjectMissing('ProbAnno', self.probanno):
-            print '  Submitting job and saving probabilistic annotation to %s/%s ...' %(self.args.workspace, self.probanno)
-            self._runProbAnno(self.probanno)
+        if self._isObjectMissing('ProbAnno', probanno):
+            print '  Submitting job and saving probabilistic annotation to %s/%s ...' %(self.args.workspace, probanno)
+            self._runProbAnno(probanno)
         else:
-            print '  Found probabilistic annotation %s/%s' %(self.args.workspace, self.probanno)
+            print '  Found probabilistic annotation %s/%s' %(self.args.workspace, probanno)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
             
         step += 1
-        self.rxnprobs = '%s.rxnprobs' %(self.args.genome)
+        rxnprobs = '%s.rxnprobs' %(self.args.genome)
         print '+++ Step %d: Calculate reaction probabilities' %(step)
-        if self._isObjectMissing('RxnProbs', self.rxnprobs):
-            print '  Saving reaction probabilities to %s/%s ...' %(self.args.workspace, self.rxnprobs)
-            rxnprobsMeta = self._runCalculate(self.rxnprobs)
+        if self._isObjectMissing('RxnProbs', rxnprobs):
+            print '  Saving reaction probabilities to %s/%s ...' %(self.args.workspace, rxnprobs)
+            rxnprobsMeta = self._runCalculate(rxnprobs)
         else:
-           print '  Found reaction probabilities %s/%s' %(self.args.workspace, self.rxnprobs)
+           print '  Found reaction probabilities %s/%s' %(self.args.workspace, rxnprobs)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        self.probModel = '%s.model.pa' %(self.args.genome)
+        probModel = '%s.model.pa' %(self.args.genome)
         print '+++ Step %d: Run probabilistic gap fill on complete media' %(step)
-        if self._isObjectMissing('Model', self.probModel):
-            print '  Submitting job and saving probabilistic gap fill model to %s/%s ...' %(self.args.workspace, self.probModel)
-            self._gapfill(self.draftModel, self.probModel, self.rxnprobs)
+        if self._isObjectMissing('Model', probModel):
+            print '  Submitting job and saving probabilistic gap fill model to %s/%s ...' %(self.args.workspace, probModel)
+            self._gapfill(draftModel, probModel, rxnprobs)
         else:
-            print '  Found probabilistic gap fill model %s/%s' %(self.args.workspace, self.probModel)
+            print '  Found probabilistic gap fill model %s/%s' %(self.args.workspace, probModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
         print '+++ Step %d: Find probabilistic unintegrated solutions' %(step)
-        print '  Checking gap fill model %s/%s ...' %(self.args.workspace, self.probModel)
-        solutionList = self._findGapfillSolution(self.probModel)
+        print '  Checking gap fill model %s/%s ...' %(self.args.workspace, probModel)
+        solutionList = self._findGapfillSolution(probModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        self.probIntModel = "%s.model.pa.int" %(self.args.genome)
+        probIntModel = "%s.model.pa.int" %(self.args.genome)
         print "+++ Step %d: Integrate probablisitic gap fill solution 0 on complete media (NOTE - you should check that the solution is optimal)" %(step)
-        print '  Integrating solution %s into model %s/%s ...' %(solutionList[0], self.args.workspace, self.probIntModel)
-        if self._isObjectMissing('Model', self.probIntModel):
-            print '  Integrating probabilisitc gap fill solution 0 into model %s/%s ...' %(self.args.workspace, self.probIntModel)
-            self._integrateSolutions(self.probModel, self.probIntModel, solutionList, self.rxnprobs)
+        print '  Integrating solution %s into model %s/%s ...' %(solutionList[0], self.args.workspace, probIntModel)
+        if self._isObjectMissing('Model', probIntModel):
+            print '  Integrating probabilisitc gap fill solution 0 into model %s/%s ...' %(self.args.workspace, probIntModel)
+            self._integrateSolutions(self.probModel, probIntModel, solutionList, rxnprobs)
         else:
-            print '  Found integrated probabilistic gap fill model %s/%s' %(self.args.workspace, self.probIntModel)
+            print '  Found integrated probabilistic gap fill model %s/%s' %(self.args.workspace, probIntModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        self.probCompleteFba = "%s.model.pa.int.fba" %(self.args.genome)
+        probCompleteFba = "%s.model.pa.int.fba" %(self.args.genome)
         print "+++ Step %d: Check for growth of probabilistic gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
-        if self._isObjectMissing('Model', self.probCompleteFba):
-            print '  Running fba and saving complete media probabilistic gap fill FBA object to %s/%s' %(self.args.workspace, self.probCompleteFba)
-            self._runFBA(self.probIntModel, self.probCompleteFba)
+        if self._isObjectMissing('Model', probCompleteFba):
+            print '  Running fba and saving complete media probabilistic gap fill FBA object to %s/%s' %(self.args.workspace, probCompleteFba)
+            self._runFBA(probIntModel, probCompleteFba)
         else:
-            print '  Found complete media probanno gap fill FBA object %s/%s'  %(self.args.workspace, self.probCompleteFba)
+            print '  Found complete media probanno gap fill FBA object %s/%s'  %(self.args.workspace, probCompleteFba)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
-        self._getObjectiveValue(self.probCompleteFba)
+        self._getObjectiveValue(probCompleteFba)
 
         print '=== Completed Probabilistic Gap Fill Workflow ==='
 
@@ -444,51 +446,51 @@ class Workflow:
         print '  [OK] %s'  %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        self.draftModel = '%s.model' %(self.args.genome)
+        draftModel = '%s.model' %(self.args.genome)
         print '+++ Step %d: Build draft model' %(step)
-        if self._isObjectMissing('Model', self.draftModel):
-            print '  Saving draft model to %s/%s ...' %(self.args.workspace, self.draftModel)
+        if self._isObjectMissing('Model', draftModel):
+            print '  Saving draft model to %s/%s ...' %(self.args.workspace, draftModel)
             draftModelMeta = self._buildDraftModel(self.draftModel)
         else:
-            print '  Found draft model %s/%s' %(self.args.workspace, self.draftModel)
+            print '  Found draft model %s/%s' %(self.args.workspace, draftModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        self.stdIterativeModel = '%s.model.std.iterative' %(self.args.genome)
+        stdIterativeModel = '%s.model.std.iterative' %(self.args.genome)
         print '+++ Step %d: Run standard iterative gap fill on complete media' %(step)
-        if self._isObjectMissing('Model', self.stdIterativeModel):
-            print '  Submitting job and saving standard iterative gap fill model to %s/%s ...' %(self.args.workspace, self.stdIterativeModel)
-            self._gapfill(self.draftModel, self.stdIterativeModel, None, iterative=True)
+        if self._isObjectMissing('Model', stdIterativeModel):
+            print '  Submitting job and saving standard iterative gap fill model to %s/%s ...' %(self.args.workspace, stdIterativeModel)
+            self._gapfill(draftModel, stdIterativeModel, None, iterative=True)
         else:
-            print '  Found standard iterative gap fill model %s/%s' %(self.args.workspace, self.stdIterativeModel)
+            print '  Found standard iterative gap fill model %s/%s' %(self.args.workspace, stdIterativeModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
         print '+++ Step %d: Find standard iterative gap fill unintegrated solutions (we will integrate all solutions)'
-        print '  Checking gap fill model %s/%s ...' %(self.args.workspace, self.stdIterativeModel)
-        solutionList = self._findGapfillSolution(self.stdIterativeModel, getAll=True)
+        print '  Checking gap fill model %s/%s ...' %(self.args.workspace, stdIterativeModel)
+        solutionList = self._findGapfillSolution(stdIterativeModel, getAll=True)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        self.stdIterativeIntModel = "%s.model.std.iterative.int" %(self.args.genome)
+        stdIterativeIntModel = "%s.model.std.iterative.int" %(self.args.genome)
         print '+++ Step %d: Integrate standard iterative gap fill solutions on complete media (NOTE - you should check that the solution is optimal)' %(step)
-        if self._isObjectMissing('Model', self.stdIterativeIntModel):
-            print '  Integrating iterative gapfilling solutions  into model %s/%s ...' %(self.args.workspace, self.stdIterativeIntModel)
-            self.integrateSolutions(self.stdIterativeModel, self.stdIterativeIntModel, solutionList, None)
+        if self._isObjectMissing('Model', stdIterativeIntModel):
+            print '  Integrating iterative gapfilling solutions  into model %s/%s ...' %(self.args.workspace, stdIterativeIntModel)
+            self._integrateSolutions(stdIterativeModel, stdIterativeIntModel, solutionList, None)
         else:
-            print '  Found integrated standard iterative gap fill model %s/%s' %(self.args.workspace, self.stdIterativeIntModel)
+            print '  Found integrated standard iterative gap fill model %s/%s' %(self.args.workspace, stdIterativeIntModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        self.stdIterativeCompleteFba = "%s.model.std.iterative.int.fba" %(self.args.genome)
+        stdIterativeCompleteFba = "%s.model.std.iterative.int.fba" %(self.args.genome)
         print "+++ Step %d: Check for growth of standard iterative gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
-        if self._isObjectMissing('Model', self.stdIterativeCompleteFba):
-            print '  Running fba and saving complete media standard iterative gap fill FBA object to %s/%s' %(self.args.workspace, self.stdIterativeCompleteFba)
-            self._runFBA(self.stdIterativeIntModel, self.stdIterativeCompleteFba)
+        if self._isObjectMissing('Model', stdIterativeCompleteFba):
+            print '  Running fba and saving complete media standard iterative gap fill FBA object to %s/%s' %(self.args.workspace, stdIterativeCompleteFba)
+            self._runFBA(stdIterativeIntModel, stdIterativeCompleteFba)
         else:
-            print '  Found complete media standard iterative gap fill FBA object %s/%s'  %(self.args.workspace, self.stdCompleteFba)
+            print '  Found complete media standard iterative gap fill FBA object %s/%s'  %(self.args.workspace, stdIterativeCompleteFba)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
-        self._getObjectiveValue(self.probCompleteFba)
+        self._getObjectiveValue(stdIterativeCompleteFba)
 
         print '=== Completed Standard Iterative Gap Fill Workflow ==='
 
@@ -516,73 +518,76 @@ class Workflow:
         print '  [OK] %s'  %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        self.draftModel = '%s.model' %(self.args.genome)
+        draftModel = '%s.model' %(self.args.genome)
         print '+++ Step %d: Build draft model' %(step)
-        if self._isObjectMissing('Model', self.draftModel):
-            print '  Saving draft model to %s/%s ...' %(self.args.workspace, self.draftModel)
-            draftModelMeta = self._buildDraftModel(self.draftModel)
+        if self._isObjectMissing('Model', draftModel):
+            print '  Saving draft model to %s/%s ...' %(self.args.workspace, draftModel)
+            draftModelMeta = self._buildDraftModel(draftModel)
         else:
-            print '  Found draft model %s/%s' %(self.args.workspace, self.draftModel)
+            print '  Found draft model %s/%s' %(self.args.workspace, draftModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))      
 
         step += 1
-        self.probanno = '%s.probanno' %('ProbAnno', self.args.genome)
+        probanno = '%s.probanno' %(self.args.genome)
         print '+++ Step %d: Create probabilistic annotation for genome' %(step)
-        if self._isObjectMissing(self.probanno):
-            print '  Submitting job and saving probabilistic annotation to %s/%s ...' %(self.args.workspace, self.probanno)
-            self._runProbAnno(self.probanno)
+        if self._isObjectMissing('ProbAnno', probanno):
+            print '  Submitting job and saving probabilistic annotation to %s/%s ...' %(self.args.workspace, probanno)
+            self._runProbAnno(probanno)
         else:
-            print '  Found probabilistic annotation %s/%s' %(self.args.workspace, self.probanno)
+            print '  Found probabilistic annotation %s/%s' %(self.args.workspace, probanno)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
             
         step += 1
-        self.rxnprobs = '%s.rxnprobs' %('RxnProbs', self.args.genome)
+        rxnprobs = '%s.rxnprobs' %(self.args.genome)
         print '+++ Step %d: Calculate reaction probabilities' %(step)
-        if self._isObjectMissing(self.rxnprobs):
-            print '  Saving reaction probabilities to %s/%s ...' %(self.args.workspace, self.rxnprobs)
-            rxnprobsMeta = self._runCalculate(self.rxnprobs)
+        if self._isObjectMissing('RxnProbs', rxnprobs):
+            print '  Saving reaction probabilities to %s/%s ...' %(self.args.workspace, rxnprobs)
+            rxnprobsMeta = self._runCalculate(rxnprobs)
         else:
-           print '  Found reaction probabilities %s/%s' %(self.args.workspace, self.rxnprobs)
+           print '  Found reaction probabilities %s/%s' %(self.args.workspace, rxnprobs)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         #### Above this line, everything about this is exactly the same as for probanno without iterative gapfill
 
         step += 1
-        self.probIterativeModel = '%s.model.pa.iterative' %(self.args.genome)
-        print '+++ Step %d: Run iterative probabilistic gap fill on complete media' %(step)
-        if self._isObjectMissing('Model', self.probIterativeModel):
-            print '  Submitting job and saving probabilistic gap fill model to %s/%s ...' %(self.args.workspace, self.probIterativeModel)
-            self._gapfill(self.draftModel, self.probIterativeModel, self.rxnprobs)
+        probIterativeModel = '%s.model.pa.iterative' %(self.args.genome)
+        print '+++ Step %d: Run probabilistic iterative gap fill on complete media' %(step)
+        if self._isObjectMissing('Model', probIterativeModel):
+            print '  Submitting job and saving probabilistic iterative gap fill model to %s/%s ...' %(self.args.workspace, probIterativeModel)
+            self._gapfill(draftModel, probIterativeModel, rxnprobs, iterative=True)
         else:
-            print '  Found probabilistic gap fill model %s/%s' %(self.args.workspace, self.probIterativeModel)
+            print '  Found probabilistic gap fill model %s/%s' %(self.args.workspace, probIterativeModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        print '+++ Step %d: Find probabilistic unintegrated solutions' %(step)
-        print '  Checking gap fill model %s/%s ...' %(self.args.workspace, self.probIterativeModel)
-        probSolutionsToIntegrate = self._findGapfillSolution(self.probIterativeModel, getAll=True)
+        print '+++ Step %d: Find probabilistic iterative gap fill unintegrated solutions' %(step)
+        print '  Checking gap fill model %s/%s ...' %(self.args.workspace, probIterativeModel)
+        solutionList = self._findGapfillSolution(self.probIterativeModel, getAll=True)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        self.probIterativeIntModel = "%s.model.pa.iterative.int" %(self.args.genome)
-        print "+++ Step %d: Integrate probanno gapfilling solution 0 on complete media (NOTE - you should check that the solution is optimal)" %(step)
-        print '  Integrating iterative probanno gapfill solutions into model %s/%s (note this takes a very long time)...' %(self.args.workspace, self.probIterativeIntModel)
-        if self._isObjectMissing('Model', self.probIterativeIntModel):
-            print '  Integrating iterative gapfilling solutions  into model %s/%s ...' %(self.args.workspace, self.probIterativeIntModel)
-            self._integrateSolutions(self.probIterativeModel, self.probIterativeIntModel, probSolutionsToIntegrate, self.rxnprobs)
+        probIterativeIntModel = "%s.model.pa.iterative.int" %(self.args.genome)
+        print "+++ Step %d: Integrate probabilistic iterative gap fill solutions on complete media (NOTE - you should check that the solution is optimal)" %(step)
+        print '  Integrating probabilistic iterative gap fill solutions into model %s/%s (note this takes a very long time)...' %(self.args.workspace, probIterativeIntModel)
+        if self._isObjectMissing('Model', probIterativeIntModel):
+            print '  Integrating probabilistic iterative gap fill solutions into model %s/%s ...' %(self.args.workspace, probIterativeIntModel)
+            self._integrateSolutions(self.probIterativeModel, probIterativeIntModel, solutionList, rxnprobs)
         else:
-            print '  Found integrated probanno iterative gap fill model %s/%s' %(self.args.workspace, self.probIterativeIntModell)
+            print '  Found integrated probabilistic iterative gap fill model %s/%s' %(self.args.workspace, probIterativeIntModell)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        self.probIterativeCompleteFba = "%s.model.pa.iterative.int.fba" %(self.args.genome)
-        print "+++ Step %d: Check for growth of probabilistic gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
-        if self._isObjectMissing('Model', self.probIterativeCompleteFba):
-            print '  Running fba and saving complete media standard gap fill FBA object to %s/%s' %(self.args.workspace, self.probIterativeCompleteFba)
-            self._runFBA(self.probIterativeIntModel, self.probIterativeCompleteFba)
+        probIterativeCompleteFba = "%s.model.pa.iterative.int.fba" %(self.args.genome)
+        print "+++ Step %d: Check for growth of probabilistic iterative gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
+        if self._isObjectMissing('Model', probIterativeCompleteFba):
+            print '  Running fba and saving complete media probabilistic iterative gap fill FBA object to %s/%s' %(self.args.workspace, probIterativeCompleteFba)
+            self._runFBA(self.probIterativeIntModel, probIterativeCompleteFba)
         else:
-            print '  Found complete media probanno iterative gap fill FBA object %s/%s'  %(self.args.workspace, self.probIterativeCompleteFba)
+            print '  Found complete media probabilistic iterative gap fill FBA object %s/%s'  %(self.args.workspace, probIterativeCompleteFba)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+        self._getObjectiveValue(stdIterativeCompleteFba)
+
+        print '=== Completed Probabilistic Iterative Gap Fill Workflow ==='
         
         return
 
@@ -618,7 +623,7 @@ if __name__ == "__main__":
     parser.add_argument('--prob', help='Run probabilistic gap fill workflow', action='store_true', dest='prob', default=False)
     parser.add_argument('--iterative', help='Run standard iterative gap fill workflow ', action='store_true', dest='iterative', default=False)
     parser.add_argument('--iterativeprob', help='Run probabilistic iterative gap fill workflow ', action='store_true', dest='iterativeprob', default=False)
-    parser.add_argument('--num-solutions', help='Number of solutions to find for gap fill (ignored for iterative gap filling)', action='store', dest='numsolutions', default=10)
+    parser.add_argument('--num-solutions', help='Number of solutions to find for gap fill (ignored for iterative gap filling)', action='store', dest='numsolutions', type=int, default=10)
     parser.add_argument('--ws-url', help='URL for workspace service', action='store', dest='wsurl', default='http://www.kbase.us/services/workspace')
     parser.add_argument('--fba-url', help='URL for fba model service', action='store', dest='fbaurl', default='http://bio-data-1.mcs.anl.gov/services/fba')
     parser.add_argument('--pa-url', help='URL for probabilistic annotation service', action='store', dest='paurl', default='http://www.kbase.us/services/probabilistic_annotation')
