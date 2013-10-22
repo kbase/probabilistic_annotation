@@ -159,7 +159,6 @@ class Workflow:
         if iterative:
             gapfillParams['completeGapfill'] = 1
             print 'turned on iterative'
-        return
 
         job = self.fbaClient.queue_gapfill_model(gapfillParams)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -450,7 +449,7 @@ class Workflow:
         print '+++ Step %d: Build draft model' %(step)
         if self._isObjectMissing('Model', draftModel):
             print '  Saving draft model to %s/%s ...' %(self.args.workspace, draftModel)
-            draftModelMeta = self._buildDraftModel(self.draftModel)
+            draftModelMeta = self._buildDraftModel(draftModel)
         else:
             print '  Found draft model %s/%s' %(self.args.workspace, draftModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -466,7 +465,7 @@ class Workflow:
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        print '+++ Step %d: Find standard iterative gap fill unintegrated solutions (we will integrate all solutions)'
+        print '+++ Step %d: Find standard iterative gap fill unintegrated solutions (we will integrate all solutions)' %(step)
         print '  Checking gap fill model %s/%s ...' %(self.args.workspace, stdIterativeModel)
         solutionList = self._findGapfillSolution(stdIterativeModel, getAll=True)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
