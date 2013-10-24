@@ -19,6 +19,10 @@ class CommandError(Exception):
 class JobError(Exception):
     pass
 
+''' Exception raised when required data is not found when trying to integrate phenotype data into already-existing gapfill solutions '''
+class NoDataError(Exception):
+    pass
+
 ''' Run a command and get the output. '''
 
 class Command:
@@ -133,8 +137,7 @@ class Workflow:
         return rxnprobsMeta
 
     ''' Run gap fill on a draft model. '''
-
-    def _gapfill(self, draftModel, model, rxnprobs, iterative=False):
+    def _gapfill(self, draftModel, model, rxnprobs, iterative=False, media=None, mediaws="KBaseMedia"):
         gapfillFormulation = dict()
         gapfillFormulation['directionpen'] = 4
         gapfillFormulation['singletranspen'] = 25
@@ -142,9 +145,14 @@ class Workflow:
         gapfillFormulation['transpen'] = 25
         gapfillFormulation['allowedcmps'] = [ 'c', 'e', 'p' ]
         gapfillFormulation['nobiomasshyp'] = 1
+        gapfillFormulation['formulation'] = {}
+
+        if media is not None:
+            gapfillFormulation['formulation']['media'] = media
+            gapfillFormulation['formulation']['media_workspace'] = mediaws
+
         if iterative:
             # This is necessary to prevent ModelSEED from defaulting to just optimizing biomass.
-            gapfillFormulation['formulation'] = {}
             gapfillFormulation['formulation']['objectiveTerms'] = []
 
         if iterative and self.args.numsolutions > 1:
@@ -155,6 +163,7 @@ class Workflow:
         if rxnprobs != None:
             gapfillFormulation['probabilisticReactions'] = rxnprobs
             gapfillFormulation['probabilisticAnnotation_workspace'] = self.args.workspace
+
         gapfillParams = dict()
         gapfillParams['model'] = draftModel
         gapfillParams['model_workspace'] = self.args.workspace
@@ -228,29 +237,57 @@ class Workflow:
 
     ''' Run FBA to see if the specified model produces growth. '''
 
-    def _runFBA(self, model, fba):
-        # Note - I'm not 100% sure but I THINK you don't need to define a formulation object unless you're changing the media. Even then it might do it for you if you pass it in the parameters.
+    def _runFBA(self, model, fba, media=None, mediaws="KBaseMedia"):
+        # Note - I'm not 100% sure but I THINK you don't need to define a formulation object unless you're changing the media.
         # This needs some testing.
+        #
+        # If no media is provided the default is complete media (everything with transporters is allowed into the cell)
         runFbaParams = dict()
         runFbaParams['model'] = model
         runFbaParams['workspace'] = self.args.workspace
         runFbaParams['auth'] = self.token
         runFbaParams['fba'] = fba
+        if media is not None:
+            runFbaParams['formulation'] = {}
+            runFbaParams['formulation']['media'] = media
+            runFbaParams['formulation']['media_workspace'] = mediaws
+
         fbaMeta = self.fbaClient.runfba(runFbaParams)
 
-        return
+        return fbaMeta
 
     def _getObjectiveValue(self, fba):
         # Get the FBA object and extract the objective.
+        # (note - the objective value is in the metadata so we should be getting this from _runFBA to not run into troubles with multiple FBAs in a single model)
         getObjectParams = dict()
         getObjectParams['id'] = fba
         getObjectParams['type'] = 'FBA'
         getObjectParams['workspace'] = self.args.workspace
         getObjectParams['auth'] = self.token
         fbaObject = self.wsClient.get_object(getObjectParams)
+        # maybe should save all of these. But I don't know what to do with them.
+        value = None
         for result in fbaObject['data']['fbaResults']:
             print '  Objective value is %s' %(result['objectiveValue'])
-        return
+            value = float(result['objectiveValue'])
+        return value
+
+    def _getMediaIdsFromPhenotypeSet(self, phenoid):
+        # Get a list of media IDs and workspaces from a phenotypeSet object
+        # Returns a list of unique (media, workspace) tuples
+        getPhenotypeParams = dict()
+        getPhenotypeParams['id'] = phenoid
+        getPhenotypeParams['type'] = 'PhenotypeSet'
+        getPhenotypeParams['workspace'] = self.args.knockoutws
+        getPhenotypeParams['auth'] = self.token
+        phenotypeSetObject = self.wsClient.get_object(getPhenotypeParams)
+
+        mediaTuples = set()
+        for phenotypeSet in phenotypeSetObject['data']['phenotypes']:
+            for phenotype in phenotypeSet:
+                mediaTuples.add( (phenotypeSet[1], phenotypeSet[2]) )
+
+        return mediaTuples
 
     def __init__(self, args):
         # Save the arguments.
@@ -418,7 +455,7 @@ class Workflow:
         step += 1
         probCompleteFba = "%s.model.pa.int.fba" %(self.args.genome)
         print "+++ Step %d: Check for growth of probabilistic gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
-        if self._isObjectMissing('Model', probCompleteFba):
+        if self._isObjectMissing('FBA', probCompleteFba):
             print '  Running fba and saving complete media probabilistic gap fill FBA object to %s/%s' %(self.args.workspace, probCompleteFba)
             self._runFBA(probIntModel, probCompleteFba)
         else:
@@ -490,7 +527,7 @@ class Workflow:
         step += 1
         stdIterativeCompleteFba = "%s.model.std.iterative.int.fba" %(self.args.genome)
         print "+++ Step %d: Check for growth of standard iterative gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
-        if self._isObjectMissing('Model', stdIterativeCompleteFba):
+        if self._isObjectMissing('FBA', stdIterativeCompleteFba):
             print '  Running fba and saving complete media standard iterative gap fill FBA object to %s/%s' %(self.args.workspace, stdIterativeCompleteFba)
             self._runFBA(stdIterativeIntModel, stdIterativeCompleteFba)
         else:
@@ -585,7 +622,7 @@ class Workflow:
         step += 1
         probIterativeCompleteFba = "%s.model.pa.iterative.int.fba" %(self.args.genome)
         print "+++ Step %d: Check for growth of probabilistic iterative gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
-        if self._isObjectMissing('Model', probIterativeCompleteFba):
+        if self._isObjectMissing('FBA', probIterativeCompleteFba):
             print '  Running fba and saving complete media probabilistic iterative gap fill FBA object to %s/%s' %(self.args.workspace, probIterativeCompleteFba)
             self._runFBA(self.probIterativeIntModel, probIterativeCompleteFba)
         else:
@@ -596,6 +633,107 @@ class Workflow:
         print '=== Completed Probabilistic Iterative Gap Fill Workflow ==='
         
         return
+
+    def integrateKnockouts(self):
+        print "=== Gapfilling to and integrating solutions for media in knockout phenotype data %s ===" %(self.args.knockoutdata)
+
+        # We need to turn this setting off in a few places
+        oldforce = self.args.force
+
+        step = 0
+        print '+++ Step %d: Search for all of the completed gapfills (probanno or non-probanno, iterative or not) to which we want to try to integrate media conditions +++' %(step)
+        completeGapfillNames = [ "%s.model.std.int" %(self.args.genome),
+                                 "%s.model.pa.int" %(self.args.genome),
+                                 "%s.model.std.iterative.int" %(self.args.genome),
+                                 "%s.model.pa.iterative.int" %(self.args.genome) ]
+
+        self.args.force = False
+        foundGapfills = []
+        for gapfilledModel in completeGapfillNames:
+            if self._isObjectMissing("Model", gapfilledModel):
+                continue
+            else:
+                foundGapfills.append(gapfilledModel)
+        if len(foundGapfills) == 0:
+            print "  [ERROR] No gapfills found for which to integrate knockout data. Run the workflow with a gapfill flag first."
+            raise NoDataError("No integrated models found")
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+        self.args.force = oldforce
+
+        step += 1
+        print '+++ Step %d: Find all media conditions in specified PhenotypeSet +++' %(step)
+        mediaTuples = self._getMediaIdsFromPhenotypeSet(self.args.knockoutdata)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        print '+++ Step %d: Iteratively gapfill to and integrate solutions for each media found in the PhenotypeSet +++' %(step)
+        for media in mediaTuples:
+            for gapfilledModel in foundGapfills:
+                mediaGapfilledModel = gapfilledModel + ".%s" %(media[0])
+                mediaGapfilledIntModel = mediaGapfilledModel + ".int"
+
+                substep = 0
+                print '+++ Step %d.%d for media %s: Test if model already grows on media +++' %(step, substep, media[0])
+                # Does the integrated model ALREADY GROW on this media?
+                mediaTestFba = gapfilledModel + ".%s.testgrowth.fba" %(media[0])
+                if self._isObjectMissing("FBA", mediaTestFba):
+                    self._runFBA(gapfilledModel, mediaTestFba, media=media[0], mediaws=media[1])
+                else:
+                    print "FBA solution object %s already found"
+                obj = self._getObjectiveValue(mediaTestFba)
+                if obj is not None and obj > 1E-5:
+                    print "+++ No gapfilling needed - model already grows on media. Copying it over... +++"
+                    # TODO - Copy over the model to new location (mediaGapfilledIntModel AND mediaGapfilledModel)
+                    print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+                    continue
+                print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+                substep += 1
+                print '+++ Step %d.%d for media %s: Identify if we need to do a probanno or standard gapfill and find rxnprobs data if needed... +++' %(step, substep, media[0])
+                # First we need to see if the gapfill was a standard (std) or probanno (pa) gapfill.
+                self.args.force = False
+                isProbanno = False
+                rxnprobs = None
+                if ".pa." in gapfilledModel:
+                    isProbanno = True
+                    print "Identified that the gapfill was PROBANNO gapfill. Checking for existence of the probrxns object..."
+                    rxnprobs = '%s.rxnprobs' %(self.args.genome)
+                    if self._isObjectMissing('RxnProbs', rxnprobs):
+                        print '  [ERROR] No rxnprobs object found for input genome. Try running one of the probabilistic gapfilling options of this workflow again first. '
+                        raise NoErrorData("No rxnprobs object found")
+                self.args.force = oldforce
+                print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+                
+                substep += 1
+                print '+++ Step %d.%d for media %s: Run the appropriate type of gapfilling (non-iterative with \ without probanno) to the required media +++' %(step, substep, media[0])
+                if self._isObjectMissing('Model', mediaGapfilledModel):
+                    print "Running gap filling to model %s..." %(media[0])
+                    self._gapfill(gapfilledModel, mediaGapfilledModel, rxnprobs, iterative=False, media=media[0], mediaws=media[1])
+                else:
+                    print "Gapfilled model %s already exists." %(mediaGapfilledModel)
+                print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))             
+
+                substep += 1
+                print '+++ Step %d.%d for media %s: Integrate the new solution +++' %(step, substep, media[0])
+                solutionList = self._findGapfillSolution(mediaGapfilledModel)
+                if self._isObjectMissing('Model', mediaGapfilledIntModel):
+                    print "Integrating solution..."
+                    self._integrateSolutions(mediaGapfilledModell, mediaGapfilledIntModel, solutionList, rxnprobs)
+                else:
+                    print "Integrated model %s already exists" %(mediaGapfilledIntModel)
+                print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+                substep += 1
+                print '+++ Step %d.%d for media %s: Check for growth in the integrated model +++' %(step, substep, media[0])
+                finalFbaObject = "%s.fba" %(mediaGapfilledIntModel)
+                if self._isObjectMissing('FBA', probIterativeCompleteFba):
+                    print '  Running fba and saving complete media probabilistic iterative gap fill FBA object to %s/%s' %(self.args.workspace, probIterativeCompleteFba)
+                    self._runFBA(mediaGapfilledIntModel, finalFbaObject, media=media[0], mediaws=media[1])
+                else:
+                    print '  FBA object already %s exists' %(finalFbaObject)
+                print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+                obj = self._getObjectiveValue(finalFbaObject)
 
 if __name__ == "__main__":
     # Parse options.
@@ -633,39 +771,48 @@ if __name__ == "__main__":
     parser.add_argument('--fba-url', help='URL for fba model service', action='store', dest='fbaurl', default='http://bio-data-1.mcs.anl.gov/services/fba')
     parser.add_argument('--pa-url', help='URL for probabilistic annotation service', action='store', dest='paurl', default='http://www.kbase.us/services/probabilistic_annotation')
     parser.add_argument('--knockoutdata', help='OPTIONAL. Provide a knockout data PhenotypeSet and we will create a new model gapfilled to each media in it.', action='store', default=None)
+    parser.add_argument('--knockoutdataws', help='OPTIONAL. Workspace for provided knockout data PhenotypeSet (default is the same as the current workspace', action='store', dest='knockoutws', default=None)
     parser.add_argument('--maxtime', 
                         help='OPTIONAL. Maximum amount of time to wait for a job to finish (by default the maximum is 2 hour for normal gapfill jobs and probanno jobs and 4 days for iterative gapfill)',
                         action='store', default=None)
     args = parser.parse_args()
+
+    if args.knockoutws is None:
+        args.knockoutws = args.workspace
     
     try:
         if args.force:
             print '[WARNING] All objects will be rebuilt because --force option was specified.'
         workflow = Workflow(args)
-        if args.standard:
-            oldmax = args.maxtime
-            if args.maxtime is None:
-                args.maxtime = 86400
+        if workflow.args.standard:
+            oldmax = workflow.args.maxtime
+            if workflow.args.maxtime is None:
+                workflow.args.maxtime = 86400
             workflow.runStandard()
-            args.maxtime = oldmax
-        if args.prob:
-            oldmax = args.maxtime
-            if args.maxtime is None:
-                args.maxtime = 86400
+            workflow.args.maxtime = oldmax
+        if workflow.args.prob:
+            oldmax = workflow.args.maxtime
+            if workflow.args.maxtime is None:
+                workflow.args.maxtime = 86400
             workflow.runProbabilistic()
-            args.maxtime = oldmax
-        if args.iterative:
-            oldmax = args.maxtime
-            if args.maxtime is None:
-                args.maxtime = 345600
+            workflow.args.maxtime = oldmax
+        if workflow.args.iterative:
+            oldmax = workflow.args.maxtime
+            if workflow.args.maxtime is None:
+                workflow.args.maxtime = 345600
             workflow.runIterative()
-            args.maxtime = oldmax
-        if args.iterativeprob:
-            oldmax = args.maxtime
-            if args.maxtime is None:
-                args.maxtime = 345600
+            workflow.args.maxtime = oldmax
+        if workflow.args.iterativeprob:
+            oldmax = workflow.args.maxtime
+            if workflow.args.maxtime is None:
+                workflow.args.maxtime = 345600
             workflow.runIterativeProbabilistic()
-            args.maxtime = oldmax
+            workflow.args.maxtime = oldmax
+        if workflow.args.knockoutdata is not None:
+            if workflow.args.maxtime is None:
+                workflow.args.maxtime = 86400
+            workflow.integrateKnockouts()
+
     except Exception as e:
         print '  [ERROR]'
         traceback.print_exc(file=sys.stderr)
