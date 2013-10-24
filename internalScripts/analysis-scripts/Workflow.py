@@ -71,7 +71,7 @@ class Workflow:
         increment = 60
         while not done:
             time.sleep(increment)
-            totaltime += 60
+            totaltime += increment
             jobList = self.wsClient.get_jobs( { 'jobids': [ jobid ], 'auth': self.token } )
             if jobList[0]['status'] == 'done':
                 done = True
@@ -123,9 +123,9 @@ class Workflow:
         return
 
     ''' Run a Calculate (to get RxnProbs) job on your genome. Note - this is the same for probanno gapfill of both normal and iterative varieties '''
-    def _runCalculate(self, rxnprobs):
+    def _runCalculate(self, probanno, rxnprobs):
         calculateParams = dict()
-        calculateParams['probanno'] = self.probanno
+        calculateParams['probanno'] = probanno
         calculateParams['probanno_workspace'] = self.args.workspace
         calculateParams['rxnprobs'] = rxnprobs
         calculateParams['rxnprobs_workspace'] = self.args.workspace
@@ -148,7 +148,7 @@ class Workflow:
             gapfillFormulation['formulation']['objectiveTerms'] = []
 
         if iterative and self.args.numsolutions > 1:
-            print "  [WARNING]: Number of solutions > 1 for iterative gap fill is not allowed. We will ignore that argument for this run."
+            print "  [WARNING] Number of solutions > 1 for iterative gap fill is not allowed. We will ignore that argument for this run."
         else:
             gapfillFormulation['num_solutions'] = self.args.numsolutions
 
@@ -325,7 +325,7 @@ class Workflow:
         step += 1
         stdCompleteFba = "%s.model.std.int.fba" %(self.args.genome)
         print "+++ Step %d: Check for growth of standard gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
-        if self._isObjectMissing('FBA', self.stdCompleteFba):
+        if self._isObjectMissing('FBA', stdCompleteFba):
             print '  Running fba and saving complete media standard gap fill FBA object to %s/%s' %(self.args.workspace, stdCompleteFba)
             self._runFBA(stdIntModel, stdCompleteFba)
         else:
@@ -383,7 +383,7 @@ class Workflow:
         print '+++ Step %d: Calculate reaction probabilities' %(step)
         if self._isObjectMissing('RxnProbs', rxnprobs):
             print '  Saving reaction probabilities to %s/%s ...' %(self.args.workspace, rxnprobs)
-            rxnprobsMeta = self._runCalculate(rxnprobs)
+            rxnprobsMeta = self._runCalculate(probanno, rxnprobs)
         else:
            print '  Found reaction probabilities %s/%s' %(self.args.workspace, rxnprobs)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -622,7 +622,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, prog='Workflow', description=description)
     parser.add_argument('genome', help='ID of genome that matches the source (e.g. 83333.1 for SEED, kb|g.0 for kbase)', action='store', default=None)
     parser.add_argument('--genome_source', help='Source for genome. Valid values include "kbase", "seed", "rast". (Default is seed)', action='store', dest='source', default='seed')
-    parser.add_argument('-?', '--usage', help='show usage information', action='store_true', dest='usage')
     parser.add_argument('-w', '--workspace', help='workspace for storing objects', action='store', dest='workspace')
     parser.add_argument('--force', help='Force rebuilding of all objects', action='store_true', dest='force', default=False)
     parser.add_argument('--standard', help='Run standard gap fill workflow', action='store_true', dest='standard', default=False)
@@ -639,24 +638,20 @@ if __name__ == "__main__":
                         action='store', default=None)
     args = parser.parse_args()
     
-    if args.usage:
-        print parser.usage()
-        exit(0)
-
     try:
         if args.force:
-            print 'All objects will be rebuilt because --force option was specified.'
+            print '[WARNING] All objects will be rebuilt because --force option was specified.'
         workflow = Workflow(args)
         if args.standard:
             oldmax = args.maxtime
             if args.maxtime is None:
-                args.maxtime = 7200
+                args.maxtime = 86400
             workflow.runStandard()
             args.maxtime = oldmax
         if args.prob:
             oldmax = args.maxtime
             if args.maxtime is None:
-                args.maxtime = 7200
+                args.maxtime = 86400
             workflow.runProbabilistic()
             args.maxtime = oldmax
         if args.iterative:
