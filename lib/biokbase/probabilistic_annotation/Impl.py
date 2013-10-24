@@ -198,7 +198,8 @@ class ProbabilisticAnnotation:
         '''
         
         blastResultFile = os.path.join(workFolder, "%s.blastout" %(input["genome"]))
-        cmd = "blastp -query \"%s\" -db %s -outfmt 6 -evalue 1E-5 -num_threads 1 -out \"%s\"" %(queryFile, os.path.join(self.config["data_folder_path"], DatabaseFiles["subsystem_otu_fasta_file"]), blastResultFile)
+        cmd = "blastp -query \"%s\" -db %s -outfmt 6 -evalue 1E-5 -num_threads %s -out \"%s\"" \
+            %(queryFile, os.path.join(self.config["data_folder_path"], DatabaseFiles["subsystem_otu_fasta_file"]), self.config["blast_threads"], blastResultFile)
         sys.stderr.write("Started BLAST with command: %s\n" %(cmd))
         status = os.system(cmd)
         sys.stderr.write("Ended BLAST with command: %s\n" %(cmd))
@@ -779,7 +780,7 @@ class ProbabilisticAnnotation:
         for key in DatabaseFiles:
             localPath = os.path.join(self.config["data_folder_path"], DatabaseFiles[key])
             if not os.path.exists(localPath):
-                raise NotReadyError("Config file specified not to connect to Shock but database files not found from alternative method")
+                raise NotReadyError("Static database file '%s' does not exist" %(localPath))
         return
 
     def _loadDatabaseFiles(self):
@@ -873,14 +874,14 @@ class ProbabilisticAnnotation:
         except:
             try:
                 # We could still have already downloaded the files from somewhere else. Lets see if they all exist and are found in the expected location.
-                sys.stderr.write("WARNING: Unable to get files from Shock. We will see if you have the static files from somewhere else but they might not be the latest!\n Caught error:\n")
+                sys.stderr.write("WARNING: Failed to load static database files from Shock. Checking current files but they might not be the latest!\n")
                 traceback.print_exc(file=sys.stderr)
                 self._checkIfDatabaseFilesExist()
                 status = "ready"
+                sys.stderr.write("All static database files are available.\n")
             except:
-                sys.stderr.write("Unable to find files in this way either.\n")
                 status = "failed"
-                sys.stderr.write("\nCaught exception...\n")
+                sys.stderr.write("ERROR: Static database file is missing.\n")
                 traceback.print_exc(file=sys.stderr)
 
         writeStatusFile(config, status)
