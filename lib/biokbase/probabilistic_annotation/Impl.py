@@ -208,7 +208,6 @@ class ProbabilisticAnnotation:
                                   "-num_threads", self.config["blast_threads"],
                                   "-out", blastResultFile
                                   ])
-#        status = os.system(cmd)
         sys.stderr.write("Ended BLAST with command: %s\n" %(cmd))
         if os.WIFEXITED(status):
             if os.WEXITSTATUS(status) != 0:
