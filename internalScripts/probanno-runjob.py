@@ -13,7 +13,7 @@ job = json.load(open(jsonFilename, "r"))
 config = job["jobdata"]["config"]
 
 # Let the server know that it is being called from a job.
-config["generate_data_option"] = "runjob"
+config["load_data_option"] = "runjob"
 
 # Call the server function to run the annotation.
 impl_ProbabilisticAnnotation = ProbabilisticAnnotation(config)

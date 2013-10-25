@@ -844,7 +844,7 @@ class ProbabilisticAnnotation:
             self.config = config
         
         # Just return when instantiated to run a job.
-        if self.config["generate_data_option"] == "runjob":
+        if self.config["load_data_option"] == "runjob":
             return
 
         # Convert flag to boolean value (a number greater than zero or the string 'True' turns the flag on).
@@ -864,18 +864,18 @@ class ProbabilisticAnnotation:
             os.makedirs(config["data_folder_path"], 0775)
 
         # See if the static database files are available.
-        # Check the status
-        # catch not ready error, when caught call method to download files from shock
-        # or how about always call method to check cache and download as needed, catch error reading from cache file
         writeStatusFile(config, "running")
-        try:
-            self._loadDatabaseFiles()
-            status = "ready"
-        except:
+        if self.config["load_data_option"] == "shock":
             try:
-                # We could still have already downloaded the files from somewhere else. Lets see if they all exist and are found in the expected location.
+                self._loadDatabaseFiles()
+                status = "ready"
+                sys.stderr.write("All static database files loaded from Shock.\n")
+            except:
                 sys.stderr.write("WARNING: Failed to load static database files from Shock. Checking current files but they might not be the latest!\n")
                 traceback.print_exc(file=sys.stderr)
+                self.config["load_data_option"] = "preload"
+        if self.config["load_data_option"] == "preload":
+            try:
                 self._checkIfDatabaseFilesExist()
                 status = "ready"
                 sys.stderr.write("All static database files are available.\n")
@@ -883,7 +883,6 @@ class ProbabilisticAnnotation:
                 status = "failed"
                 sys.stderr.write("ERROR: Static database file is missing.\n")
                 traceback.print_exc(file=sys.stderr)
-
         writeStatusFile(config, status)
             
         #END_CONSTRUCTOR
