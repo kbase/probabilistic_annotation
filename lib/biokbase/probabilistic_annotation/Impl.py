@@ -1,5 +1,6 @@
 #BEGIN_HEADER
 import sys, tempfile, shutil
+import subprocess
 import os, traceback
 import time
 from random import randint
@@ -201,7 +202,13 @@ class ProbabilisticAnnotation:
         cmd = "blastp -query \"%s\" -db %s -outfmt 6 -evalue 1E-5 -num_threads %s -out \"%s\"" \
             %(queryFile, os.path.join(self.config["data_folder_path"], DatabaseFiles["subsystem_otu_fasta_file"]), self.config["blast_threads"], blastResultFile)
         sys.stderr.write("Started BLAST with command: %s\n" %(cmd))
-        status = os.system(cmd)
+        status = subprocess.call(["blastp", "-query", queryFile, 
+                                  "-db", os.path.join(self.config["data_folder_path"], DatabaseFiles["subsystem_otu_fasta_file"]),
+                                  "-outfmt", "6", "-evalue", "1E-5",
+                                  "-num_threads", self.config["blast_threads"],
+                                  "-out", blastResultFile
+                                  ])
+#        status = os.system(cmd)
         sys.stderr.write("Ended BLAST with command: %s\n" %(cmd))
         if os.WIFEXITED(status):
             if os.WEXITSTATUS(status) != 0:
