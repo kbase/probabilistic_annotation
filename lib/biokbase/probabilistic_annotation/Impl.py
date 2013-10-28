@@ -10,6 +10,7 @@ from biokbase.probabilistic_annotation.Shock import Client as ShockClient
 from biokbase.workspaceService.client import *
 from biokbase.fbaModelServices.Client import *
 from biokbase.cdmi.client import CDMI_EntityAPI
+from urllib2 import HTTPError
 
 # Current version number of ProbAnno object
 ProbAnnoVersion = 1
@@ -1052,7 +1053,13 @@ class ProbabilisticAnnotation:
             EntityAPI = CDMI_EntityAPI(self.config["cdmi_url"])
             for ii in range(len(reactionProbs)):
                 rxnid = reactionProbs[ii][0]
-                rxndata = EntityAPI.get_entity_Reaction( [ rxnid ], [ "source_id" ] )
+                done = False
+                while not done:
+                    try:
+                        rxndata = EntityAPI.get_entity_Reaction( [ rxnid ], [ "source_id" ] )
+                        done = True
+                    except HTTPError as e:
+                        pass
                 reactionProbs[ii][0] = rxndata[rxnid]["source_id"]
  
         # Create a reaction probability object
