@@ -16,7 +16,7 @@
 # The CDMI_API is for "well-trodden paths" functions
 # CDMI_EntityAPI is for ER functions (all_entities_..., get_Relationship_....)
 from biokbase.cdmi.client import CDMI_API, CDMI_EntityAPI
-
+from urllib2 import URLError, HTTPError
 import urllib
 import sys
 import operator #for itemgetter
@@ -99,26 +99,40 @@ def getFieldFromRelationship(seedRelationship, fieldName, objtype):
         f.append(entry[objidx][fieldName])
     return f
 
-def subsystemFids(MINN, COUNT, config):
+def subsystemFids(count, config):
     '''Query the CDMI for a list of FIDs in the subsystems'''
 
     cdmi = CDMI_API(config["cdmi_url"])
     cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
-    # Get Genes that are in Subsystems and in Otus.
-    ssdict = cdmi_entity.all_entities_Subsystem(MINN,COUNT,["id"])
-    if len(ssdict) == COUNT:
-        sys.stderr.write("Maximum count reached for subsystem dictionary...")
+
+    # Get the genes that are in subsystems and in OTUs.
+    ssdict = dict()
+    start = 0
+    done = False
+    while not done:
+        subdict = cdmi_entity.all_entities_Subsystem(start, count, ["id"])
+        ssdict.update(subdict)
+        start += count
+        if len(subdict) < count:
+            done = True
     ssids = getFieldFromEntity(ssdict, "id")
 
     # Now lets get a list of FIDs within those subsystems
     # Break the complete list into smaller sub-lists to avoid timeouts
     start = 0
-    increment = 50
+    increment = 8
     end = start + increment - 1
-    counter = (len(ssids) / increment) + 1
+    counter = len(ssids)
     ssfids = []
-    while counter != 0:
-        ssfiddict = cdmi.subsystems_to_fids(ssids[start:end], [])        
+    while counter > 0:
+        try:
+            ssfiddict = cdmi.subsystems_to_fids(ssids[start:end], [])
+        except HTTPError as e:
+            if increment > 1:
+                increment = increment / 2
+                end = start + increment - 1
+            sys.stderr.write("caught '%s' error, increment is now %d\n" %(e.reason, increment))
+            continue
         for key in ssfiddict:
             for ssfid in ssfiddict[key]:
                 ls = ssfiddict[key][ssfid]
@@ -133,22 +147,31 @@ def subsystemFids(MINN, COUNT, config):
         end += increment
         if end >= len(ssids):
             end = len(ssids) - 1
-        counter -= 1
+        counter -= increment
 
     # Uniquify!
     return list(set(ssfids))
 
-def getDlitFids(MINN, COUNT, config):
+def getDlitFids(count, config):
     '''Get a list of FIDs with direct literature evidence (dlits) from the CDM'''
 
     cdmi = CDMI_API(config["cdmi_url"])
     cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
-    pubdict = cdmi_entity.all_entities_Publication(MINN, COUNT, ["id"])
-    if len(pubdict) == COUNT:
-        sys.stderr.write("Maximum count reached for publication dictionary...")
+    pubdict = dict()
+    start = 0
+    done = False
+    while not done:
+        subdict = cdmi_entity.all_entities_Publication(start, count, ["id"])
+        pubdict.update(subdict)
+        start += count
+        if len(subdict) < count:
+            done = True
+
     pubids = getFieldFromEntity(pubdict, "id")
+    sys.stderr.write("%d pubids\n" %(len(pubids)))
     pub2seq = cdmi_entity.get_relationship_Concerns(pubids, [], [], ["id"])
     pubseqs = getFieldFromRelationship(pub2seq, "id", "to")
+    sys.stderr.write("%d pubseqs\n" %(len(pubseqs)))
     seq2fids = cdmi_entity.get_relationship_IsProteinFor(pubseqs, [], [], ["id"])
     fids = getFieldFromRelationship(seq2fids, "id", "to")
     return fids
@@ -157,7 +180,7 @@ def filterFidsByOtus(fidlist, otus, config):
     '''
     Obsolete (I think this isn't used any more)
 
-    Given a list of representative organisnm IDs (OTUs) and a list of
+    Given a list of representative organism IDs (OTUs) and a list of
     FIDs, returns only those FIDs found in an OTU.'''
 
     cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
@@ -199,15 +222,22 @@ def filterFidsByOtusBetter(fidsToRoles, rolesToFids, oturepsToMembers, config):
     start = 0
     increment = 5000
     end = start + increment - 1
-    counter = (len(fidlist) / increment) + 1
-    while counter != 0:
-        od = cdmi_entity.get_relationship_IsOwnedBy(fidlist[start:end], [], [], ["id"])
+    counter = len(fidlist)
+    while counter > 0:
+        try:
+            od = cdmi_entity.get_relationship_IsOwnedBy(fidlist[start:end], [], [], ["id"])
+        except HTTPError as e:
+            if increment > 1:
+                increment = increment / 2
+                end = start + increment - 1
+            sys.stderr.write("caught '%s' error, increment is now %d\n" %(e.reason, increment))
+            continue
         orgdict.extend(od)
         start += increment
         end += increment
         if end >= len(fidlist):
             end = len(fidlist) - 1
-        counter -= 1
+        counter -= increment
     fidlist = getFieldFromRelationship(orgdict, "from_link", "rel")
     orglist = getFieldFromRelationship(orgdict, "id", "to")
     fidToOrg = {}
@@ -260,11 +290,11 @@ def filterFidsByOtusBetter(fidsToRoles, rolesToFids, oturepsToMembers, config):
 
     return keptFidsToRoles, keptRolesToFids, missingRoles
 
-def getOtuGenomeDictionary(MINN, COUNT, config):
+def getOtuGenomeDictionary(count, config):
     '''Obtain a dictionary from OTU representatives to all genomes in the OTU'''
     cdmi = CDMI_API(config["cdmi_url"])
     # Get list of OTUs
-    otulist = getOtuGenomeIds(MINN, COUNT, config)
+    otulist = getOtuGenomeIds(count, config)
     otudict = cdmi.otu_members(otulist[0])
     return otudict
 
@@ -277,14 +307,20 @@ def fidsToRoles(fidlist, config):
     
     # Break the complete list into smaller sub-lists to avoid timeouts
     start = 0
-    increment = 5000
+    increment = 1000
     end = start + increment - 1
-    counter = (len(fidlist) / increment) + 1
+    counter = len(fidlist)
     fidsToRoles = {}
     rolesToFids = {}
-    while counter != 0:
-        roledict = cdmi_entity.get_relationship_HasFunctional(fidlist[start:end], [], [], ["id"])
-    
+    while counter > 0:
+        try:
+            roledict = cdmi_entity.get_relationship_HasFunctional(fidlist[start:end], [], [], ["id"])
+        except HTTPError as e:
+            if increment > 1:
+                increment = increment / 2
+                end = start + increment - 1
+            sys.stderr.write("caught '%s' error, increment is now %d\n" %(e.reason, increment))
+            continue
         flist = getFieldFromRelationship(roledict, "from_link", "rel")
         rolelist = getFieldFromRelationship(roledict, "id", "to")
         for ii in range(len(flist)):
@@ -305,7 +341,7 @@ def fidsToRoles(fidlist, config):
         end += increment
         if end >= len(fidlist):
             end = len(fidlist) - 1
-        counter -= 1
+        counter -= increment
         
     # Convert back to lists to not break other functions.
     for f in fidsToRoles:
@@ -322,10 +358,17 @@ def fidsToSequences(fidlist, config):
     start = 0
     increment = 5000
     end = start + increment - 1
-    counter = (len(fidlist) / increment) + 1
+    counter = len(fidlist)
     seqs = {}
-    while counter != 0:
-        ps = cdmi.fids_to_protein_sequences(fidlist[start:end])
+    while counter > 0:
+        try:
+            ps = cdmi.fids_to_protein_sequences(fidlist[start:end])
+        except HTTPError as e:
+            if increment > 1:
+                increment = increment / 2
+                end = start + increment - 1
+            sys.stderr.write("caught '%s' error, increment is now %d\n" %(e.reason, increment))
+            continue
         seqs.update(ps)
         
         # Move to next sub-list
@@ -333,7 +376,7 @@ def fidsToSequences(fidlist, config):
         end += increment
         if end >= len(fidlist):
             end = len(fidlist) - 1
-        counter -= 1
+        counter -= increment
     
     return seqs
 
@@ -352,16 +395,23 @@ def genomesToPegs(genomes, config):
             pegs.append(fidlist[ii])    
     return pegs
 
-def getOtuGenomeIds(MINN, COUNT, config):
+def getOtuGenomeIds(count, config):
     '''Query the CDMI for a list of OTU genomes (returns a list of OTUs and a list of only
     prokaryote OTUs)'''
 
+    # Get the complete list of OTUs.
     cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
+    otudict = dict()
+    start = 0
+    done = False
+    while not done:
+        subdict = cdmi_entity.all_entities_OTU(start, count, ["id"])
+        otudict.update(subdict)
+        start += count
+        if len(subdict) < count:
+            done = True
 
-    # Get the requested number of OTU
-    otudict = cdmi_entity.all_entities_OTU(MINN, COUNT, ["id"])
-    if len(otudict) == COUNT:
-        sys.stderr.write("Maximum count reached for otu dictionary...")
+    # Find out if a OTU is marked as representative and if it is prokaryotic.
     otuids = getFieldFromEntity(otudict, "id")
     gendict = cdmi_entity.get_relationship_IsCollectionOf(otuids, [], ["representative"], ["id", "prokaryotic"])
     isrep = getFieldFromRelationship(gendict, "representative", "rel")
@@ -420,7 +470,7 @@ def getGenomeNeighborhoodsAndRoles(genomes, config):
             rolesToFids[roles[ii]] = [ fids[ii] ]
     return tuplist, fidToRoles
 
-def complexRoleLinks(MINN, COUNT, config):
+def complexRoleLinks(count, config):
     '''
     OBSOLETE - will be replaced by Chris's roles_to_reactions() function
 
@@ -428,12 +478,20 @@ def complexRoleLinks(MINN, COUNT, config):
     role to a list of complexes and a dictionary from complexes to a list of roles.
 
     Only roles listed as "required" are included in the links.'''
-    cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
+
     # Get a list of complexes
-    cplxdict = cdmi_entity.all_entities_Complex(MINN, COUNT, ["id"])
-    if len(cplxdict) == COUNT:
-        sys.stderr.write("Maximum count reached for complex dictionary...")
+    cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
+    cplxdict = dict()
+    start = 0
+    done = False
+    while not done:
+        subdict = cdmi_entity.all_entities_Complex(start, count, ["id"])
+        cplxdict.update(subdict)
+        start += count
+        if len(subdict) < count:
+            done = True
     cplxlist = getFieldFromEntity(cplxdict, "id")
+
     # Get a list of roles linked to those complexes
     roledict = cdmi_entity.get_relationship_IsTriggeredBy(cplxlist, [], ["optional"], ["id"])
     cplx = getFieldFromRelationship(roledict, "from_link", "rel")
@@ -456,7 +514,7 @@ def complexRoleLinks(MINN, COUNT, config):
             requiredRolesToComplex[role[ii]] = [ cplx[ii] ]
     return complexToRequiredRoles, requiredRolesToComplex
 
-def reactionComplexLinks(MINN, COUNT, config):
+def reactionComplexLinks(count, config):
     '''
     OBSOLETE - will be replaced by Chris's roles_to_reactions() function
     
@@ -470,9 +528,15 @@ def reactionComplexLinks(MINN, COUNT, config):
     # The API was recently changed to use model IDs and to not use the reactions_to_complexes
     # but use the ER model instead.
     # I reflect that here...
-    rxndict = cdmi_entity.all_entities_Reaction(MINN, COUNT, ["id"])
-    if len(rxndict) == COUNT:
-        sys.stderr.write("Maximum count reached for reaction dictionary...")
+    rxndict = dict()
+    start = 0
+    done = False
+    while not done:
+        subdict = cdmi_entity.all_entities_Reaction(count, ["id"])
+        rxndict.update(subdict)
+        start += count
+        if len(subdict) < count:
+            done = True
     rxns = getFieldFromEntity(rxndict, "id")
     cplxdict = cdmi_entity.get_relationship_IsStepOf(rxns, [], [], ["id"])
     rxnlist = getFieldFromRelationship(cplxdict, "from_link", "rel")
