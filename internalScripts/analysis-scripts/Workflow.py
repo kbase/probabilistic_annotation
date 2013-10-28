@@ -447,7 +447,7 @@ class Workflow:
         print '  Integrating solution %s into model %s/%s ...' %(solutionList[0], self.args.workspace, probIntModel)
         if self._isObjectMissing('Model', probIntModel):
             print '  Integrating probabilisitc gap fill solution 0 into model %s/%s ...' %(self.args.workspace, probIntModel)
-            self._integrateSolutions(self.probModel, probIntModel, solutionList, rxnprobs)
+            self._integrateSolutions(probModel, probIntModel, solutionList, rxnprobs)
         else:
             print '  Found integrated probabilistic gap fill model %s/%s' %(self.args.workspace, probIntModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -614,7 +614,7 @@ class Workflow:
         print '  Integrating probabilistic iterative gap fill solutions into model %s/%s (note this takes a very long time)...' %(self.args.workspace, probIterativeIntModel)
         if self._isObjectMissing('Model', probIterativeIntModel):
             print '  Integrating probabilistic iterative gap fill solutions into model %s/%s ...' %(self.args.workspace, probIterativeIntModel)
-            self._integrateSolutions(self.probIterativeModel, probIterativeIntModel, solutionList, rxnprobs)
+            self._integrateSolutions(probIterativeModel, probIterativeIntModel, solutionList, rxnprobs)
         else:
             print '  Found integrated probabilistic iterative gap fill model %s/%s' %(self.args.workspace, probIterativeIntModell)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -624,11 +624,11 @@ class Workflow:
         print "+++ Step %d: Check for growth of probabilistic iterative gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
         if self._isObjectMissing('FBA', probIterativeCompleteFba):
             print '  Running fba and saving complete media probabilistic iterative gap fill FBA object to %s/%s' %(self.args.workspace, probIterativeCompleteFba)
-            self._runFBA(self.probIterativeIntModel, probIterativeCompleteFba)
+            self._runFBA(probIterativeIntModel, probIterativeCompleteFba)
         else:
             print '  Found complete media probabilistic iterative gap fill FBA object %s/%s'  %(self.args.workspace, probIterativeCompleteFba)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
-        self._getObjectiveValue(stdIterativeCompleteFba)
+        self._getObjectiveValue(probIterativeCompleteFba)
 
         print '=== Completed Probabilistic Iterative Gap Fill Workflow ==='
         
