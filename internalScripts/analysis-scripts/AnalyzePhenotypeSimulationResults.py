@@ -104,7 +104,7 @@ for sim in sims:
     sim_type = sim[3]
     genes = sim[0][0]
     if options.media is not None:
-        if options.media != med:
+        if options.media != media:
             continue
     if len(rxnprobdict.keys()) > 0:
         for gene in genes:

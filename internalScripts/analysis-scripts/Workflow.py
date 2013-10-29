@@ -300,6 +300,26 @@ class Workflow:
 
         return mediaTuples
 
+    def _simulatePhenotype(self, model, simset):
+        simulatePhenotypeParams = dict()
+        simulatePhenotypeParams['model'] = model
+        simulatePhenotypeParams['model_workspace'] = self.args.workspace
+        simulatePhenotypeParams['phenotypeSet'] = self.args.knockout
+        simulatePhenotypeParams['phenotypeSet_workspace'] = self.args.knockoutws
+        simulatePhenotypeParams['phenotypeSimultationSet'] = simset
+        simulatePhenotypeParams['workspace'] = self.args.workspace
+        simulatePhenotypeParams['auth'] = self.token
+        if self.args.postitiveTransportersOnly:
+            simulatePhenotypeParams['positive_transporters'] = 1
+            simulatePhenotypeParams['all_transporters'] = 0
+        else:
+            simulatePhenotypeParams['positive_transporters'] = 0
+            simulatePhenotypeParams['all_transporters'] = 1
+            
+        objmeta = self.fbaClient.simulate_phenotypes(simulatePhenotypeParams)
+        
+        return
+
     def __init__(self, args):
         # Save the arguments.
         self.args = args
@@ -330,7 +350,7 @@ class Workflow:
             print '  Loading genome to %s/%s ...' %(self.args.workspace, self.args.genome)
             genomeMeta = self._loadGenome()
         else:
-            print '  Found genome %s/%s ...' %(self.args.workspace, self.args.genome)
+            print '  Found genome %s/%s' %(self.args.workspace, self.args.genome)
         print '  [OK] %s'  %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
@@ -434,7 +454,7 @@ class Workflow:
             print '  Loading genome to %s/%s ...' %(self.args.workspace, self.args.genome)
             genomeMeta = self._loadGenome()
         else:
-            print '  Found genome %s/%s ...' %(self.args.workspace, self.args.genome)
+            print '  Found genome %s/%s' %(self.args.workspace, self.args.genome)
         print '  [OK] %s'  %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
@@ -558,7 +578,7 @@ class Workflow:
             print '  Loading genome to %s/%s ...' %(self.args.workspace, self.args.genome)
             genomeMeta = self._loadGenome()
         else:
-            print '  Found genome %s/%s ...' %(self.args.workspace, self.args.genome)
+            print '  Found genome %s/%s' %(self.args.workspace, self.args.genome)
         print '  [OK] %s'  %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
@@ -661,7 +681,7 @@ class Workflow:
             print '  Loading genome to %s/%s ...' %(self.args.workspace, self.args.genome)
             genomeMeta = self._loadGenome()
         else:
-            print '  Found genome %s/%s ...' %(self.args.workspace, self.args.genome)
+            print '  Found genome %s/%s' %(self.args.workspace, self.args.genome)
         print '  [OK] %s'  %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
@@ -769,14 +789,14 @@ class Workflow:
         
         return
 
-    def integrateKnockouts(self):
-        print "=== Gapfilling to and integrating solutions for media in knockout phenotype data %s ===" %(self.args.knockoutdata)
+    def runKnockouts(self):
+        print "=== Started Knockout Workflow ==="
 
         # We need to turn this setting off in a few places
         oldforce = self.args.force
 
         step = 0
-        print '+++ Step %d: Search for all of the completed gapfills (probanno or non-probanno, iterative or not) to which we want to try to integrate media conditions +++' %(step)
+        print '+++ Step %d: Search for integrated gap fill models to integrate knockout data +++' %(step)
         completeGapfillNames = [ "%s.model.std.int" %(self.args.genome),
                                  "%s.model.pa.int" %(self.args.genome),
                                  "%s.model.std.iterative.int" %(self.args.genome),
@@ -792,84 +812,109 @@ class Workflow:
         if len(foundGapfills) == 0:
             print "  [ERROR] No gapfills found for which to integrate knockout data. Run the workflow with a gapfill flag first."
             raise NoDataError("No integrated models found")
+        else:
+            for model in foundGapfills:
+                print '  Found integrated gap fill model %s/%s' %(self.args.workspace, model)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         self.args.force = oldforce
 
         step += 1
-        print '+++ Step %d: Find all media conditions in specified PhenotypeSet +++' %(step)
-        mediaTuples = self._getMediaIdsFromPhenotypeSet(self.args.knockoutdata)
+        print '+++ Step %d: Find all media conditions in specified phenotype set +++' %(step)
+        mediaTuples = self._getMediaIdsFromPhenotypeSet(self.args.knockout)
+        print '  Found %d media conditions in phenotype set %s/%s' %(len(mediaTuples), self.args.workspace, self.args.knockout)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        print '+++ Step %d: Iteratively gapfill to and integrate solutions for each media found in the PhenotypeSet +++' %(step)
+        print '+++ Step %d: Run gap fill and integrate solutions for each media found in the phenotype set +++' %(step)
         for media in mediaTuples:
             for gapfilledModel in foundGapfills:
                 mediaGapfilledModel = gapfilledModel + ".%s" %(media[0])
                 mediaGapfilledIntModel = mediaGapfilledModel + ".int"
 
-                substep = 0
-                print '+++ Step %d.%d for media %s: Test if model already grows on media +++' %(step, substep, media[0])
                 # Does the integrated model ALREADY GROW on this media?
+                substep = 1
+                print '+++ Step %d.%d: Check for growth of %s model on %s media +++' %(step, substep, gapfilledModel, media[0])
                 mediaTestFba = gapfilledModel + ".%s.testgrowth.fba" %(media[0])
                 if self._isObjectMissing("FBA", mediaTestFba):
                     self._runFBA(gapfilledModel, mediaTestFba, media=media[0], mediaws=media[1])
                 else:
-                    print "FBA solution object %s already found"
+                    print "  Found FBA solution object %s/%s" %(self.args.workspace, mediaTestFba)
                 obj = self._getObjectiveValue(mediaTestFba)
-                if obj is not None and obj > 1E-5:
+                print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+                if obj is None or float(obj) < 1E-5:
+                    substep += 1
+                    print '+++ Step %d.%d for media %s: Identify if we need to do a probanno or standard gapfill and find rxnprobs data if needed... +++' %(step, substep, media[0])
+                    # First we need to see if the gapfill was a standard (std) or probanno (pa) gapfill.
+                    self.args.force = False
+                    isProbanno = False
+                    rxnprobs = None
+                    if ".pa." in gapfilledModel:
+                        isProbanno = True
+                        print "Identified that the gapfill was PROBANNO gapfill. Checking for existence of the probrxns object..."
+                        rxnprobs = '%s.rxnprobs' %(self.args.genome)
+                        if self._isObjectMissing('RxnProbs', rxnprobs):
+                            print '  [ERROR] No rxnprobs object found for input genome. Try running one of the probabilistic gapfilling options of this workflow again first. '
+                            raise NoErrorData("No rxnprobs object found")
+                    self.args.force = oldforce
+                    print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+                     
+                    substep += 1
+                    print '+++ Step %d.%d for media %s: Run the appropriate type of gapfilling (non-iterative with \ without probanno) to the required media +++' %(step, substep, media[0])
+                    if self._isObjectMissing('Model', mediaGapfilledModel):
+                        print "Running gap filling to model %s..." %(media[0])
+                        self._gapfill(gapfilledModel, mediaGapfilledModel, rxnprobs, iterative=False, media=media[0], mediaws=media[1])
+                    else:
+                        print "Gapfilled model %s already exists." %(mediaGapfilledModel)
+                    print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))             
+    
+                    substep += 1
+                    print '+++ Step %d.%d for media %s: Integrate the new solution +++' %(step, substep, media[0])
+                    solutionList = self._findGapfillSolution(mediaGapfilledModel)
+                    if self._isObjectMissing('Model', mediaGapfilledIntModel):
+                        print "Integrating solution..."
+                        self._integrateSolutions(mediaGapfilledModel, mediaGapfilledIntModel, solutionList, rxnprobs)
+                    else:
+                        print "Integrated model %s already exists" %(mediaGapfilledIntModel)
+                    print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+    
+                    substep += 1
+                    print '+++ Step %d.%d for media %s: Check for growth in the integrated model +++' %(step, substep, media[0])
+                    finalFbaObject = "%s.fba" %(mediaGapfilledIntModel)
+                    if self._isObjectMissing('FBA', finalFbaObject):
+                        print '  Running fba and saving complete media probabilistic iterative gap fill FBA object to %s/%s' %(self.args.workspace, finalFbaObject)
+                        self._runFBA(mediaGapfilledIntModel, finalFbaObject, media=media[0], mediaws=media[1])
+                    else:
+                        print '  FBA object already %s exists' %(finalFbaObject)
+                    print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+    
+                    obj = self._getObjectiveValue(finalFbaObject)
+                else:
                     print "+++ No gapfilling needed - model already grows on media. Copying it over... +++"
                     # TODO - Copy over the model to new location (mediaGapfilledIntModel AND mediaGapfilledModel)
                     print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
-                    continue
                 print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
-                substep += 1
-                print '+++ Step %d.%d for media %s: Identify if we need to do a probanno or standard gapfill and find rxnprobs data if needed... +++' %(step, substep, media[0])
-                # First we need to see if the gapfill was a standard (std) or probanno (pa) gapfill.
-                self.args.force = False
-                isProbanno = False
-                rxnprobs = None
-                if ".pa." in gapfilledModel:
-                    isProbanno = True
-                    print "Identified that the gapfill was PROBANNO gapfill. Checking for existence of the probrxns object..."
-                    rxnprobs = '%s.rxnprobs' %(self.args.genome)
-                    if self._isObjectMissing('RxnProbs', rxnprobs):
-                        print '  [ERROR] No rxnprobs object found for input genome. Try running one of the probabilistic gapfilling options of this workflow again first. '
-                        raise NoErrorData("No rxnprobs object found")
-                self.args.force = oldforce
-                print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+                # Do the simulation - get simulation set
                 
                 substep += 1
-                print '+++ Step %d.%d for media %s: Run the appropriate type of gapfilling (non-iterative with \ without probanno) to the required media +++' %(step, substep, media[0])
-                if self._isObjectMissing('Model', mediaGapfilledModel):
-                    print "Running gap filling to model %s..." %(media[0])
-                    self._gapfill(gapfilledModel, mediaGapfilledModel, rxnprobs, iterative=False, media=media[0], mediaws=media[1])
+                print '+++ Step %d.%d for media %s: simulate phenotype +++'
+                knockoutSimulation = "%s.knockoutsim" %(mediaGapfilledIntModel)
+                if self._isObjectMissing('PhenotypeSimSet', knockoutSimulation):
+                    print '  Running phenotype simulation and saving to %s/%s' %(self.args.workspace, knockoutSimulation)
+                    self._simulatePhenotype(mediaGapfilledIntModel, knockoutSimulation)
                 else:
-                    print "Gapfilled model %s already exists." %(mediaGapfilledModel)
-                print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))             
-
-                substep += 1
-                print '+++ Step %d.%d for media %s: Integrate the new solution +++' %(step, substep, media[0])
-                solutionList = self._findGapfillSolution(mediaGapfilledModel)
-                if self._isObjectMissing('Model', mediaGapfilledIntModel):
-                    print "Integrating solution..."
-                    self._integrateSolutions(mediaGapfilledModell, mediaGapfilledIntModel, solutionList, rxnprobs)
-                else:
-                    print "Integrated model %s already exists" %(mediaGapfilledIntModel)
+                    print '  Found phenotype simulation set %s/%s' %(self.args.workspace, knockoutSimulation)
                 print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
-                substep += 1
-                print '+++ Step %d.%d for media %s: Check for growth in the integrated model +++' %(step, substep, media[0])
-                finalFbaObject = "%s.fba" %(mediaGapfilledIntModel)
-                if self._isObjectMissing('FBA', probIterativeCompleteFba):
-                    print '  Running fba and saving complete media probabilistic iterative gap fill FBA object to %s/%s' %(self.args.workspace, probIterativeCompleteFba)
-                    self._runFBA(mediaGapfilledIntModel, finalFbaObject, media=media[0], mediaws=media[1])
-                else:
-                    print '  FBA object already %s exists' %(finalFbaObject)
-                print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
-
-                obj = self._getObjectiveValue(finalFbaObject)
-
+        print '=== Completed Knockout Workflow ==='
+        
+                
+#     def runBiolog(self):
+#         add media transporters
+#         biologSimulation = 
+#         simulate_phenotype
+        
 if __name__ == "__main__":
     # Parse options.
     description=''' Workflow.py
@@ -905,8 +950,11 @@ if __name__ == "__main__":
     parser.add_argument('--ws-url', help='URL for workspace service', action='store', dest='wsurl', default='http://www.kbase.us/services/workspace')
     parser.add_argument('--fba-url', help='URL for fba model service', action='store', dest='fbaurl', default='http://bio-data-1.mcs.anl.gov/services/fba')
     parser.add_argument('--pa-url', help='URL for probabilistic annotation service', action='store', dest='paurl', default='http://www.kbase.us/services/probabilistic_annotation')
-    parser.add_argument('--knockoutdata', help='OPTIONAL. Provide a knockout data PhenotypeSet and we will create a new model gapfilled to each media in it.', action='store', default=None)
-    parser.add_argument('--knockoutdataws', help='OPTIONAL. Workspace for provided knockout data PhenotypeSet (default is the same as the current workspace', action='store', dest='knockoutws', default=None)
+    parser.add_argument('--knockout', help='OPTIONAL. Provide a knockout data PhenotypeSet and we will create a new model gapfilled to each media in it.', action='store', dest='knockout', default=None)
+    parser.add_argument('--knockoutws', help='OPTIONAL. Workspace for provided knockout data PhenotypeSet (default is the same as the current workspace', action='store', dest='knockoutws', default=None)
+    parser.add_argument('--biologdata', help='OPTIONAL. Provide a knockout data PhenotypeSet and we will create a new model gapfilled to each media in it.', action='store', dest='biolog', default=None)
+    parser.add_argument('--biologdataws', help='OPTIONAL. Workspace for provided knockout data PhenotypeSet (default is the same as the current workspace', action='store', dest='biologws', default=None)
+    parser.add_argument('--postitiveTransportersOnly', help='', action='store_true', default=False)
     parser.add_argument('--maxtime', 
                         help='OPTIONAL. Maximum amount of time to wait for a job to finish (by default the maximum is 2 hour for normal gapfill jobs and probanno jobs and 4 days for iterative gapfill)',
                         action='store', default=None)
@@ -943,10 +991,10 @@ if __name__ == "__main__":
                 workflow.args.maxtime = 345600
             workflow.runIterativeProbabilistic()
             workflow.args.maxtime = oldmax
-        if workflow.args.knockoutdata is not None:
+        if workflow.args.knockout is not None:
             if workflow.args.maxtime is None:
                 workflow.args.maxtime = 86400
-            workflow.integrateKnockouts()
+            workflow.runKnockouts()
 
     except Exception as e:
         print '  [ERROR]'
