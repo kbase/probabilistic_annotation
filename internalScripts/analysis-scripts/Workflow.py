@@ -381,6 +381,37 @@ class Workflow:
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         self._getObjectiveValue(stdCompleteFba)
 
+        step += 1
+        stdMinimalModel = "%s.model.std.int.minimal" %(self.args.genome)
+        print "+++ Step %d: Gapfill to minimal media (Carbon-D-Glucose)" %(step)
+        if self._isObjectMissing('Model', stdMinimalModel):
+            print '   Gapfilling to Minimal media (Carbon-D-Glucose)'
+            self._gapfill(stdIntModel, stdMinimalModel, None, media='Carbon-D-Glucose')
+        else:
+            print '   Found carbon-D-glucose gapfilled model %s/%s' %(self.args.workspace, stdMinimalModel)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        stdMinimalIntModel = "%s.model.std.int.minimal.int" %(self.args.genome)
+        print "+++ Step %d: Integrate gapfill solution to minimal media (Carbon-D-Glucose)" %(step)
+        solutionList = self._findGapfillSolution(stdMinimalModel)
+        if self._isObjectMissing('Model', stdMinimalIntModel):
+            print '   Integrating Carbon-D-Glucose media solutions...'
+            self._integrateSolutions(stdMinimalModel, stdMinimalIntModel, solutionList, None)
+        else:
+            print '   Found Integrated Carbon-D-Glucose media solution %s/%s' %(self.args.workspace, stdMinimalIntModel)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        stdMinimalFba = "%s.model.std.int.minimal.fba" %(self.args.genome)
+        print "+++ Step %d: Check for growth on Carbon-D-Glucose" %(step)
+        if self._isObjectMissing('FBA', stdMinimalFba):
+            print '   Running FBA on the integrated model...'
+            self._runFBA(stdMinimalIntModel, stdMinimalFba)
+        else:
+            print '   Found existing FBA solution %s/%s' %(self.args.workspace, stdMinimalFba)
+        self._getObjectiveValue(stdMinimalFba)
+
         print '=== Completed Standard Gap Fill Workflow ==='
 
         return
@@ -474,6 +505,37 @@ class Workflow:
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         self._getObjectiveValue(probCompleteFba)
 
+        step += 1
+        probMinimalModel = "%s.model.pa.int.minimal" %(self.args.genome)
+        print "+++ Step %d: Gapfill to minimal media (Carbon-D-Glucose)" %(step)
+        if self._isObjectMissing('Model', probMinimalModel):
+            print '   Gapfilling to Minimal media (Carbon-D-Glucose)'
+            self._gapfill(probIntModel, probMinimalModel, rxnprobs, media='Carbon-D-Glucose')
+        else:
+            print '   Found carbon-D-glucose gapfilled model %s/%s' %(self.args.workspace, probMinimalModel)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        probMinimalIntModel = "%s.model.pa.int.minimal.int" %(self.args.genome)
+        print "+++ Step %d: Integrate gapfill solution to minimal media (Carbon-D-Glucose)" %(step)
+        solutionList = self._findGapfillSolution(probMinimalModel)
+        if self._isObjectMissing('Model', probMinimalIntModel):
+            print '   Integrating Carbon-D-Glucose media solutions...'
+            self._integrateSolutions(probMinimalModel, probMinimalIntModel, solutionList, rxnprobs)
+        else:
+            print '   Found Integrated Carbon-D-Glucose media solution %s/%s' %(self.args.workspace, probMinimalIntModel)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        probMinimalFba = "%s.model.pa.int.minimal.fba" %(self.args.genome)
+        print "+++ Step %d: Check for growth on Carbon-D-Glucose" %(step)
+        if self._isObjectMissing('FBA', probMinimalFba):
+            print '   Running FBA on the integrated model...'
+            self._runFBA(probMinimalIntModel, probMinimalFba)
+        else:
+            print '   Found existing FBA solution %s/%s' %(self.args.workspace, probMinimalFba)
+        self._getObjectiveValue(probMinimalFba)
+
         print '=== Completed Probabilistic Gap Fill Workflow ==='
 
         return
@@ -545,6 +607,37 @@ class Workflow:
             print '  Found complete media standard iterative gap fill FBA object %s/%s'  %(self.args.workspace, stdIterativeCompleteFba)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         self._getObjectiveValue(stdIterativeCompleteFba)
+
+        step += 1
+        stdIterativeMinimalModel = "%s.model.std.iterative.int.minimal" %(self.args.genome)
+        print "+++ Step %d: Gapfill to minimal media (Carbon-D-Glucose)" %(step)
+        if self._isObjectMissing('Model', stdIterativeMinimalModel):
+            print '   Gapfilling to Minimal media (Carbon-D-Glucose)'
+            self._gapfill(stdIterativeIntModel, stdIterativeMinimalModel, None, media='Carbon-D-Glucose')
+        else:
+            print '   Found carbon-D-glucose gapfilled model %s/%s' %(self.args.workspace, stdIterativeMinimalModel)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        stdIterativeMinimalIntModel = "%s.model.std.iterative.int.minimal.int" %(self.args.genome)
+        print "+++ Step %d: Integrate gapfill solution to minimal media (Carbon-D-Glucose)" %(step)
+        solutionList = self._findGapfillSolution(stdIterativeMinimalModel)
+        if self._isObjectMissing('Model', stdIterativeMinimalIntModel):
+            print '   Integrating Carbon-D-Glucose media solutions...'
+            self._integrateSolutions(stdIterativeMinimalModel, stdIterativeMinimalIntModel, solutionList, None)
+        else:
+            print '   Found Integrated Carbon-D-Glucose media solution %s/%s' %(self.args.workspace, stdIterativeMinimalIntModel)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        stdIterativeMinimalFba = "%s.model.std.iterative.int.minimal.fba" %(self.args.genome)
+        print "+++ Step %d: Check for growth on Carbon-D-Glucose" %(step)
+        if self._isObjectMissing('FBA', stdIterativeMinimalFba):
+            print '   Running FBA on the integrated model...'
+            self._runFBA(stdIterativeMinimalIntModel, stdIterativeMinimalFba)
+        else:
+            print '   Found existing FBA solution %s/%s' %(self.args.workspace, stdIterativeMinimalFba)
+        self._getObjectiveValue(stdIterativeMinimalFba)
 
         print '=== Completed Standard Iterative Gap Fill Workflow ==='
 
@@ -640,6 +733,37 @@ class Workflow:
             print '  Found complete media probabilistic iterative gap fill FBA object %s/%s'  %(self.args.workspace, probIterativeCompleteFba)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         self._getObjectiveValue(probIterativeCompleteFba)
+
+        step += 1
+        probIterativeMinimalModel = "%s.model.pa.iterative.int.minimal" %(self.args.genome)
+        print "+++ Step %d: Gapfill to minimal media (Carbon-D-Glucose)" %(step)
+        if self._isObjectMissing('Model', probIterativeMinimalModel):
+            print '   Gapfilling to Minimal media (Carbon-D-Glucose)'
+            self._gapfill(probIterativeIntModel, probIterativeMinimalModel, rxnprobs, media='Carbon-D-Glucose')
+        else:
+            print '   Found carbon-D-glucose gapfilled model %s/%s' %(self.args.workspace, probIterativeMinimalModel)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        probIterativeMinimalIntModel = "%s.model.pa.iterative.int.minimal.int" %(self.args.genome)
+        print "+++ Step %d: Integrate gapfill solution to minimal media (Carbon-D-Glucose)" %(step)
+        solutionList = self._findGapfillSolution(probIterativeMinimalModel)
+        if self._isObjectMissing('Model', probIterativeMinimalIntModel):
+            print '   Integrating Carbon-D-Glucose media solutions...'
+            self._integrateSolutions(probIterativeMinimalModel, probIterativeMinimalIntModel, solutionList, rxnprobs)
+        else:
+            print '   Found Integrated Carbon-D-Glucose media solution %s/%s' %(self.args.workspace, probIterativeMinimalIntModel)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        probIterativeMinimalFba = "%s.model.pa.int.minimal.fba" %(self.args.genome)
+        print "+++ Step %d: Check for growth on Carbon-D-Glucose" %(step)
+        if self._isObjectMissing('FBA', probIterativeMinimalFba):
+            print '   Running FBA on the integrated model...'
+            self._runFBA(probIterativeMinimalIntModel, probIterativeMinimalFba)
+        else:
+            print '   Found existing FBA solution %s/%s' %(self.args.workspace, probIterativeMinimalFba)
+        self._getObjectiveValue(probIterativeMinimalFba)
 
         print '=== Completed Probabilistic Iterative Gap Fill Workflow ==='
         
