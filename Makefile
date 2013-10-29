@@ -23,6 +23,10 @@ SERV_TPAGE = $(KB_RUNTIME)/bin/perl $(KB_RUNTIME)/bin/tpage
 SERV_TPAGE_ARGS = --define kb_top=$(TARGET) --define kb_runtime=$(KB_RUNTIME) --define kb_service_name=$(SERV_SERVICE) \
 	--define kb_service_port=$(SERV_SERVICE_PORT) --define kb_service_psgi=lib/$(SERV_PSGI_PATH)
 
+
+
+
+
 all: compile-typespec
 
 # TESTS
@@ -35,7 +39,21 @@ SERVER_TESTS = $(wildcard server-tests/*.t)
 # Note that the service must NOT be started before running the test rule as a
 # special test configuration is required for running on the test servers.
 
-test: test-startservice test-service test-client test-scripts test-stopservice
+test: | verify-test-user test-startservice test-service test-client test-scripts test-stopservice
+
+verify-test-user:
+	if [ -z "$$(TEST_USER_PASS)" ] ; then \
+		echo "no TEST_USER_PASS defined" ; \
+		grep test_user_pass ./test.cfg ; \
+        	if [ $$? -eq 0 ] ; then \
+			echo "please add test_user_password to test.cfg" ; \
+			exit 1 ; \
+		fi \
+	else \
+		echo "doing substitution on test.cfg with $$(TEST_USER_PASS) as the user pass" ; \
+        	tpage --define test_user_pass=$$(TEST_USER_PASS) test.cfg > text.cfg.new ;  \
+        	/bin/mv -f text.cfg.new test.cfg ; \
+	fi
 
 test-startservice: set-test-config
 	# Start service and wait for tests for existence of files to run
