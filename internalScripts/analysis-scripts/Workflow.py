@@ -179,7 +179,18 @@ class Workflow:
         job = self.fbaClient.queue_gapfill_model(gapfillParams)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         print '  Waiting for job %s to end ...' %(job['id'])
-        self._waitForJob(job['id'])
+        try:
+            self._waitForJob(job['id'])
+        except JobError:
+            # Delete the incomplete model object so this step is re-run.
+            deleteObjectParams = dict()
+            deleteObjectParams['type'] = 'Model'
+            deleteObjectParams['id'] = model
+            deleteObjectParams['workspace'] = self.args.workspace
+            deleteObjectParams['auth'] = self.token
+            self.wsClient.delete_object(deleteObjectParams)
+            self.wsClient.delete_object_permanently(deleteObjectParams)
+            raise
 
     ''' Find the first solution after running gap fill. Or, if getAll is specified (needed for iterative gapfill),
         find all of the solutions after running gap fill. '''
