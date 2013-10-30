@@ -3,9 +3,10 @@
 import json
 import optparse
 import sys
-
+import re
 from biokbase.workspaceService.Client import *
 from biokbase.fbaModelServices.Client import *
+from biokbase.cdmi.client import CDMI_API, CDMI_EntityAPI
 
 usage = "%prog -p [Phenotype ID] -w [Workspace] -a [Auth string] (options)"
 description = '''
@@ -14,6 +15,7 @@ Given a JSON object calculate the false positive, negative rates. Optionally omi
 in the specified media.
 
 '''
+separator ='///'
 
 parser = optparse.OptionParser(usage=usage, description=description)
 parser.add_option("-a", "--auth", help="Auth token (required)", action="store", type="str", dest="auth", default=None)
@@ -97,6 +99,10 @@ else:
     print "For phenotypedata %s and media %s: " %(options.pheno, options.media)
     pass
 
+#complexes_to_roles
+
+cdmi = CDMI_API('http://www.kbase.us/services/cdmi_api/')
+
 # Count the CP\CN\FP\FN
 # If a rxnprobs object is specified, print the rxnprobs data associated with each gene...
 for sim in sims:
@@ -117,6 +123,14 @@ for sim in sims:
                 isgapfilled = str(rxnpair[1])
                 if rxn in rxnprobdict:
                     rxnprobobj = rxnprobdict[rxn]
+                    complexList = list()
+                    complexStrings = rxnprobobj[3].split(separator)
+                    for complex in complexStrings:
+                        complexList.append(re.sub(' \(.*\) ', '', complex))
+                    roleDict = cdmi.complexes_to_roles(complexList)
+                    for role in roleDict:
+                        print roleDict[role]
+                    exit(0) # Matt - this is for testing remove it when done
                 else:
                     rxnprobobj = [ rxn, 0, "NOCOMPLEX", "", "" ]
                 # Gene, WasGapfilled, reaction, probability, diagnostics...
