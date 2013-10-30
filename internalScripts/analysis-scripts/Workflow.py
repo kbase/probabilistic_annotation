@@ -797,10 +797,10 @@ class Workflow:
 
         step = 0
         print '+++ Step %d: Search for integrated gap fill models to integrate knockout data +++' %(step)
-        completeGapfillNames = [ "%s.model.std.int" %(self.args.genome),
-                                 "%s.model.pa.int" %(self.args.genome),
-                                 "%s.model.std.iterative.int" %(self.args.genome),
-                                 "%s.model.pa.iterative.int" %(self.args.genome) ]
+        completeGapfillNames = [ "%s.model.std.int.minimal.int" %(self.args.genome),
+                                 "%s.model.pa.int.minimal.int" %(self.args.genome),
+                                 "%s.model.std.iterative.int.minimal.int" %(self.args.genome),
+                                 "%s.model.pa.iterative.int.minimal.int" %(self.args.genome) ]
 
         self.args.force = False
         foundGapfills = []
