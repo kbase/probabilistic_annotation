@@ -23,10 +23,6 @@ SERV_TPAGE = $(KB_RUNTIME)/bin/perl $(KB_RUNTIME)/bin/tpage
 SERV_TPAGE_ARGS = --define kb_top=$(TARGET) --define kb_runtime=$(KB_RUNTIME) --define kb_service_name=$(SERV_SERVICE) \
 	--define kb_service_port=$(SERV_SERVICE_PORT) --define kb_service_psgi=lib/$(SERV_PSGI_PATH)
 
-
-
-
-
 all: compile-typespec
 
 # TESTS
@@ -36,35 +32,26 @@ SERVER_TESTS = $(wildcard server-tests/*.t)
 
 # The test rule is run after a successful deployment and uses the deployment
 # environment (i.e. $KB_TOP/user-env.sh has been run to initialize the environment).
-# Note that the service must NOT be started before running the test rule as a
-# special test configuration is required for running on the test servers.
 
-test: | verify-test-user test-startservice test-service test-client test-scripts test-stopservice
+# The server is already started when running make test in the test environment.
+# Chris's suggestion is to use the deploy.cfg in the test environment and to work
+# with the production team to use a different one in the production environment.
+# So that's what we're going to do!
+test: | verify-test-user test-service test-client test-scripts
 
 verify-test-user:
 	if [ -z "$$(TEST_USER_PASS)" ] ; then \
 		echo "no TEST_USER_PASS defined" ; \
 		grep test_user_pass ./test.cfg ; \
-        	if [ $$? -eq 0 ] ; then \
+		if [ $$? -eq 0 ] ; then \
 			echo "please add test_user_password to test.cfg" ; \
 			exit 1 ; \
 		fi \
 	else \
 		echo "doing substitution on test.cfg with $$(TEST_USER_PASS) as the user pass" ; \
-        	tpage --define test_user_pass=$$(TEST_USER_PASS) test.cfg > text.cfg.new ;  \
-        	/bin/mv -f text.cfg.new test.cfg ; \
+		tpage --define test_user_pass=$$(TEST_USER_PASS) test.cfg > text.cfg.new ;  \
+		/bin/mv -f text.cfg.new test.cfg ; \
 	fi
-
-test-startservice: set-test-config
-	# Start service and wait for tests for existence of files to run
-	echo "Starting service with test environment configuration"
-	$(KB_TOP)/services/${SERVICE_NAME}/start_service
-	sleep 5
-
-test-stopservice: reset-test-config
-	# Stop service and restore configuration
-	echo "Stopping service and restoring deployment configuration"
-	$(KB_TOP)/services/${SERVICE_NAME}/stop_service;
 
 test-service:
 	for t in $(SERVER_TESTS) ; do \
@@ -95,22 +82,6 @@ test-client:
 			fi \
 		fi \
 	done
-
-set-test-config:
-	# Replace the deployment.cfg with the special version for the test environment.
-	if [ -f $(KB_TOP)/deployment.cfg ] ; then \
-		mv $(KB_TOP)/deployment.cfg $(KB_TOP)/deployment.cfg.probanno-test ; \
-		echo "Saved existing deployment.cfg to deployment.cfg.probanno-test" ; \
-	fi
-	cp deploy_test.cfg $(KB_TOP)/deployment.cfg;
-
-reset-test-config:
-	# Restore original deployment.cfg.
-	if [ -f $(KB_TOP)/deployment.cfg.probanno-test ] ; then \
-		rm $(KB_TOP)/deployment.cfg ; \
-		mv $(KB_TOP)/deployment.cfg.probanno-test $(KB_TOP)/deployment.cfg ; \
-		echo "Restored deployment.cfg from deployment.cfg.probanno-test" ; \
-	fi
 
 # Deployment
 
