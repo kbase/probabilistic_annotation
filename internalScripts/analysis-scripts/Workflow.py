@@ -591,9 +591,10 @@ class Workflow:
             print '  Found draft model %s/%s' %(self.args.workspace, draftModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
+        # Note - iterative gapfilling automatically integrates solutions now.
         step += 1
-        stdIterativeModel = '%s.model.std.iterative' %(self.args.genome)
-        print '+++ Step %d: Run standard iterative gap fill on complete media' %(step)
+        stdIterativeModel = '%s.model.std.iterative.int' %(self.args.genome)
+        print '+++ Step %d: Run standard iterative gap fill on complete media [note - iterative gapfill automatically will integrate the solutions]' %(step)
         if self._isObjectMissing('Model', stdIterativeModel):
             print '  Submitting job and saving standard iterative gap fill model to %s/%s ...' %(self.args.workspace, stdIterativeModel)
             self._gapfill(draftModel, stdIterativeModel, None, iterative=True)
@@ -601,21 +602,7 @@ class Workflow:
             print '  Found standard iterative gap fill model %s/%s' %(self.args.workspace, stdIterativeModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
-        step += 1
-        print '+++ Step %d: Find standard iterative gap fill unintegrated solutions (we will integrate all solutions)' %(step)
-        print '  Checking gap fill model %s/%s ...' %(self.args.workspace, stdIterativeModel)
-        solutionList = self._findGapfillSolution(stdIterativeModel, getAll=True)
-        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
-
-        step += 1
-        stdIterativeIntModel = "%s.model.std.iterative.int" %(self.args.genome)
-        print '+++ Step %d: Integrate standard iterative gap fill solutions on complete media (NOTE - you should check that the solution is optimal)' %(step)
-        if self._isObjectMissing('Model', stdIterativeIntModel):
-            print '  Integrating iterative gapfilling solutions  into model %s/%s ...' %(self.args.workspace, stdIterativeIntModel)
-            self._integrateSolutions(stdIterativeModel, stdIterativeIntModel, solutionList, None)
-        else:
-            print '  Found integrated standard iterative gap fill model %s/%s' %(self.args.workspace, stdIterativeIntModel)
-        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+        stdIterativeIntModel = stdIterativeModel
 
         step += 1
         stdIterativeCompleteFba = "%s.model.std.iterative.int.fba" %(self.args.genome)
@@ -717,8 +704,8 @@ class Workflow:
         #### Above this line, everything about this is exactly the same as for probanno without iterative gapfill
 
         step += 1
-        probIterativeModel = '%s.model.pa.iterative' %(self.args.genome)
-        print '+++ Step %d: Run probabilistic iterative gap fill on complete media' %(step)
+        probIterativeModel = '%s.model.pa.iterative.int' %(self.args.genome)
+        print '+++ Step %d: Run probabilistic iterative gap fill on complete media [ note - iterative gapfill will automatically integrate the solutions]' %(step)
         if self._isObjectMissing('Model', probIterativeModel):
             print '  Submitting job and saving probabilistic iterative gap fill model to %s/%s ...' %(self.args.workspace, probIterativeModel)
             self._gapfill(draftModel, probIterativeModel, rxnprobs, iterative=True)
@@ -726,22 +713,7 @@ class Workflow:
             print '  Found probabilistic gap fill model %s/%s' %(self.args.workspace, probIterativeModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
-        step += 1
-        print '+++ Step %d: Find probabilistic iterative gap fill unintegrated solutions' %(step)
-        print '  Checking gap fill model %s/%s ...' %(self.args.workspace, probIterativeModel)
-        solutionList = self._findGapfillSolution(self.probIterativeModel, getAll=True)
-        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
-
-        step += 1
-        probIterativeIntModel = "%s.model.pa.iterative.int" %(self.args.genome)
-        print "+++ Step %d: Integrate probabilistic iterative gap fill solutions on complete media (NOTE - you should check that the solution is optimal)" %(step)
-        print '  Integrating probabilistic iterative gap fill solutions into model %s/%s (note this takes a very long time)...' %(self.args.workspace, probIterativeIntModel)
-        if self._isObjectMissing('Model', probIterativeIntModel):
-            print '  Integrating probabilistic iterative gap fill solutions into model %s/%s ...' %(self.args.workspace, probIterativeIntModel)
-            self._integrateSolutions(probIterativeModel, probIterativeIntModel, solutionList, rxnprobs)
-        else:
-            print '  Found integrated probabilistic iterative gap fill model %s/%s' %(self.args.workspace, probIterativeIntModell)
-        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+        probIterativeIntModel = probIterativeModel
 
         step += 1
         probIterativeCompleteFba = "%s.model.pa.iterative.int.fba" %(self.args.genome)
