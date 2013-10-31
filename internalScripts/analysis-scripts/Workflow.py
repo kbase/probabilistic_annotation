@@ -305,22 +305,21 @@ class Workflow:
 
         return mediaTuples
 
-    def _simulatePhenotype(self, model, simset):
+    ''' Simulate a PhenotypeSet against a model, resulting in a simulation set. Note that it is quite possible that the
+    phenotypeset is not in self.args.workspace. There's a sort-of standard place for this but not as much as for media.'''
+
+    def _simulatePhenotype(self, model, phenoset, phenows, simset, positive_transporters = 0, all_transporters = 0):
         simulatePhenotypeParams = dict()
         simulatePhenotypeParams['model'] = model
         simulatePhenotypeParams['model_workspace'] = self.args.workspace
-        # TODO - This is not quite correct - what if we're simulating a biolog?
-        simulatePhenotypeParams['phenotypeSet'] = self.args.knockout
-        simulatePhenotypeParams['phenotypeSet_workspace'] = self.args.knockoutws
+        simulatePhenotypeParams['phenotypeSet'] = phenoset
+        simulatePhenotypeParams['phenotypeSet_workspace'] = phenows
         simulatePhenotypeParams['phenotypeSimultationSet'] = simset
         simulatePhenotypeParams['workspace'] = self.args.workspace
         simulatePhenotypeParams['auth'] = self.token
-        if self.args.postitiveTransportersOnly:
-            simulatePhenotypeParams['positive_transporters'] = 1
-            simulatePhenotypeParams['all_transporters'] = 0
-        else:
-            simulatePhenotypeParams['positive_transporters'] = 0
-            simulatePhenotypeParams['all_transporters'] = 1
+
+        simulatePhenotypeParams['positive_transporters'] = positive_transporters
+        simulatePhenotypeParams['all_transporters'] = all_transporters
             
         objmeta = self.fbaClient.simulate_phenotypes(simulatePhenotypeParams)
         
@@ -1036,26 +1035,72 @@ class Workflow:
                     print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
                 print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
-                # Do the simulation - get simulation set
-                
+                # Do the simulation - get simulation set (note - for knockouts we don't want to necessarily add transporters, they should already be there from the gapfill we did above)
                 substep += 1
                 print '+++ Step %d.%d: simulate phenotype on media %s +++' %(step, substep, media[0])
                 knockoutSimulation = "%s.knockoutsim" %(mediaGapfilledIntModel)
                 if self._isObjectMissing('PhenotypeSimSet', knockoutSimulation):
                     print '  Running phenotype simulation and saving to %s/%s' %(self.args.workspace, knockoutSimulation)
-                    self._simulatePhenotype(mediaGapfilledIntModel, knockoutSimulation)
+                    self._simulatePhenotype(mediaGapfilledIntModel, self.args.knockout, self.args.knockoutws, knockoutSimulation, positive_transporters = 0, all_transporters = 0)
                 else:
                     print '  Found phenotype simulation set %s/%s' %(self.args.workspace, knockoutSimulation)
                 print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         print '=== Completed Knockout Workflow ==='
         
+        return
                 
-#     def runBiolog(self):
-#         add media transporters
-#         biologSimulation = 
-#         simulate_phenotype
-        
+    def runBiolog(self):
+
+        print "=== Running Biolog workflow ==="
+
+        # We need to turn this setting off in a few places
+        oldforce = self.args.force
+
+        if self.args.positiveTransportersOnly:
+            positive_transporters = 1
+            all_transporters = 0
+        else:
+            positive_transporters = 0
+            all_transporters = 1
+
+        step = 0
+        print '+++ Step %d: Search for integrated gap fill models (to Carbon-D-Glucose) to use to test biolog data +++' %(step)
+        integratedModelNames = [ "%s.model.std.int.minimal.int" %(self.args.genome),
+                                 "%s.model.pa.int.minimal.int" %(self.args.genome),
+                                 "%s.model.std.iterative.int.minimal.int" %(self.args.genome),
+                                 "%s.model.pa.iterative.int.minimal.int" %(self.args.genome) ]
+
+        self.args.force = False
+        foundModels = []
+        for model in integratedModelNames:
+            if self._isObjectMissing("Model", model):
+                continue
+            else:
+                foundModels.append(model)
+        if len(foundModels) == 0:
+            print "  [ERROR] No gap fill models found for which to integrate knockout data. Run the workflow with a gapfill flag first."
+            raise NoDataError("No integrated models found")
+        else:
+            for model in foundModels:
+                print '  Found integrated gap fill model %s/%s' %(self.args.workspace, model)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+        self.args.force = oldforce
+
+        step += 1
+        substep = 1
+        print '+++ Step %d: Run biolog data simulation on each of the found models. +++' %(step)
+        for model in foundModels:
+            print "+++ Step %d/%d: Simulate biolog data on model %s/%s" %(step, substep, self.args.workspace, model)
+            biologSimulation = "%s.biologsim" %(model)
+            self._simulatePhenotype(model, self.args.biolog, self.args.biologws, biologSimulation, positive_transporters = positive_transporters, all_transporters = all_transporters)
+            print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+            substep += 1
+
+        print "=== Completed biolog simulation workflow ==="
+
+        return
+
 if __name__ == "__main__":
     # Parse options.
     description=''' Workflow.py
@@ -1103,6 +1148,9 @@ if __name__ == "__main__":
 
     if args.knockoutws is None:
         args.knockoutws = args.workspace
+
+    if args.biologws is None:
+        args.biologws = args.workspace
     
     try:
         if args.force:
@@ -1136,6 +1184,8 @@ if __name__ == "__main__":
             if workflow.args.maxtime is None:
                 workflow.args.maxtime = 86400
             workflow.runKnockouts()
+        if workflow.args.biolog is not None:
+            workflow.runBiolog()
 
     except Exception as e:
         print '  [ERROR]'
@@ -1143,21 +1193,6 @@ if __name__ == "__main__":
         exit(1)
 
     exit(0)
-        # TODO - how to check for nonzero growth?
 
-#         if self.args.knockoutdata is not None:
-#             step += 1
-#             print "+++ Step %d: Gapfill to media conditions specified in the knockout data (NOT YET IMPLEMENTED)" %(step)
-#             # Get a unique list of media conditions and workspaces in the phenotype object
-#             # Sanity check - do we have so many media that it probably isn't a knockout phenotype dataset?
-#             # Iterate over media and gapfill with normal and probanno gapfill"
-# 
-#             step += 1
-#             print "+++ Step %d: Gapfill to media conditions specified in the knockout data (NOT YET IMPLEMENTED)" %(step)
-#             # Iterate over the media again and integrate the solutions on normal and probanno gapfill (use rxnprobs for probanno)
-# 
-#             step += 1
-#             print "+++ Step %d: Gapfill to media conditions specified in the knockout data (NOT YET IMPLEMENTED)" %(step)
-#             # Iterate over the media a third time and check for growth on that media
 
         
