@@ -179,7 +179,8 @@ class Workflow:
         gapfillParams['auth'] = self.token
         if iterative:
             gapfillParams['completeGapfill'] = '1'
-            print 'turned on iterative'
+            # This is necessary until we get the automatic integration pushed to the SEED servers
+            gapfillParams['integrate_solution'] = '1'
 
         job = self.fbaClient.queue_gapfill_model(gapfillParams)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -396,9 +397,23 @@ class Workflow:
         reactionSensitivityParams['workspace'] = self.args.workspace
         reactionSensitivityParams['auth'] = self.token
 
-        objmeta = self.fbaClient.reaction_sensitivity_analysis(reactionSensitivityParams)
+        job = self.fbaClient.reaction_sensitivity_analysis(reactionSensitivityParams)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+        print '  Waiting for job %s to end ...' %(job['id'])
+        try:
+            self._waitForJob(job['id'])
+        except JobError:
+            # Delete the incomplete reaction sensitivity object so this step is re-run.
+            deleteObjectParams = dict()
+            deleteObjectParams['type'] = 'RxnSensitivity'
+            deleteObjectParams['id'] = rxnsensitivity
+            deleteObjectParams['workspace'] = self.args.workspace
+            deleteObjectParams['auth'] = self.token
+            self.wsClient.delete_object(deleteObjectParams)
+            self.wsClient.delete_object_permanently(deleteObjectParams)
+            raise
 
-        return objmeta
+        return
 
     ''' Run a delete_noncontributing_reactions job to delete unnecessary gapfill reactions as identified by
     a reaction sensitivity analysis (only relevant for iterative gapfill) '''
