@@ -27,7 +27,7 @@ class TestCalculateScript(unittest.TestCase):
         args = [ self.cmd, "kb|g.8622", "--chia" ]
         proc = subprocess.Popen(args, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         (so, se) = proc.communicate()
-        self.assertEqual(proc.returncode, 255)
+        self.assertNotEqual(proc.returncode, 0)
         self.assertEqual(so, '')
         self.assertNotEqual(se.find("Unknown option:"), -1)
 
@@ -37,7 +37,7 @@ class TestCalculateScript(unittest.TestCase):
         args = [ self.cmd, "kb|g.8622", "--probannows" ]
         proc = subprocess.Popen(args, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         (so, se) = proc.communicate()
-        self.assertEqual(proc.returncode, 255)
+        self.assertNotEqual(proc.returncode, 0)
         self.assertEqual(so, '')
         self.assertNotEqual(se.find("Option probannows requires an argument"), -1)
 

@@ -61,7 +61,7 @@ class TestUrlScript(unittest.TestCase):
         args = [ self.cmd, "--chia" ]
         proc = subprocess.Popen(args, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         (so, se) = proc.communicate()
-        self.assertEqual(proc.returncode, 255)
+        self.assertNotEqual(proc.returncode, 0)
         self.assertEqual(so, '')
         self.assertNotEqual(se.find("Unknown option:"), -1)
 
