@@ -331,7 +331,11 @@ class Workflow:
         they are returned in the reverse order in which they appear in the solution object (because lowest-priority
         activated reactions are gapfilled last) '''
     def _sortGapfilledReactions(self, model, rxnprobs=None):
-        modelObj = self.fbaClient.get_models( [ model ], [ self.args.workspace ] )
+        getModelParams = dict()
+        getModelParams['models'] = [ model ]
+        getModelParams['workspaces'] = [ self.args.workspace ]
+        getModelParams['auth'] = self.token
+        models = self.fbaClient.get_models( getModelParams )
 
         # Get a list of reaction IDs
         # (I think these are the ones we will need to pass to the reaction sensitivity script)
@@ -383,6 +387,8 @@ class Workflow:
 
             sortedArray = sorted(arrayToSort, key=itemgetter(1))
             gapfilledReactionIds = map(itemgetter(0), sortedArray)
+            print sortedArray
+            raise
 
         return gapfilledReactionIds
 
@@ -727,11 +733,11 @@ class Workflow:
         step += 1
         stdIterativeIntSensitivity = '%s.model.std.iterative.int.sensitivity'
         print '+++ Step %d: Order gapfilled reactions by probability and iteratively check the sensitivity of removing them' %(step)
-        if self._isObjectMossing('RxnSensitivity', stdIterativeIntSensitivity):
+        if self._isObjectMissing('RxnSensitivity', stdIterativeIntSensitivity):
             print '  Getting the reactions in the reverse of the order in which they were added by Gapfill...'
-            reactions_to_test = self._sortGapfilledReactions(self, stdIterativeIntModel, rxnprobs=None)
+            reactions_to_test = self._sortGapfilledReactions(stdIterativeIntModel, rxnprobs=None)
             print '  Submitting reaction sensitivity job and saving results to %s/%s ...' %(self.args.workspace, stdIterativeIntSensitivity)
-            self._runReactionSensitivity(self,stdIterativeIntModel, reactions_to_test, stdIterativeIntSensitivity)
+            self._runReactionSensitivity(stdIterativeIntModel, reactions_to_test, stdIterativeIntSensitivity)
         else:
             print '  Found rxn sensntivity object %s/%s' %(self.args.workspace, stdIterativeIntSensitivity)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -866,11 +872,11 @@ class Workflow:
         step += 1
         probIterativeIntSensitivity = '%s.model.pa.iterative.int.sensitivity'
         print '+++ Step %d: Order gapfilled reactions by probability and iteratively check the sensitivity of removing them' %(step)
-        if self._isObjectMossing('RxnSensitivity', probIterativeIntSensitivity):
+        if self._isObjectMissing('RxnSensitivity', probIterativeIntSensitivity):
             print '   Sorting gapfilled reactions by likelihood (and then by order of priority of activated reactions)'
             reactions_to_test = self._sortGapfilledReactions(self, probIterativeIntModel, rxnprobs=rxnprobs)
             print '  Submitting reaction sensitivity job and saving results to %s/%s ...' %(self.args.workspace, probIterativeIntSensitivity)
-            self._runReactionSensitivity(self,probIterativeIntModel, reactions_to_test, probIterativeIntSensitivity)
+            self._runReactionSensitivity(probIterativeIntModel, reactions_to_test, probIterativeIntSensitivity)
         else:
             print '  Found rxn sensntivity object %s/%s' %(self.args.workspace, probIterativeIntSensitivity)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -885,7 +891,6 @@ class Workflow:
             print '  Found filtered model %s/%s' %(self.args.workspace, probIterativeIntModelFiltered)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
-
         step += 1
         probIterativeCompleteFba = "%s.model.pa.iterative.int.fba" %(self.args.genome)
         print "+++ Step %d: Check for growth of probabilistic iterative gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
@@ -899,7 +904,6 @@ class Workflow:
         if obj is None or float(obj) < 1E-5:
             print '   [ERROR] Probabilistic iterative gapfilled model did not grow on complete media'
             raise NoGrowthError('Growth rate was 0 or unable to calculate')
-
 
         step += 1
         probIterativeMinimalModel = "%s.model.pa.iterative.int.minimal" %(self.args.genome)
