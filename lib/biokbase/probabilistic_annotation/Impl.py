@@ -470,7 +470,8 @@ class ProbabilisticAnnotation:
         # Build the array of total role probabilities.     
         totalRoleProbs = []
         for role in roleToTotalProb:
-            totalRoleProbs.append( (role, roleToTotalProb[role], " or ".join(roleToGeneList[role])) )   
+            gpr = " or ".join(list(set(roleToGeneList[role])))
+            totalRoleProbs.append( (role, roleToTotalProb[role], gpr ) )   
     
         # Save the generated data when debug is turned on.
         if self.config["debug"]:
@@ -567,8 +568,11 @@ class ProbabilisticAnnotation:
                 TYPE = "CPLX_FULL"
             elif len(availRoles) < len(allCplxRoles):
                 TYPE = "CPLX_PARTIAL_%d_of_%d" %(len(availRoles), len(allCplxRoles))
-            GPR = " and ".join("(" + s + ")" for s in [ rolesToGeneList[f] for f in availRoles ] )
-            if GPR != "==":
+
+            partialGprList = [ "(" + s + ")" for s in [ rolesToGeneList[f] for f in availRoles ] ]
+            GPR = " and ".join( list(set(partialGprList)) )
+
+            if GPR != "":
                 GPR = "(" + GPR + ")"
 
             # Find the minimum probability of the different available roles (ignoring ones that are apparently missing)
@@ -644,14 +648,15 @@ class ProbabilisticAnnotation:
                     pass
             # Iterate separately to get a GPR. We want to apply a cutoff here too to avoid a complex with 80% probability being linked by OR to another with a 5% probability, for example...
             # For now I've implemented using the same cutoff as we used for which genes go with a role.
+            cplxGprs = []
             for cplx in rxnComplexes:
                 if cplx in cplxToTuple:
                     if cplxToTuple[cplx][0] < maxp * float(self.config["dilution_percent"])/100.0:
                         continue
-                    if GPR == "":
-                        GPR = cplxToTuple[cplx][2]
-                    elif cplxToTuple[cplx][2] != "":
-                        GPR = " or ".join( [ GPR, cplxToTuple[cplx][2] ] )
+                    cplxGprs.append(cplxToTuple[cplx][2])
+            if len(cplxGprs) > 0:
+                GPR = " or ".join( list(set(cplxGprs)) )
+
             # List so that we can modify the reaction IDs if needed to translate to ModelSEED IDs
             reactionProbs.append( [rxn, maxp, TYPE, complexinfo, GPR] )
     
