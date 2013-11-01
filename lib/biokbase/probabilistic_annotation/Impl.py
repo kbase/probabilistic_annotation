@@ -471,6 +471,9 @@ class ProbabilisticAnnotation:
         totalRoleProbs = []
         for role in roleToTotalProb:
             gpr = " or ".join(list(set(roleToGeneList[role])))
+            # We only need to group these if there is more than one of them (avoids extra parenthesis when computing complexes)
+            if len(list(set(roleToGeneList[role]))) > 1:
+                gpr = "(" + gpr + ")"
             totalRoleProbs.append( (role, roleToTotalProb[role], gpr ) )   
     
         # Save the generated data when debug is turned on.
@@ -569,10 +572,11 @@ class ProbabilisticAnnotation:
             elif len(availRoles) < len(allCplxRoles):
                 TYPE = "CPLX_PARTIAL_%d_of_%d" %(len(availRoles), len(allCplxRoles))
 
-            partialGprList = [ "(" + s + ")" for s in [ rolesToGeneList[f] for f in availRoles ] ]
+#            partialGprList = [ "(" + s + ")" for s in [ rolesToGeneList[f] for f in availRoles ] ]
+            partialGprList = [ rolesToGeneList[f] for f in availRoles ]
             GPR = " and ".join( list(set(partialGprList)) )
 
-            if GPR != "":
+            if GPR != "" and len(list(set(partialGprList))) > 1:
                 GPR = "(" + GPR + ")"
 
             # Find the minimum probability of the different available roles (ignoring ones that are apparently missing)
