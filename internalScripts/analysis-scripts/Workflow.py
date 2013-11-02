@@ -731,7 +731,7 @@ class Workflow:
         stdIterativeIntModel = stdIterativeModel
 
         step += 1
-        stdIterativeIntSensitivity = '%s.model.std.iterative.int.sensitivity'
+        stdIterativeIntSensitivity = '%s.model.std.iterative.int.sensitivity' %(self.args.genome)
         print '+++ Step %d: Order gapfilled reactions by probability and iteratively check the sensitivity of removing them' %(step)
         if self._isObjectMissing('RxnSensitivity', stdIterativeIntSensitivity):
             print '  Getting the reactions in the reverse of the order in which they were added by Gapfill...'
@@ -743,7 +743,7 @@ class Workflow:
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        stdIterativeIntModelFiltered = '%s.model.std.iterative.int.filtered'
+        stdIterativeIntModelFiltered = '%s.model.std.iterative.int.filtered' %(self.args.genome)
         print '+++ Step %d: Remove gapfilled reactions that are not necessary according to reaction sensitivity analysis' %(step)
         if self._isObjectMissing('Model', stdIterativeIntModelFiltered):
             print ' Deleteting unnecessary reactions from the model according to rxn sensitivity analysis... '
@@ -870,7 +870,7 @@ class Workflow:
         probIterativeIntModel = probIterativeModel
 
         step += 1
-        probIterativeIntSensitivity = '%s.model.pa.iterative.int.sensitivity'
+        probIterativeIntSensitivity = '%s.model.pa.iterative.int.sensitivity' %(self.args.genome)
         print '+++ Step %d: Order gapfilled reactions by probability and iteratively check the sensitivity of removing them' %(step)
         if self._isObjectMissing('RxnSensitivity', probIterativeIntSensitivity):
             print '   Sorting gapfilled reactions by likelihood (and then by order of priority of activated reactions)'
@@ -882,7 +882,7 @@ class Workflow:
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        probIterativeIntModelFiltered = '%s.model.pa.iterative.int.filtered'
+        probIterativeIntModelFiltered = '%s.model.pa.iterative.int.filtered' %(self.args.genome)
         print '+++ Step %d: Remove gapfilled reactions that are not necessary according to reaction sensitivity analysis' %(step)
         if self._isObjectMissing('Model', probIterativeIntModelFiltered):
             print ' Deleteting unnecessary reactions from the model according to rxn sensitivity analysis... '
