@@ -402,6 +402,7 @@ class Workflow:
         reactionSensitivityParams['rxnsens_uid'] = rxnsensitivity
         reactionSensitivityParams['workspace'] = self.args.workspace
         reactionSensitivityParams['auth'] = self.token
+        reactionSensitivityParams['delete_noncontributing_reactions'] = 1
 
         job = self.fbaClient.reaction_sensitivity_analysis(reactionSensitivityParams)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
