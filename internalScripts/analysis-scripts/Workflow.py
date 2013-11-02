@@ -425,7 +425,7 @@ class Workflow:
     a reaction sensitivity analysis (only relevant for iterative gapfill) '''
     def _runReactionDeletion(self, model, filteredmodel, rxnsensitivity):
         deleteReactionsParams = dict()
-        deleteReactionsParams['new_model_id'] = filteredmodel
+        deleteReactionsParams['new_model_uid'] = filteredmodel
         deleteReactionsParams['workspace'] = self.args.workspace
         deleteReactionsParams['rxn_sensitivity'] = rxnsensitivity
         deleteReactionsParams['rxn_sensitivity_ws'] = self.args.workspace
