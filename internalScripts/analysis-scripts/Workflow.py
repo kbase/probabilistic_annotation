@@ -343,7 +343,7 @@ class Workflow:
         # Note - I'm not sure what the reaction sensitivity script does with compartments
         gapfilledReactionIds = []
         for reaction in models[0]['reactions']:
-            if reaction['gapfilled'] == "1":
+            if str(reaction['gapfilled']) == "1":
                 gapfilledReactionIds.append(reaction['reaction'])
 
         # I am depending here on the assumption (currently true) that the order that reactions appear when you do a get_model
@@ -747,7 +747,7 @@ class Workflow:
         print '+++ Step %d: Remove gapfilled reactions that are not necessary according to reaction sensitivity analysis' %(step)
         if self._isObjectMissing('Model', stdIterativeIntModelFiltered):
             print ' Deleteting unnecessary reactions from the model according to rxn sensitivity analysis... '
-            self._runReactionDeletion(self, stdIterativeIntModel, stdIterativeIntModelFiltered, stdIterativeIntSensitivity)
+            self._runReactionDeletion(stdIterativeIntModel, stdIterativeIntModelFiltered, stdIterativeIntSensitivity)
         else:
             print '  Found filtered model %s/%s' %(self.args.workspace, stdIterativeIntModelFiltered)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -886,7 +886,7 @@ class Workflow:
         print '+++ Step %d: Remove gapfilled reactions that are not necessary according to reaction sensitivity analysis' %(step)
         if self._isObjectMissing('Model', probIterativeIntModelFiltered):
             print ' Deleteting unnecessary reactions from the model according to rxn sensitivity analysis... '
-            self._runReactionDeletion(self, probIterativeIntModel, probIterativeIntModelFiltered, probIterativeIntSensitivity)
+            self._runReactionDeletion( probIterativeIntModel, probIterativeIntModelFiltered, probIterativeIntSensitivity)
         else:
             print '  Found filtered model %s/%s' %(self.args.workspace, probIterativeIntModelFiltered)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
