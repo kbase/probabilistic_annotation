@@ -366,7 +366,7 @@ class Workflow:
             getObjectParams['id'] = rxnprobs
             rxnprobs = self.wsClient.get_object(getObjectParams)            
             rxnToProbability = {}
-            for rxnarray in rxnprobs['reaction_probabilities']:
+            for rxnarray in rxnprobs['data']['reaction_probabilities']:
                 rxnid = rxnarray[0]
                 prob = rxnarray[1]
                 rxnToProbability[rxnid] = prob
@@ -387,8 +387,6 @@ class Workflow:
 
             sortedArray = sorted(arrayToSort, key=itemgetter(1))
             gapfilledReactionIds = map(itemgetter(0), sortedArray)
-            print sortedArray
-            raise
 
         return gapfilledReactionIds
 
@@ -875,7 +873,7 @@ class Workflow:
         print '+++ Step %d: Order gapfilled reactions by probability and iteratively check the sensitivity of removing them' %(step)
         if self._isObjectMissing('RxnSensitivity', probIterativeIntSensitivity):
             print '   Sorting gapfilled reactions by likelihood (and then by order of priority of activated reactions)'
-            reactions_to_test = self._sortGapfilledReactions(self, probIterativeIntModel, rxnprobs=rxnprobs)
+            reactions_to_test = self._sortGapfilledReactions(probIterativeIntModel, rxnprobs=rxnprobs)
             print '  Submitting reaction sensitivity job and saving results to %s/%s ...' %(self.args.workspace, probIterativeIntSensitivity)
             self._runReactionSensitivity(probIterativeIntModel, reactions_to_test, probIterativeIntSensitivity)
         else:
