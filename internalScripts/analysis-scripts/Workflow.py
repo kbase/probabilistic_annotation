@@ -544,7 +544,7 @@ class Workflow:
         print "+++ Step %d: Check for growth on Carbon-D-Glucose" %(step)
         if self._isObjectMissing('FBA', stdMinimalFba):
             print '   Running FBA on the integrated model...'
-            self._runFBA(stdMinimalIntModel, stdMinimalFba)
+            self._runFBA(stdMinimalIntModel, stdMinimalFba, media="Carbon-D-Glucose")
         else:
             print '   Found existing FBA solution %s/%s' %(self.args.workspace, stdMinimalFba)
         obj = self._getObjectiveValue(stdMinimalFba)
@@ -674,7 +674,7 @@ class Workflow:
         print "+++ Step %d: Check for growth on Carbon-D-Glucose" %(step)
         if self._isObjectMissing('FBA', probMinimalFba):
             print '   Running FBA on the integrated model...'
-            self._runFBA(probMinimalIntModel, probMinimalFba)
+            self._runFBA(probMinimalIntModel, probMinimalFba, media="Carbon-D-Glucose")
         else:
             print '   Found existing FBA solution %s/%s' %(self.args.workspace, probMinimalFba)
         obj = self._getObjectiveValue(probMinimalFba)
@@ -792,7 +792,7 @@ class Workflow:
         print "+++ Step %d: Check for growth on Carbon-D-Glucose" %(step)
         if self._isObjectMissing('FBA', stdIterativeMinimalFba):
             print '   Running FBA on the integrated model...'
-            self._runFBA(stdIterativeMinimalIntModel, stdIterativeMinimalFba)
+            self._runFBA(stdIterativeMinimalIntModel, stdIterativeMinimalFba, media="Carbon-D-Glucose")
         else:
             print '   Found existing FBA solution %s/%s' %(self.args.workspace, stdIterativeMinimalFba)
         obj = self._getObjectiveValue(stdIterativeMinimalFba)
@@ -930,7 +930,7 @@ class Workflow:
         print "+++ Step %d: Check for growth on Carbon-D-Glucose" %(step)
         if self._isObjectMissing('FBA', probIterativeMinimalFba):
             print '   Running FBA on the integrated model...'
-            self._runFBA(probIterativeMinimalIntModel, probIterativeMinimalFba)
+            self._runFBA(probIterativeMinimalIntModel, probIterativeMinimalFba, media="Carbon-D-Glucose")
         else:
             print '   Found existing FBA solution %s/%s' %(self.args.workspace, probIterativeMinimalFba)
         obj = self._getObjectiveValue(probIterativeMinimalFba)
@@ -1047,22 +1047,26 @@ class Workflow:
                     print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
     
                     obj = self._getObjectiveValue(finalFbaObject)
+                    if obj is None or obj < 1E-5:
+                        raise NoGrowthError("Did not get growth after gapfilling to knockout media %s" %(media[0]))
                 else:
-                    print "+++ No gapfilling needed - model already grows on media. Copying it over... +++"
-                    # TODO - Copy over the model to new location (mediaGapfilledIntModel AND mediaGapfilledModel)
+                    print "+++ No gapfilling needed - model already grows on media. +++"
+                    mediaGapfilledModel = model
+                    mediaGapfilledIntModel = model
                     print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
                 print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
                 # Do the simulation - get simulation set (note - for knockouts we don't want to necessarily add transporters, they should already be there from the gapfill we did above)
                 substep += 1
                 print '+++ Step %d.%d: simulate phenotype on media %s +++' %(step, substep, media[0])
-                knockoutSimulation = "%s.knockoutsim" %(mediaGapfilledIntModel)
+                knockoutSimulation = "%s.%s.knockoutsim" %(model, media[0])
                 if self._isObjectMissing('PhenotypeSimSet', knockoutSimulation):
                     print '  Running phenotype simulation and saving to %s/%s' %(self.args.workspace, knockoutSimulation)
                     self._simulatePhenotype(mediaGapfilledIntModel, self.args.knockout, self.args.knockoutws, knockoutSimulation, positive_transporters = 0, all_transporters = 0)
                 else:
                     print '  Found phenotype simulation set %s/%s' %(self.args.workspace, knockoutSimulation)
                 print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+                print "\n Knockout simulation of %s to media %s complete \n" %(model, media[0])
 
         print '=== Completed Knockout Workflow ==='
         
