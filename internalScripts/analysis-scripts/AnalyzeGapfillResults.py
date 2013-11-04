@@ -40,13 +40,14 @@ models = fbaClient.get_models( { "models" : [ options.modelid ],
 #except:
 #    raise IOError("ERROR: Getting model %s from workspace %s failed (most likely this means the model does not exist in that workspace)" %(options.modelid, options.ws))
 
-# Get IDs for all the reactions and genes in the model
+# Get IDs for all the reactions and genes in the model (pre-gapfilling)
 rxns_in_model = set()
 genes_in_model = set()
 for reaction in models[0]["reactions"]:
-    rxns_in_model.add(reaction["reaction"])
-    for feature in reaction["features"]:
-        genes_in_model.add(feature)
+    if str(reaction["gapfilled"]) == "0":
+        rxns_in_model.add(reaction["reaction"])
+        for feature in reaction["features"]:
+            genes_in_model.add(feature)
 
 ### Get the gapfill UUID integrated into the model
 # Assuming here that we only care about the first gapfill run
@@ -163,7 +164,7 @@ for gapfill in gapfills:
     ####################################################
     gapfill_solutions = gapfill_objects_fba[0]["solutions"]
     ii = 0
-    print "\t".join( [ "Sln_idx", "rxnid", "objective", "gapfill_uuid", "rxn_likelihood", "is_reversibility_change", "probanno_based_GPR", "New genes added", "Number of new genes" ] )
+    print "\t".join( [ "Sln_idx", "rxnid", "objective", "gapfill_uuid", "rxn_likelihood", "is_reversibility_change", "probanno_based_GPR", "New_genes", "Number_of_new_genes" ] )
     for solution in gapfill_solutions:
         reactionAdds = solution["reactionAdditions"]
         if len(reactionAdds) < 1:
@@ -174,7 +175,6 @@ for gapfill in gapfills:
         #
         rxnids = set()
         for addedrxn in reactionAdds:
-            print addedrxn
             rxnids.add(addedrxn[0])
 
         rxnids = tuple(sorted(rxnids))

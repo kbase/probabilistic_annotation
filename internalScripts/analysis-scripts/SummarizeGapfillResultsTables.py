@@ -18,7 +18,7 @@ if len(args) < 2:
     print usage
     exit(1)
 
-def parse_result_table(filename):
+def parse_result_table(filename, addedReactionsOnly=False):
     ''' Parse a results table into a useful data structure keyed by solution number then other information
 
     '''
@@ -38,6 +38,8 @@ def parse_result_table(filename):
        gpr = spl[6]
        newgenes = spl[7].split(";")
        numnew = spl[8] #not used (only the aggregate number after taking unique is useful)
+       if is_revchange == "1" and addedReactionsOnly:
+           continue
        if rxn_likelihood == "NO_PROBABILITY":
            rxn_likelihood = "0"
        
@@ -72,6 +74,8 @@ def getUniqueGenes(results, solnum, reaction_list, addedReactionsOnly = False):
         if addedReactionsOnly and results[solnum]["rxninfo"][reaction]["revchange"] == "1":
             continue
         for gene in results[solnum]["rxninfo"][reaction]["newgenes"]:
+            if gene == '':
+                continue
             unique_genes.add(gene)
     return unique_genes
 
@@ -82,13 +86,13 @@ def safeAverage(numarray):
     except ZeroDivisionError:
         return None
 
-probanno_results = parse_result_table(args[0])
-non_probanno_results = parse_result_table(args[1])
+probanno_results = parse_result_table(args[0], addedReactionsOnly = options.addedonly)
+non_probanno_results = parse_result_table(args[1], addedReactionsOnly = options.addedonly)
 
 if options.printgenes:
     print "\t".join( [ "reaction", "likelihood", "whenfound", "solnum" ] )
 else:
-    print "\t".join( [ "probanno_filename", "non_probanno_filename", "solution number compared", 
+    print "\t".join( [ "probanno_filename", "non_probanno_filename", "solution_number_compared", 
                    "number_common", "number_probanno_only", "number_nonprobanno_only",
                    "average_common", "average_probanno_only", "average_nonprobanno_only",
                    "unique_genes_common", "unique_genes_probanno_only", "unique_genes_nonprobanno_only"]
