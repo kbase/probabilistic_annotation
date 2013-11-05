@@ -1,5 +1,6 @@
-When running the tests please MAKE SURE to use the deploy_test.cfg and NOT deploy.cfg as the configuration file for deployment.
+When running the tests please MAKE SURE to edit the test.cfg to use the KBase ID's user name and password. Then start the service,
+and finally you should be able to run "make test" and it will work.
 
-I'm working on automating this but haven't managed to get it to work correctly. deploy.cfg is set up for production (downloads the "real"
-static data files from Shock). deploy_test.cfg is set up for testing and uses miniaturized versions of the static data files
-to speed up tests and to avoid having to connect to an external server.
+If you get "connection refused" it could be due to a UWSGI bug. Basically, stopping the server in certain ways destroys the process PID
+file but doesn't actially stop the service. Check netstat -lp and kill whatever UWSGI instance is using up port
+7073 (which is the assigned port for probabilistic annotation) before starting up the server again.
