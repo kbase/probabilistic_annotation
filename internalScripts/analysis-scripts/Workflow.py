@@ -177,10 +177,13 @@ class Workflow:
         gapfillParams['formulation'] = gapfillFormulation
         gapfillParams['solver'] = 'CPLEX'
         gapfillParams['auth'] = self.token
+#        gapfillParams['totalTimeLimit'] = self.args.maxtime
+#        gapfillParams['timePerSolution'] = int(self.args.maxtime/self.args.numsolutions)
         if iterative:
             gapfillParams['completeGapfill'] = '1'
             # This is necessary until we get the automatic integration pushed to the SEED servers
             gapfillParams['integrate_solution'] = '1'
+#            gapfillParams['timePerSolution'] = self.args.maxtime
 
         job = self.fbaClient.queue_gapfill_model(gapfillParams)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -926,7 +929,7 @@ class Workflow:
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        probIterativeMinimalFba = "%s.model.pa.int.minimal.fba" %(self.args.genome)
+        probIterativeMinimalFba = "%s.model.pa.iterative.int.minimal.fba" %(self.args.genome)
         print "+++ Step %d: Check for growth on Carbon-D-Glucose" %(step)
         if self._isObjectMissing('FBA', probIterativeMinimalFba):
             print '   Running FBA on the integrated model...'
@@ -1060,7 +1063,7 @@ class Workflow:
                 substep += 1
                 print '+++ Step %d.%d: simulate phenotype on media %s +++' %(step, substep, media[0])
                 knockoutSimulation = "%s.%s.knockoutsim" %(model, media[0])
-                if self._isObjectMissing('PhenotypeSimSet', knockoutSimulation):
+                if self._isObjectMissing('PhenotypeSimulationSet', knockoutSimulation):
                     print '  Running phenotype simulation and saving to %s/%s' %(self.args.workspace, knockoutSimulation)
                     self._simulatePhenotype(mediaGapfilledIntModel, self.args.knockout, self.args.knockoutws, knockoutSimulation, positive_transporters = 0, all_transporters = 0)
                 else:
@@ -1115,7 +1118,11 @@ class Workflow:
         for model in foundModels:
             print "+++ Step %d/%d: Simulate biolog data on model %s/%s" %(step, substep, self.args.workspace, model)
             biologSimulation = "%s.biologsim" %(model)
-            self._simulatePhenotype(model, self.args.biolog, self.args.biologws, biologSimulation, positive_transporters = positive_transporters, all_transporters = all_transporters)
+            if self._isObjectMissing("PhenotypeSimulationSet", biologSimulation):
+                print "   Running simulation..."
+                self._simulatePhenotype(model, self.args.biolog, self.args.biologws, biologSimulation, positive_transporters = positive_transporters, all_transporters = all_transporters)
+            else:
+                print "   Found existing phenotype simulation object %s" %(biologSimulation)
             print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
             substep += 1
 
@@ -1162,7 +1169,7 @@ if __name__ == "__main__":
     parser.add_argument('--knockoutws', help='OPTIONAL. Workspace for provided knockout data PhenotypeSet (default is the same as the current workspace', action='store', dest='knockoutws', default=None)
     parser.add_argument('--biologdata', help='OPTIONAL. Provide a knockout data PhenotypeSet and we will create a new model gapfilled to each media in it.', action='store', dest='biolog', default=None)
     parser.add_argument('--biologdataws', help='OPTIONAL. Workspace for provided knockout data PhenotypeSet (default is the same as the current workspace', action='store', dest='biologws', default=None)
-    parser.add_argument('--postitiveTransportersOnly', help='', action='store_true', default=False)
+    parser.add_argument('--positiveTransportersOnly', help='OPTIONAL. Add transporters for only media that produced growth in a PhenotypeSet before simulating. Only relevant for biolog data. Default is to add transporters for ALL media.', action='store_true', default=False)
     parser.add_argument('--maxtime', 
                         help='OPTIONAL. Maximum amount of time to wait for a job to finish (by default the maximum is 2 hour for normal gapfill jobs and probanno jobs and 4 days for iterative gapfill)',
                         action='store', default=None)
@@ -1193,6 +1200,7 @@ if __name__ == "__main__":
         if workflow.args.iterative:
             oldmax = workflow.args.maxtime
             if workflow.args.maxtime is None:
+                # 4 days
                 workflow.args.maxtime = 345600
             workflow.runIterative()
             workflow.args.maxtime = oldmax
