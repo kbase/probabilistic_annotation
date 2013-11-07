@@ -14,7 +14,7 @@ parser = optparse.OptionParser(usage=usage, description=description)
 parser.add_option("-m", "--modelid", help="Model ID", action="store", type="str", dest="modelid", default=None)
 parser.add_option("-w", "--ws", help="Workspace for model and for RxnProbs object if specified...", action="store", type="str", dest="ws", default=None)
 parser.add_option("-a", "--auth", help="Auth string", action="store", type="str", dest="auth", default=None)
-parser.add_option("-u", "--url", help="URL", action="store", type="str", dest="url", default="http://bio-data-1.mcs.anl.gov/services/fba")
+parser.add_option("-u", "--url", help="URL for FBA model services", action="store", type="str", dest="url", default="http://bio-data-1.mcs.anl.gov/services/fba")
 parser.add_option("-r", "--rxnprobsid", help="Rxnprobs object ID (optional)", action="store", type="str", dest="rxnprobsid", default=None)
 (options, args) = parser.parse_args()
 
