@@ -126,8 +126,8 @@ deploy-pythonscripts:
 # (Waiting for resolution on documentation of command line scripts).
 
 deploy-docs: build-docs
-	if [ ! -d $(SERVICE_DIR)/webroot ] ; then mkdir -p $(SERVICE_DIR)/webroot ; fi
-	cp docs/*html $(SERVICE_DIR)/webroot/.
+	if [ ! -d $(SERV_SERVICE_DIR)/webroot ] ; then mkdir -p $(SERV_SERVICE_DIR)/webroot ; fi
+	cp docs/*html $(SERV_SERVICE_DIR)/webroot/.
 
 build-docs:
 	# pod2html doesn't work on the Python client (which has no docstrings anyway)
