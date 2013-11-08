@@ -1,2 +1,2 @@
-#group-name	probanno-commands	All externally-facing probabilistic annotation commands
+#group-name	probanno-commands	Probabilistic Annotation
 #command-set	scripts/(.*).pl	probanno-commands
