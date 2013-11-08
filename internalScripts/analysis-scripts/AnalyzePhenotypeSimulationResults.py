@@ -4,7 +4,7 @@ import json
 import argparse
 import sys
 import traceback
-from biokbase.probabilistic_annotation.Client import ProbabilisticAnnotation
+from biokbase.probabilistic_annotation.Client import _read_inifile
 from biokbase.workspaceService.Client import *
 from biokbase.fbaModelServices.Client import *
 
@@ -25,15 +25,14 @@ if __name__ == "__main__":
     parser.add_argument('--fba-url', help='url for fba modeling service', action='store', dest='fbaurl', default='http://bio-data-1.mcs.anl.gov/services/fba')
     parser.add_argument('--ws-url', help='url for workspace service', action='store', dest='wsurl', default='http://www.kbase.us/services/workspace/')
     parser.add_argument('--cdmi-url', help='url for cdmi service', action='store', dest='cdmiurl', default='http://www.kbase.us/services/cdmi_api/')
-    parser.add_argument('--pa-url', help='url for probabilistic annotation service', action='store', dest='paurl', default='http://www.kbase.us/services/probabilistic_annotation/')
     args = parser.parse_args()
 
     if args.rxnprobs is not None and args.rxnprobsws is None:
         args.rxnprobsws = args.phenows
 
-    # Create a client just to get an authorization token.
-    paClient = ProbabilisticAnnotation(args.paurl)
-    token = paClient._headers['AUTHORIZATION']
+    # Get the authorization data from the config file.
+    authdata = _read_inifile()
+    token = authdata['token']
 
     # Get simulation data
     wsClient = workspaceService(args.wsurl)
