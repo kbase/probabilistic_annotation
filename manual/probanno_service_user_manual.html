@@ -24,9 +24,11 @@ reducing the effort needed to search for evidence for gapfilled reactions.
   <li><a href="#STEP1">Accessing Probabilistic Annotation commands</a></li>
   <li><a href="#STEP2">Calculating annotation likelihoods for your genome</a></li>
   <li><a href="#STEP3">Calculating reaction likelihoods for your genome</a></li>
+  <li><a href="#STEP4">Getting reaction likelihoods in a human-readable form</a></li>
+  <li><a href="#STEP5">Using reaction or annotation likelihoods to inform model gap-filling</a></li>
 </ol>
 <a name="STEP1">
-</div><div><h3>1. Accessing Probabilistic Annotation commands<</h3>
+</div><div><h3>1. Accessing Probabilistic Annotation commands</h3>
 </a>
 <p>The probabilistic annotation tools are available either through the <a href="http://iris.kbase.us" target="_blank">IRIS command web interface</a>
 or through the
@@ -98,12 +100,6 @@ For example, using the probabilistic annotation object for E coli as input one c
 Unlike pa-annotate, pa-calculate runs very quickly so it is not placed on a queue. The resulting object is of type RxnProbs and contains putative gene annotations (based on a
 cutoff from the gene most likely to fulfil each role associated with the reaction) and likelihood scores. 
 </p>
-<p>
-The RxnProbs object can currently be used as input to the gapfilling function to use likelihood scores as weights in gapfilling using the --probrxn flag (see the help for kbfba-gapfill for details).
-However, if you do this you must make sure that the same template model is used for gapfilling and for computing the probabilities. If you want to avoid this issue, we recommend using the 
-probabilisitc annotation directly (--probanno) instead.
-</p>
-</div>
 <a name="STEP4">
 </div><div><h3>4. Getting reaction likelihoods in a human-readable form</h3>
 </a>
@@ -140,5 +136,33 @@ The pa-getrxnprobs command has the following usage:
         -h, --help         display this help message, ignore all arguments
 </pre></code>
 </p>
+<a name="STEP5">
+</div><div><h3>5. Using reaction or annotation likelihoods to inform model gap-filling</h3>
+</a>
+<p>
+The kbfba-gapfill function from the FBA Modeling service is able to perform gap-filling on a metabolic model. By default, the gap-filling calculates costs for each change to a metabolic network based on
+the database(s) the reactions come from, the thermodynamics of the reaction (if it would need to be changed to operate in an unfavorable direction, the cost is increased), penalties for adding transport
+reactions instead of intracellular reactions, and so on. However, the kbfba-gapfill command also has an interface that accepts the outputs from the Probabilistic Annotation service (a ProbAnno or a RxnProbs
+object) and uses those values to modify the costs. In this way, reactions that are more likely according to available genetic evidence are given a lower cost.
+</p>
+<p>
+A ProbAnno object can be passed to the kbfba-gapfill command using the --probanno flag (a RxnProbs object is computed on-the-fly before performing gapfill).
+</p>
+<pre><code>
+        $ kbfba-gapfill --probanno ProbAnno_ID --probannows ProbAnno_workspace [other_options]
+</pre></code>
+<p>
+Alternatively, a RxnProbs object can be provided to kbfba-gapfill using the --probrxn flag.
+</p>
+<pre><code>
+        $ kbfba-gapfill --probrxn ProbRxn_ID --probannows ProbAnno_workspace [other_options]
+</pre></code>
+<p>
+If you choose to integrate the solution immediately (--intsol flag in kbfba-gapfill), the predicted GPRs from the RxnProbs object will automatically be added to the model. If you want to integrate the
+solution afterward (using kbfba-integratesolution) and integrate the GPRs from a RxnProbs object, just pass the rxnprobs object into the kbfba-integratesolution function:
+</p>
+<pre><code>
+        $ kbfba-integratesolution --rxnprobs RxnProbs_ID -f GapfillSolution_ID Model_ID [other_options]
+</pre></code>
 
 </div>
