@@ -43,11 +43,14 @@ models = fbaClient.get_models( { "models" : [ options.modelid ],
 # Get IDs for all the reactions and genes in the model (pre-gapfilling)
 rxns_in_model = set()
 genes_in_model = set()
+integrated_reactions = set()
 for reaction in models[0]["reactions"]:
     if str(reaction["gapfilled"]) == "0":
         rxns_in_model.add(reaction["reaction"])
         for feature in reaction["features"]:
             genes_in_model.add(feature)
+    else:
+        integrated_reactions.add(reaction["reaction"])
 
 ### Get the gapfill UUID integrated into the model
 # Assuming here that we only care about the first gapfill run
@@ -164,7 +167,7 @@ for gapfill in gapfills:
     ####################################################
     gapfill_solutions = gapfill_objects_fba[0]["solutions"]
     ii = 0
-    print "\t".join( [ "Sln_idx", "rxnid", "objective", "gapfill_uuid", "rxn_likelihood", "is_reversibility_change", "probanno_based_GPR", "New_genes", "Number_of_new_genes" ] )
+    print "\t".join( [ "Sln_idx", "rxnid", "objective", "gapfill_uuid", "rxn_likelihood", "is_reversibility_change", "probanno_based_GPR", "New_genes", "Number_of_new_genes", "Rxn_integrated_and_not_deleted" ] )
     for solution in gapfill_solutions:
         reactionAdds = solution["reactionAdditions"]
         if len(reactionAdds) < 1:
@@ -183,14 +186,21 @@ for gapfill in gapfills:
             sys.stderr.write("WARNING: Solution mismatch between ProblemReport.txt and the Gapfill object from kbfba-getgapfills in model %s (this is only OK if you're analyzing complete gapfill)\n" %(options.modelid))
 
         for rxnid in rxnids:
-            # Solution number, reaction ID, and objective value for the solution numbers...
+            # Is the gapfilled reaction still in the model?
+            if rxnid not in rxns_in_model and rxnid not in integrated_reactions:
+                reactionInModel = "False"
+            else:
+                reactionInModel = "True"
+                pass
+
+            # Not all reactions are in the RxnProbs object.
             if rxnid in rxnToProbability:
                 p = str(rxnToProbability[rxnid])
             else:
                 p = "NO_PROBABILITY"
                 pass
-            # This isn't perfect becasue it could've been both a reversibilty chagne AND an added reaction.
-            # But it will tell us things that DEFINITELY were reversibility changes.
+
+            # If the reaction was in the original model and is still in the gapfill solution, that means it was a reversibility change.
             if rxnid in rxns_in_model:
                 revchange = "1"
             else:
@@ -219,9 +229,9 @@ for gapfill in gapfills:
 
             # This doesn't work for complete gapfilling. I just want to get a hack aroud it.
             try:
-                print "\t".join( [ str(ii), rxnid, str(solution_rxns_to_objective[rxnids]), gapfill_uuid, p, revchange, gpr, newgenes, nnew ] )
+                print "\t".join( [ str(ii), rxnid, str(solution_rxns_to_objective[rxnids]), gapfill_uuid, p, revchange, gpr, newgenes, nnew, reactionInModel ] )
             except KeyError:
-                print "\t".join( [ str(ii), rxnid, str(None), gapfill_uuid, p, revchange, gpr, newgenes, nnew ] )
+                print "\t".join( [ str(ii), rxnid, str(None), gapfill_uuid, p, revchange, gpr, newgenes, nnew, reactionInModel ] )
         
         ii += 1
 
