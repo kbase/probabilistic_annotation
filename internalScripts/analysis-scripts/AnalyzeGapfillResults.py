@@ -2,7 +2,7 @@
 
 from biokbase.fbaModelServices.Client import *
 from biokbase.workspaceService.Client import *
-
+from biokbase.probabilistic_annotation.Client import _read_inifile
 import optparse
 import re
 import sys
@@ -13,7 +13,6 @@ description = """Given a GAPFILLED model, pull out the Gapfill solution
 parser = optparse.OptionParser(usage=usage, description=description)
 parser.add_option("-m", "--modelid", help="Model ID", action="store", type="str", dest="modelid", default=None)
 parser.add_option("-w", "--ws", help="Workspace for model and for RxnProbs object if specified...", action="store", type="str", dest="ws", default=None)
-parser.add_option("-a", "--auth", help="Auth string", action="store", type="str", dest="auth", default=None)
 parser.add_option("-u", "--url", help="URL for FBA model services", action="store", type="str", dest="url", default="http://bio-data-1.mcs.anl.gov/services/fba")
 parser.add_option("-r", "--rxnprobsid", help="Rxnprobs object ID (optional)", action="store", type="str", dest="rxnprobsid", default=None)
 (options, args) = parser.parse_args()
@@ -24,9 +23,8 @@ if options.modelid is None:
 if options.ws is None:
     raise IOError("Workspace is required input")
 
-if options.auth is None:
-    raise IOError("Auth is requird input")
-
+authdata = _read_inifile()
+token = authdata['token']
 fbaClient = fbaModelServices(options.url)
 wsClient = workspaceService("http://kbase.us/services/workspace/")
 
@@ -35,7 +33,7 @@ wsClient = workspaceService("http://kbase.us/services/workspace/")
 #try:
 models = fbaClient.get_models( { "models" : [ options.modelid ],
                                  "workspaces" : [ options.ws ],
-                                 "auth"   : options.auth
+                                 "auth"   : token
                                  })
 #except:
 #    raise IOError("ERROR: Getting model %s from workspace %s failed (most likely this means the model does not exist in that workspace)" %(options.modelid, options.ws))
@@ -70,7 +68,7 @@ if options.rxnprobsid is not None:
     rxnprobs_object = wsClient.get_object( { "workspace"     : options.ws,
                                              "type"          : "RxnProbs",
                                              "id"            : options.rxnprobsid,
-                                             "auth"          : options.auth
+                                             "auth"          : token
                                              })
     for rxnprob in rxnprobs_object["data"]["reaction_probabilities"]:
         rxnToProbability[rxnprob[0]] = rxnprob[1]
@@ -92,7 +90,7 @@ for gapfill in gapfills:
     gapfill_object_workspace = wsClient.get_object( { "workspace"  : "NO_WORKSPACE",
                                                        "type"      : "FBA",
                                                        "id"        : gapfill_uuid,
-                                                       "auth"      : options.auth
+                                                       "auth"      : token
                                                        })
 
     # We need to reach in and grab the FBA solution object. It contains the text of the ProblemReport.txt
@@ -106,7 +104,7 @@ for gapfill in gapfills:
     fba_formulation_object = wsClient.get_object( { "workspace" : "NO_WORKSPACE",
                                                     "type"      : "FBA",
                                                     "id"        : fba_formulation_uuid,
-                                                    "auth"      : options.auth
+                                                    "auth"      : token
                                                     })
 
     # The problemreport.txt file contains the objective values...
@@ -158,7 +156,7 @@ for gapfill in gapfills:
     # It's likely we could just use what we have from the ProblemReport.txt instead.
     gapfill_objects_fba = fbaClient.get_gapfills( { "workspaces" : [ "NO_WORKSPACE" ],
                                                     "gapfills"   : [ gapfill_uuid ],
-                                                    "auth"       : options.auth
+                                                    "auth"       : token
                                                     })
 
     ####################################################
