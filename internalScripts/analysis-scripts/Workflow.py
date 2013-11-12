@@ -1059,17 +1059,17 @@ class Workflow:
                     mediaGapfilledIntModel = model
                     print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
-        # Do the simulation - get simulation set (note - for knockouts we don't want to necessarily add transporters,
-        # they should already be there from the gapfill we did above)
-        step += 1
-        print '+++ Step %d: simulate phenotype +++' %(step)
-        knockoutSimulation = "%s.knockoutsim" %(model)
-        if self._isObjectMissing('PhenotypeSimulationSet', knockoutSimulation):
-            print '  Running phenotype simulation and saving to %s/%s' %(self.args.workspace, knockoutSimulation)
-            self._simulatePhenotype(mediaGapfilledIntModel, self.args.knockout, self.args.knockoutws, knockoutSimulation, positive_transporters = 0, all_transporters = 0)
-        else:
-            print '  Found phenotype simulation set %s/%s' %(self.args.workspace, knockoutSimulation)
-        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+                    # Do the simulation - get simulation set (note - for knockouts we don't want to necessarily add transporters,
+                    # they should already be there from the gapfill we did above)
+                substep += 1
+                print '+++ Step %d.%d: simulate phenotype +++' %(step, substep)
+                knockoutSimulation = "%s.knockoutsim" %(model)
+                if self._isObjectMissing('PhenotypeSimulationSet', knockoutSimulation):
+                    print '  Running phenotype simulation and saving to %s/%s' %(self.args.workspace, knockoutSimulation)
+                    self._simulatePhenotype(mediaGapfilledIntModel, self.args.knockout, self.args.knockoutws, knockoutSimulation, positive_transporters = 0, all_transporters = 0)
+                else:
+                    print '  Found phenotype simulation set %s/%s' %(self.args.workspace, knockoutSimulation)
+                print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         print '=== Completed Knockout Workflow ==='
         

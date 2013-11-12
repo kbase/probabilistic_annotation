@@ -7,7 +7,7 @@ import optparse
 import re
 import sys
 
-usage = "%prog -m [gapfilled_model] -w [model_workspace] -a [auth_string] (-u)"
+usage = "%prog -m [gapfilled_model] -w [model_workspace] (other options)"
 description = """Given a GAPFILLED model, pull out the Gapfill solution 
 (including objetive values of all alternative solutions available in the gapfill run"""
 parser = optparse.OptionParser(usage=usage, description=description)
