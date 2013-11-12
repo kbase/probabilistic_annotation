@@ -11,6 +11,8 @@ description = """Generate summary statistics like number of uniquely-added react
 parser = optparse.OptionParser(usage=usage, description=description)
 parser.add_option("-o", "--added_only", help="Set this flag to ONLY include added reactions (not reversibility changes) in counts of genes (though not reactions) and in average probability calculations.",
                   action="store_true", dest="addedonly", default=False)
+parser.add_option("-f", "--final_only", help="Set this flag to only include reactions that are in the final models (e.g. those that were integrated into the model and not deleted by reaction sensitivity analysis) in the counts and average calcualtions. By default we include all reactions in a gapfill solution regardless of downstream analysis", action="store_true", dest="finalonly", default=False)
+parser.add_option("-d", "--deleted_only", help="The opposite of -f, set this flag to ONLY print information about gapfilled reactions that have been deleted from the model.", action="store_true", dest="deletedonly", default=False)
 parser.add_option("-g", "--print_genes", help="Print detailed gene information instead of summaries.", action="store_true", dest="printgenes", default=False)
 (options, args) = parser.parse_args()
 
@@ -18,10 +20,13 @@ if len(args) < 2:
     print usage
     exit(1)
 
-def parse_result_table(filename, addedReactionsOnly=False):
+def parse_result_table(filename, addedReactionsOnly=False, finalReactionsOnly=False, deletedOnly = False):
     ''' Parse a results table into a useful data structure keyed by solution number then other information
 
     '''
+    if finalReactionsOnly and deletedOnly:
+        raise IOError("Setting both final reactions only and deleted reactions only is a contradiction. Please choose one or the other.")
+
     fid = open(filename)
     results = {}
     for line in fid:
@@ -38,8 +43,14 @@ def parse_result_table(filename, addedReactionsOnly=False):
        gpr = spl[6]
        newgenes = spl[7].split(";")
        numnew = spl[8] #not used (only the aggregate number after taking unique is useful)
+       rxn_in_final_model = spl[9]
        if is_revchange == "1" and addedReactionsOnly:
            continue
+       if finalReactionsOnly and rxn_in_final_model == "False":
+           continue
+       if deletedOnly and rxn_in_final_model == "True":
+           continue
+
        if rxn_likelihood == "NO_PROBABILITY":
            rxn_likelihood = "0"
        
@@ -86,8 +97,8 @@ def safeAverage(numarray):
     except ZeroDivisionError:
         return None
 
-probanno_results = parse_result_table(args[0], addedReactionsOnly = options.addedonly)
-non_probanno_results = parse_result_table(args[1], addedReactionsOnly = options.addedonly)
+probanno_results = parse_result_table(args[0], addedReactionsOnly = options.addedonly, finalReactionsOnly = options.finalonly, deletedOnly = options.deletedonly )
+non_probanno_results = parse_result_table(args[1], addedReactionsOnly = options.addedonly, finalReactionsOnly = options.finalonly, deletedOnly = options.deletedonly )
 
 if options.printgenes:
     print "\t".join( [ "reaction", "likelihood", "whenfound", "solnum" ] )
