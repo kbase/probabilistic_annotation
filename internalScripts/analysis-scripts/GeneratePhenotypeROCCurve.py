@@ -5,6 +5,7 @@ import sys
 import re
 import os
 import traceback
+from operator import itemgetter, attrgetter
 from biokbase.probabilistic_annotation.Client import _read_inifile
 from biokbase.workspaceService.Client import *
 from biokbase.fbaModelServices.Client import *
@@ -15,7 +16,7 @@ Given a JSON object calculate the false positive, negative rates. Optionally omi
 in the specified media.
 '''
 separator ='///'
-rolesToRxnsFile = 'roles_to_reactions'
+rolesToRxnsFileName = 'roles_to_reactions'
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='AnalyzePhenotypeSimulationResults.py', description=desc)
@@ -24,17 +25,25 @@ if __name__ == "__main__":
     parser.add_argument('phenosimset', help='ID of PhenotypeSimulationSet object to analyze', action='store', default=None)
     parser.add_argument('workspace', help='ID of workspace containing objects to analyze', action='store', default=None)
     parser.add_argument('--solution', help='index number of solution in integrated gap filled model', action='store', default='0')
-    parser.add_argument('--phenosimsetws', help='workspace containing PhenotypeSimulationSet object to analyze', action='store', default=None)
+    parser.add_argument('--phenosimsetws', help='workspace containing PhenotypeSimulationSet object (same as workspace if not specified)', action='store', default=None)
     parser.add_argument('--media', help='limit analysis to only this media condition', action='store', dest='media', default=None)
-    parser.add_argument('--probanno', help='ID of ProbAnno object with probabilities', action='store', dest='probanno', default=None)
-    parser.add_argument('--probannows', help='workspace containing ProbAnno object (same as phenosimsetws if not specified)', action='store', dest='probannows', default=None)
+    parser.add_argument('--probanno', help='ID of ProbAnno object for genome', action='store', dest='probanno', default=None)
+    parser.add_argument('--probannows', help='workspace containing ProbAnno object (same as workspace if not specified)', action='store', dest='probannows', default=None)
+    parser.add_argument('--rxnprobs', help='ID of RxnProbs object for genome', action='store', dest='rxnprobs', default=None)
+    parser.add_argument('--rxnprobsws', help='workspace containing RxnProbs object (same as workspace if not specified)', action='store', dest='rxnprobsws', default=None)
     parser.add_argument('--script-dir', help='path to directory with analysis scripts', action='store', dest='scriptDir', default='.')
     parser.add_argument('--fba-url', help='url for fba modeling service', action='store', dest='fbaurl', default='http://bio-data-1.mcs.anl.gov/services/fba')
     parser.add_argument('--ws-url', help='url for workspace service', action='store', dest='wsurl', default='http://www.kbase.us/services/workspace/')
     args = parser.parse_args()
     
-    if args.probanno is not None and args.probannows is None:
-        args.probannows = args.phenosimsetws
+    if args.probanno is None:
+        args.probanno = args.genome + '.probanno'
+    if args.probannows is None:
+        args.probannows = args.workspace
+    if args.rxnprobs is None:
+        args.rxnprobs = args.genome + '.rxnprobs'
+    if args.rxnprobsws is None:
+        args.rxnprobsws = args.workspace
     if args.phenosimsetws is None:
         args.phenosimsetws = args.workspace
         
@@ -46,34 +55,32 @@ if __name__ == "__main__":
     # Build roles to reactions dictionary.
     step = 1
     print "+++ Step %d: Build reactions to roles dictionary +++" %(step)
-    if not os.path.exists(rolesToRxnsFile):
-        os.system("all_roles_used_in_models | roles_to_complexes | get_relationship_HasStep -to id >%s" %(rolesToRxnsFile))
+    if not os.path.exists(rolesToRxnsFileName):
+        os.system("all_roles_used_in_models | roles_to_complexes | get_relationship_HasStep -to id >%s" %(rolesToRxnsFileName))
     rolesToReactions = dict()
     reactionsToRoles = dict()
     # Each line of the file has four fields: (1) role, (2) hypothetical flag, (3) complex id, (4) reaction id
-    handle = open(rolesToRxnsFile, 'r')
-    for line in handle:
+    rolesToRxnsFile = open(rolesToRxnsFileName, 'r')
+    for line in rolesToRxnsFile:
         fields = line.strip('\r\n').split('\t')
         reaction = fields[3]
         if reaction not in reactionsToRoles:
             reactionsToRoles[reaction] = list()
         reactionsToRoles[reaction].append(fields[0])
-#        rolesToReactions[fields[0]] = { 'hypothetical': fields[1], 'complex': fields[2], 'reaction': fields[3] }
-    handle.close()
+    rolesToRxnsFile.close()
     print "  %d reactions in reactions to roles dictionary" %(len(reactionsToRoles))
 
     # Analyze the gap fill results for the specified model.
     step += 1
     print "+++ Step %d: Run AnalyzeGapfillResults.py for model '%s/%s' +++" %(step, args.workspace, args.model)
-    rxnprobs = args.genome + '.rxnprobs'
-    resultsFile = args.model + '.results'
+    rxnprobs = args.rxnprobs
+    resultsFileName = args.model + '.results'
     os.system("%s/AnalyzeGapfillResults.py -m %s -w %s --rxnprobs %s --url %s >%s" \
-              %(args.scriptDir, args.model, args.workspace, rxnprobs, args.fbaurl, resultsFile))
-#    reactionDict = dict()
+              %(args.scriptDir, args.model, args.workspace, rxnprobs, args.fbaurl, resultsFileName))
     genesToReactions = dict()
-    handle = open(resultsFile, 'r')
-    handle.readline() # Throw away header line
-    for line in handle:
+    resultsFile = open(resultsFileName, 'r')
+    resultsFile.readline() # Throw away header line
+    for line in resultsFile:
         fields = line.strip('\r\n').split('\t')
         if fields[0] == args.solution:
             if fields[5] == '0': # Only keep reactions that are not a reversibility change
@@ -81,26 +88,24 @@ if __name__ == "__main__":
                     rxnid = re.sub(r'rxn0*(\d+)', r'kb|rxn.\1', fields[1])
                     geneList = re.findall('fig\|\d+\.\d+\.peg\.\d+', fields[6])
                     for index in range(len(geneList)):
-#                        print rxnid + ': ' + geneList[index]
                         if geneList[index] not in genesToReactions:
                             genesToReactions[geneList[index]] = dict()
                         genesToReactions[geneList[index]][rxnid] = 0.0
-#                    reactionDict[rxnid] = { 'likelihood': fields[4], 'gpr': fields[6], 'newgenes': fields[7], 'numnewgenes': fields[8] }
-    handle.close()
+    resultsFile.close()
     print "  %d genes in genes to reactions dictionary" %(len(genesToReactions))
-#    print "  %d reactions in reaction dictionary" %(len(reactionDict))
 
-    # Get the ProbAnno object.
+    # Get the ProbAnno object from the workspace.
     step += 1
-    probanno = args.genome + '.probanno'
-    print "+++ Step %d: Get ProbAnno object '%s/%s'" %(step, args.workspace, probanno)
-    paObject = wsClient.get_object( { 'id': probanno, 'workspace': args.workspace, 'type': 'ProbAnno', 'auth': token } )
+    probanno = args.probanno
+    print "+++ Step %d: Get ProbAnno object '%s/%s'" %(step, args.probannows, probanno)
+    paObject = wsClient.get_object( { 'id': probanno, 'workspace': args.probannows, 'type': 'ProbAnno', 'auth': token } )
     probAnno = paObject['data']
     print "  %d genes in ProbAnno roleset probabilities dictionary" %(len(probAnno['roleset_probabilities']))
     
     # Need to go through rolesets dictionary
     # If an entry has more than one role, split into parts
     # Then run the array and combine any duplicate roles by adding probs
+    # Parse the roleset probabilities from the ProbAnno object.
     step += 1
     print "+++ Step %d: Parse rolesets into roles and adjust probabilities for duplicates +++" %(step)
     rolesetProbabilities = dict()
@@ -108,8 +113,10 @@ if __name__ == "__main__":
         geneRoleList = probAnno['roleset_probabilities'][gene]
         geneRoleDict = dict()
         for index in range(len(geneRoleList)):
-            prob = geneRoleList[index][1]
+            prob = geneRoleList[index][1] # Probability for this roleset
+            # Split multiple roles in roleset for this gene
             roleList = geneRoleList[index][0].split(separator)
+            # If role occurs more than once, add up the probabilities
             for j in range(len(roleList)):
                 if roleList[j] in geneRoleDict:
                     geneRoleDict[roleList[j]] += prob
@@ -122,7 +129,7 @@ if __name__ == "__main__":
     # then find the roles in the probanno object for the gene
     step += 1
     print "+++ Step %d: Find maximum probability of reaction given gene +++" %(step)
-    probsFile = open(args.genome+'probs', 'w')
+    probsFile = open(args.genome+'.probs', 'w')
     numProbs = 0
     for gene in genesToReactions:
         if gene in rolesetProbabilities:
@@ -144,7 +151,7 @@ if __name__ == "__main__":
         
     # Get the PhenotypeSimulationSet object.
     step += 1
-    print "+++ Step %d: Get phenotype simulation set %s/%s +++" %(step, args.phenosimset, args.phenosimsetws)
+    print "+++ Step %d: Get phenotype simulation set %s/%s +++" %(step, args.phenosimsetws, args.phenosimset)
     pssObject = wsClient.get_object( { 'id': args.phenosimset, 'workspace': args.phenosimsetws, 'type': 'PhenotypeSimulationSet', 'auth': token } )
     phenoSimSet = pssObject['data']
     
@@ -154,45 +161,55 @@ if __name__ == "__main__":
             %(args.workspace, args.model, phenoSimSet['model_workspace'], phenoSimSet['model'])
     print "  %d simulations in phenotype simulation set" %(len(phenoSimSet['phenotypeSimulations']))
 
-    step += 1
-    print '+++ Step %d: Calculate curve +++' %(step) 
-    csvFile = open(args.phenosimset+'.csv', 'w')
-    csvFile.write('Media,Cutoff,TN,TP,FN,FP\n')
-    prob = 0.0
-    while prob <= 1.0:
-        mediaDict = dict()
-        for sim in phenoSimSet['phenotypeSimulations']:
-            media = sim[0][1]
-            if media not in mediaDict:
-                mediaDict[media] = dict()
-                mediaDict[media]['trueNeg'] = 0
-                mediaDict[media]['truePos'] = 0
-                mediaDict[media]['falseNeg'] = 0
-                mediaDict[media]['falsePos'] = 0
-            geneList = sim[0][0]
-            if len(geneList) > 1:
-                print 'got more than 1 gene in genelist'
-            keep = False
+    # Go through the list of simulations, for each gene and see if the gene is in the genesToReactions
+    # dictionary.  If so, see if the gene was a lethal or non-lethal knockout and add it to the 
+    # corresponding dictionary along with reactions and 
+    lethalList = list()
+    nonlethalList = list()
+    for sim in phenoSimSet['phenotypeSimulations']:
+        if sim[3] == 'CP' or sim[3] == 'CN':
+            right = 1
+        else:
+            right = 0
+        geneList = sim[0][0]
+        if sim[1] > 0:
             for gene in geneList:
                 if gene in genesToReactions:
                     for reaction in genesToReactions[gene]:
-                        if genesToReactions[gene][reaction] >= prob:
-                            keep = True
-#                else:
-#                    print 'gene %s in sim set is not in geneToReactions dict' %(gene)
-            if keep:
-                simType = sim[3]
-                if simType == "CN":
-                    mediaDict[media]['trueNeg'] += 1
-                elif simType == "CP":
-                    mediaDict[media]['truePos'] += 1
-                elif simType == "FN":
-                    mediaDict[media]['falseNeg'] += 1
-                elif simType == "FP":
-                    mediaDict[media]['falsePos'] += 1
-        prob += 0.01
-        for media in mediaDict:
-            csvFile.write("%s,%f,%d,%d,%d,%d\n" %(media, prob, mediaDict[media]['trueNeg'], mediaDict[media]['truePos'], mediaDict[media]['falseNeg'], mediaDict[media]['falsePos']))
-    csvFile.close()
+                        nonlethalList.append( (gene, reaction, genesToReactions[gene][reaction], right ) )
+        else:
+            for gene in geneList:
+                if gene in genesToReactions:
+                    for reaction in genesToReactions[gene]:
+                        lethalList.append( (gene, reaction, genesToReactions[gene][reaction], right ) )
+
+    # Sort the lists by reaction probability.
+    lethalList.sort(key=itemgetter(2))
+    nonlethalList.sort(key=itemgetter(2))
+    
+    # Walk through each list, generating points for a plot.
+    right = 0
+    wrong = 0
+    lethalFile = open(args.phenosimset+'.lethal.csv', 'w')
+    lethalFile.write('wrong,right\n')
+    for index in range(len(lethalList)):
+        if lethalList[index][3]:
+            right += 1
+        else:
+            wrong += 1
+        lethalFile.write('%d,%d\n' %(wrong,right))
+    lethalFile.close()
+    
+    right = 0
+    wrong = 0
+    nonlethalFile = open(args.phenosimset+'.nonlethal.csv', 'w')
+    nonlethalFile.write('wrong,right\n')
+    for index in range(len(nonlethalList)):
+        if nonlethalList[index][3]:
+            right += 1
+        else:
+            wrong += 1
+        nonlethalFile.write('%d,%d\n' %(wrong,right))
+    nonlethalFile.close()
     exit(0)
     
