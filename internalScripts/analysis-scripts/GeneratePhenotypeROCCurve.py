@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python -u
 
 import argparse
 import sys
@@ -8,8 +8,6 @@ import traceback
 from operator import itemgetter, attrgetter
 from biokbase.probabilistic_annotation.Client import _read_inifile
 from biokbase.workspaceService.Client import *
-from biokbase.fbaModelServices.Client import *
-from biokbase.cdmi.client import CDMI_API, CDMI_EntityAPI
 
 desc = '''
 Given a JSON object calculate the false positive, negative rates. Optionally omit everything that isn't
@@ -19,7 +17,7 @@ separator ='///'
 rolesToRxnsFileName = 'roles_to_reactions'
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(prog='AnalyzePhenotypeSimulationResults.py', description=desc)
+    parser = argparse.ArgumentParser(prog='GeneratePhenotypeROCCurve.py', description=desc)
     parser.add_argument('genome', help='ID of genome to analyze', action='store', default=None)
     parser.add_argument('model', help='ID of integrated gap filled model to analyze', action='store', default=None)
     parser.add_argument('phenosimset', help='ID of PhenotypeSimulationSet object to analyze', action='store', default=None)
@@ -188,6 +186,7 @@ if __name__ == "__main__":
     nonlethalList.sort(key=itemgetter(2))
     
     # Walk through each list, generating points for a plot.
+    print "  %d knockouts in lethal list" %(len(lethalList))
     right = 0
     wrong = 0
     lethalFile = open(args.phenosimset+'.lethal.csv', 'w')
@@ -200,6 +199,7 @@ if __name__ == "__main__":
         lethalFile.write('%d,%d\n' %(wrong,right))
     lethalFile.close()
     
+    print "  %d knockouts in non-lethal list" %(len(nonlethalList))
     right = 0
     wrong = 0
     nonlethalFile = open(args.phenosimset+'.nonlethal.csv', 'w')
