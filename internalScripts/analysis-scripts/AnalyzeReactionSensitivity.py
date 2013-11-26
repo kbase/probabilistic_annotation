@@ -20,6 +20,48 @@ class SensitivityAnalyzer:
         getObjectArgs['auth'] = self.token
         obj = self.wsClient.get_object(getObjectArgs)
         return obj
+
+    def _getRxnSensitivityScores(self, RxnSensitivity):
+        ''' _getRxnSensitivityScores - Calculate Reaction Sensitivity scores.
+
+        This function should be run on a RxnSensitivity object that is generated with delete_reactions=FALSE.
+
+        Reaction Sensitivity scores are computed as follows:
+        Gapfill Reaction --> Inactivated reactions a and b
+
+        if inactive reaction a was inactivated by 3 gapfill reactions and b by 2, the total cost is
+        1/3 + 1/2 = 5/6
+
+        '''
+
+        # How many things does each inactive reaction fill?
+        inactiveRxnsNumGapfilled = dict()
+        gapfilledReactions = set()
+        for reaction in RxnSensitivity['data']['reactions']:
+            gapfilledReactions.add(reaction['reaction'])
+
+        for reaction in RxnSensitivity['data']['reactions']:
+            for inactive_rxn in reaction['new_inactive_rxns']:
+                if inactive_rxn in gapfilledReactions:
+#                    sys.stderr.write("WARNING: Inactive reaction %s for gapfill reaction %s was also a gapfilled reacton\n" %(inactive_rxn, reaction['reaction']))
+                    inactiveRxnsNumGapfilled[inactive_rxn] = 0
+                    continue
+                if inactive_rxn in inactiveRxnsNumGapfilled:
+                    inactiveRxnsNumGapfilled[inactive_rxn] += 1
+                else:
+                    inactiveRxnsNumGapfilled[inactive_rxn] = 1
+        # The total cost is sum(1/N) where N is the number of things each gapfill reaction inactiveted
+        gapfillRxnToCost = dict()
+        for reaction in RxnSensitivity['data']['reactions']:
+            cost = 0
+            for inactive_rxn in reaction['new_inactive_rxns']:
+                if inactiveRxnsNumGapfilled[inactive_rxn] != 0:
+                    cost += float(1)/float(inactiveRxnsNumGapfilled[inactive_rxn])
+            gapfillRxnToCost[reaction['reaction']] = cost
+
+        return gapfillRxnToCost
+                    
+
     def calculateSensitivityStatistics(self):
         # Lets first get basic data from the RxnSensitivity object
         RxnSensitivity = self._getObject('RxnSensitivity', self.args.RxnSensitivity_id, self.args.RxnSensitivity_ws)
@@ -32,8 +74,10 @@ class SensitivityAnalyzer:
                 probability = reaction[1]
                 RxnProbsDict[rxnid] = float(probability)
 
+        gapfillRxnToCost = self._getRxnSensitivityScores(RxnSensitivity)
+
         # Now for the fun part.
-        Header = ( "Gapfill_reaction_id", "Gapfill_reaction_likelihood", "Deleted", "Inactive_reactions", "N_inactive", "Average_inactive_rxn_likelihood" )
+        Header = ( "Gapfill_reaction_id", "Gapfill_reaction_likelihood", "Deleted", "Inactive_reactions", "Inactive_rxn_cost", "Average_inactive_rxn_likelihood" )
         FinalOutput = []
         for reaction in RxnSensitivity['data']['reactions']:
             rxnid = reaction['reaction']
@@ -43,11 +87,12 @@ class SensitivityAnalyzer:
                 rxn_probability = 0
             inactive_rxn_list = reaction['new_inactive_rxns']
             inactive_rxn_string = ";".join(inactive_rxn_list)
+            inactive_rxn_cost = gapfillRxnToCost[rxnid]
             n_inactive_rxns = len(inactive_rxn_list)
             rxn_deleted = reaction['deleted']
             # How likely were the inactivated reactions to begin with?
-            if n_inactive_rxns == 0:
-                FinalOutput.append( ( rxnid, rxn_probability, rxn_deleted, inactive_rxn_string, n_inactive_rxns, None) )
+            if inactive_rxn_cost == 0:
+                FinalOutput.append( ( rxnid, rxn_probability, rxn_deleted, inactive_rxn_string, inactive_rxn_cost, None) )
                 continue
             else:
                 inactive_rxn_sum = 0
@@ -55,7 +100,7 @@ class SensitivityAnalyzer:
                     if inactive_rxn in RxnProbsDict:
                         inactive_rxn_sum += RxnProbsDict[inactive_rxn]
                 average_inactive_rxn_likelihood = inactive_rxn_sum/float(n_inactive_rxns)
-                FinalOutput.append( (rxnid, rxn_probability, rxn_deleted, inactive_rxn_string, n_inactive_rxns, average_inactive_rxn_likelihood) )
+                FinalOutput.append( (rxnid, rxn_probability, rxn_deleted, inactive_rxn_string, inactive_rxn_cost, average_inactive_rxn_likelihood) )
         return FinalOutput, Header
         
 
@@ -78,7 +123,6 @@ if __name__ == "__main__":
 
     if options.RxnProbs_ws is None and options.RxnProbs_id is not None:
         options.RxnProbs_ws = options.RxnSensitivity_ws
-    print options
 
     SensitivityObject = SensitivityAnalyzer(options)
     SensitivityAnalysisResults, Header = SensitivityObject.calculateSensitivityStatistics()

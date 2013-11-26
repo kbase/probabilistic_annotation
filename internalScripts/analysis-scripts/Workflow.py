@@ -144,10 +144,20 @@ class Workflow:
     ''' Run gap fill on a draft model. '''
     def _gapfill(self, draftModel, model, rxnprobs, iterative=False, media=None, mediaws="KBaseMedia"):
         gapfillFormulation = dict()
-        gapfillFormulation['directionpen'] = 4
-        gapfillFormulation['singletranspen'] = 25
-        gapfillFormulation['biomasstranspen'] = 25
-        gapfillFormulation['transpen'] = 25
+
+        # These parameters were set to maximize the consistency between gapfill solutions and the B subtilis
+        # "gold standard" reactions (e.g. maximize the number of high-confidence thimgs we get back when we knock them out).
+        if iterative:
+            gapfillFormulation['directionpen'] = 12
+            gapfillFormulation['singletranspen'] = 25
+            gapfillFormulation['biomasstranspen'] = 25
+            gapfillFormulation['transpen'] = 25
+        else:
+            gapfillFormulation['directionpen'] = 40
+            gapfillFormulation['singletranspen'] = 55
+            gapfillFormulation['biomasstranspen'] = 55
+            gapfillFormulation['transpen'] = 55
+
         gapfillFormulation['allowedcmps'] = [ 'c', 'e', 'p' ]
         gapfillFormulation['nobiomasshyp'] = 1
         gapfillFormulation['formulation'] = {}
@@ -354,6 +364,8 @@ class Workflow:
         # in the original gapfill solution
         #
         # In such a case we want to reverse the reactions so that the "low-priority" gapfill solutions are tested for removal first.
+        # OR we don't because the reason we have this analysis in the first place is because later solutions can clobber earlier ones...
+        # Not sure which we should be doing...
         gapfilledReactionIds.reverse()
         probabilities = [0]*len(gapfilledReactionIds)
 
@@ -395,7 +407,7 @@ class Workflow:
 
     ''' Run a reaction sensntivity analysis, saving the results in the specified rxnsensitivity object.
         IMPORTANT: Reactions are tested (deleted) in the order in which they are given in reactions_to_delete.'''
-    def _runReactionSensitivity(self, model,reactions_to_delete, rxnsensitivity):
+    def _runReactionSensitivity(self, model,reactions_to_delete, rxnsensitivity, deleteReactions=True):
         reactionSensitivityParams = dict()
         reactionSensitivityParams['model'] = model
         reactionSensitivityParams['model_ws'] = self.args.workspace
@@ -403,7 +415,10 @@ class Workflow:
         reactionSensitivityParams['rxnsens_uid'] = rxnsensitivity
         reactionSensitivityParams['workspace'] = self.args.workspace
         reactionSensitivityParams['auth'] = self.token
-        reactionSensitivityParams['delete_noncontributing_reactions'] = 1
+        if deleteReactions:
+            reactionSensitivityParams['delete_noncontributing_reactions'] = 1
+        else:
+            reactionSensitivityParams['delete_noncontributing_reactions'] = 0
 
         job = self.fbaClient.reaction_sensitivity_analysis(reactionSensitivityParams)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -720,13 +735,44 @@ class Workflow:
             print '  Found draft model %s/%s' %(self.args.workspace, draftModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
+        # NOTE - This is deliberately the same as for non-iterative gapfill.
+        # We start with the integrated model from regular gapfill when doing iterative gapfill
+        # because it is way faster and probably also more accurate to work around the MFA toolkit's
+        # integration bug...
+        step += 1
+        stdModel = '%s.model.std' %(self.args.genome)
+        print '+++ Step %d: Run standard gap fill on complete media' %(step)
+        if self._isObjectMissing('Model', stdModel):
+            print '  Submitting job and saving standard gap fill model to %s/%s ...' %(self.args.workspace, stdModel)
+            self._gapfill(draftModel, stdModel, None)
+        else:
+            print '  Found standard gap fill model %s/%s' %(self.args.workspace, stdModel)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        print '+++ Step %d: Find standard gap fill unintegrated solutions (we only will integrate the first solution)' %(step)
+        print '  Checking gap fill model %s/%s ...' %(self.args.workspace, stdModel)
+        solutionList = self._findGapfillSolution(stdModel)
+        print '  Found unintegrated solution %s' %(solutionList[0])
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        stdIntModel = "%s.model.std.int" %(self.args.genome)
+        print '+++ Step %d: Integrate standard gap fill solution 0 on complete media (NOTE - you should check that the solution is optimal)' %(step)
+        if self._isObjectMissing('Model', stdIntModel):
+            print '  Integrating solution %s into model %s/%s ...' %(solutionList[0], self.args.workspace, stdIntModel)
+            self._integrateSolutions(stdModel, stdIntModel, solutionList, None)
+        else:
+            print '  Found integrated standard gap fill model %s/%s' %(self.args.workspace, stdIntModel)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+        
         # Note - iterative gapfilling automatically integrates solutions now.
         step += 1
         stdIterativeModel = '%s.model.std.iterative.int' %(self.args.genome)
         print '+++ Step %d: Run standard iterative gap fill on complete media [note - iterative gapfill automatically will integrate the solutions]' %(step)
         if self._isObjectMissing('Model', stdIterativeModel):
             print '  Submitting job and saving standard iterative gap fill model to %s/%s ...' %(self.args.workspace, stdIterativeModel)
-            self._gapfill(draftModel, stdIterativeModel, None, iterative=True)
+            self._gapfill(stdIntModel, stdIterativeModel, None, iterative=True)
         else:
             print '  Found standard iterative gap fill model %s/%s' %(self.args.workspace, stdIterativeModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -754,6 +800,17 @@ class Workflow:
             print '  Found filtered model %s/%s' %(self.args.workspace, stdIterativeIntModelFiltered)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
+        # This step is necessary for us to do some post-processing and delete reactions with too little effect
+        step += 1
+        stdIterativeIntFollowupSensitivity = '%s.model.std.iterative.int.filtered.followup_sensitivity' %(self.args.genome)
+        print '+++ Step %d: Run a follow-up reaction sensitivity analysis to get inactive reactions after deletion from model +++' %(step)
+        if self._isObjectMissing('RxnSensitivity', stdIterativeIntFollowupSensitivity):
+            reactions_to_test = self._sortGapfilledReactions(stdIterativeIntModelFiltered, rxnprobs=None)
+            print ' Deleteting unnecessary reactions from the model according to rxn sensitivity analysis... '
+            self._runReactionSensitivity(stdIterativeIntModelFiltered, reactions_to_test, stdIterativeIntFollowupSensitivity, deleteReactions=False)
+        else:
+            print '  Found follow-up reaction sensitivity object %s/%s' %(self.args.workspace, stdIterativeIntFollowupSensitivity)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
         stdIterativeCompleteFba = "%s.model.std.iterative.int.fba" %(self.args.genome)
@@ -853,9 +910,38 @@ class Workflow:
         print '+++ Step %d: Calculate reaction probabilities' %(step)
         if self._isObjectMissing('RxnProbs', rxnprobs):
             print '  Saving reaction probabilities to %s/%s ...' %(self.args.workspace, rxnprobs)
-            rxnprobsMeta = self._runCalculate(rxnprobs)
+            rxnprobsMeta = self._runCalculate(probanno, rxnprobs)
         else:
            print '  Found reaction probabilities %s/%s' %(self.args.workspace, rxnprobs)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        # This is deliberately the same as for non-iterative gapfill. We want to start with the integrated solution
+        # to biomass to work aroudn MFA toolkit's integration bug. It makes iterative gapfill SO much faster.
+        step += 1
+        probModel = '%s.model.pa' %(self.args.genome)
+        print '+++ Step %d: Run probabilistic gap fill on complete media' %(step)
+        if self._isObjectMissing('Model', probModel):
+            print '  Submitting job and saving probabilistic gap fill model to %s/%s ...' %(self.args.workspace, probModel)
+            self._gapfill(draftModel, probModel, rxnprobs)
+        else:
+            print '  Found probabilistic gap fill model %s/%s' %(self.args.workspace, probModel)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        print '+++ Step %d: Find probabilistic unintegrated solutions' %(step)
+        print '  Checking gap fill model %s/%s ...' %(self.args.workspace, probModel)
+        solutionList = self._findGapfillSolution(probModel)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        step += 1
+        probIntModel = "%s.model.pa.int" %(self.args.genome)
+        print "+++ Step %d: Integrate probablisitic gap fill solution 0 on complete media (NOTE - you should check that the solution is optimal)" %(step)
+        print '  Integrating solution %s into model %s/%s ...' %(solutionList[0], self.args.workspace, probIntModel)
+        if self._isObjectMissing('Model', probIntModel):
+            print '  Integrating probabilisitc gap fill solution 0 into model %s/%s ...' %(self.args.workspace, probIntModel)
+            self._integrateSolutions(probModel, probIntModel, solutionList, rxnprobs)
+        else:
+            print '  Found integrated probabilistic gap fill model %s/%s' %(self.args.workspace, probIntModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         #### Above this line, everything about this is exactly the same as for probanno without iterative gapfill
@@ -865,7 +951,7 @@ class Workflow:
         print '+++ Step %d: Run probabilistic iterative gap fill on complete media [ note - iterative gapfill will automatically integrate the solutions]' %(step)
         if self._isObjectMissing('Model', probIterativeModel):
             print '  Submitting job and saving probabilistic iterative gap fill model to %s/%s ...' %(self.args.workspace, probIterativeModel)
-            self._gapfill(draftModel, probIterativeModel, rxnprobs, iterative=True)
+            self._gapfill(probIntModel, probIterativeModel, rxnprobs, iterative=True)
         else:
             print '  Found probabilistic gap fill model %s/%s' %(self.args.workspace, probIterativeModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -891,6 +977,18 @@ class Workflow:
             self._runReactionDeletion( probIterativeIntModel, probIterativeIntModelFiltered, probIterativeIntSensitivity)
         else:
             print '  Found filtered model %s/%s' %(self.args.workspace, probIterativeIntModelFiltered)
+        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+
+        # This step is necessary for us to do some analysis of the inactive reactions after deleting unnecessary gapfill solutions.
+        step += 1
+        probIterativeIntFollowupSensitivity = '%s.model.pa.iterative.int.filtered.followup_sensitivity' %(self.args.genome)
+        print '+++ Step %d: Run a follow-up reaction sensitivity analysis to get inactive reactions after deletion from model +++' %(step)
+        if self._isObjectMissing('RxnSensitivity', probIterativeIntFollowupSensitivity):
+            reactions_to_test = self._sortGapfilledReactions(probIterativeIntModelFiltered, rxnprobs=None)
+            print ' Deleteting unnecessary reactions from the model according to rxn sensitivity analysis... '
+            self._runReactionSensitivity(probIterativeIntModelFiltered, reactions_to_test, probIterativeIntFollowupSensitivity, deleteReactions=False)
+        else:
+            print '  Found follow-up reaction sensitivity object %s/%s' %(self.args.workspace, probIterativeIntFollowupSensitivity)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
@@ -1161,7 +1259,7 @@ if __name__ == "__main__":
     parser.add_argument('--prob', help='Run probabilistic gap fill workflow', action='store_true', dest='prob', default=False)
     parser.add_argument('--iterative', help='Run standard iterative gap fill workflow ', action='store_true', dest='iterative', default=False)
     parser.add_argument('--iterativeprob', help='Run probabilistic iterative gap fill workflow ', action='store_true', dest='iterativeprob', default=False)
-    parser.add_argument('--num-solutions', help='Number of solutions to find for gap fill (ignored for iterative gap filling)', action='store', dest='numsolutions', type=int, default=10)
+    parser.add_argument('--num-solutions', help='Number of solutions to find for gap fill (ignored for iterative gap filling)', action='store', dest='numsolutions', type=int, default=3)
     parser.add_argument('--ws-url', help='URL for workspace service', action='store', dest='wsurl', default='http://www.kbase.us/services/workspace')
     parser.add_argument('--fba-url', help='URL for fba model service', action='store', dest='fbaurl', default='http://bio-data-1.mcs.anl.gov/services/fba')
     parser.add_argument('--pa-url', help='URL for probabilistic annotation service', action='store', dest='paurl', default='http://www.kbase.us/services/probabilistic_annotation')
