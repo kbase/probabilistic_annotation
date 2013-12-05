@@ -160,56 +160,36 @@ if __name__ == "__main__":
     print "  %d simulations in phenotype simulation set" %(len(phenoSimSet['phenotypeSimulations']))
 
     # Go through the list of simulations, for each gene and see if the gene is in the genesToReactions
-    # dictionary.  If so, see if the gene was a lethal or non-lethal knockout and add it to the 
-    # corresponding dictionary along with reactions and 
-    lethalList = list()
-    nonlethalList = list()
+    # dictionary.  If so, mark it as known and include the probability.  Otherwise, mark it as unknown
+    # and set the probability to 0.5.  In both cases, set a flag indicating if the simulation was
+    # correct or incorrect.
+    step += 1
+    print "+++ Step %d: Analyze phenotype simulation set results +++" %(step)
+    numKnown = 0
+    resultList = list()
     for sim in phenoSimSet['phenotypeSimulations']:
         if sim[3] == 'CP' or sim[3] == 'CN':
             right = 1
         else:
             right = 0
         geneList = sim[0][0]
-        if sim[1] > 0:
-            for gene in geneList:
-                if gene in genesToReactions:
-                    for reaction in genesToReactions[gene]:
-                        nonlethalList.append( (gene, reaction, genesToReactions[gene][reaction], right ) )
-        else:
-            for gene in geneList:
-                if gene in genesToReactions:
-                    for reaction in genesToReactions[gene]:
-                        lethalList.append( (gene, reaction, genesToReactions[gene][reaction], right ) )
+        for gene in geneList:
+            if gene in genesToReactions:
+                for reaction in genesToReactions[gene]:
+                    resultList.append( (gene, reaction, genesToReactions[gene][reaction], right ) )
+                    numKnown += 1
+            else:
+                resultList.append( (gene, 'unknown', 0.5, right) )
+    print "  %d genes had reactions with known probabilities" %(numKnown)
 
-    # Sort the lists by reaction probability.
-    lethalList.sort(key=itemgetter(2))
-    nonlethalList.sort(key=itemgetter(2))
-    
-    # Walk through each list, generating points for a plot.
-    print "  %d knockouts in lethal list" %(len(lethalList))
-    right = 0
-    wrong = 0
-    lethalFile = open(args.phenosimset+'.lethal.csv', 'w')
-    lethalFile.write('wrong,right\n')
-    for index in range(len(lethalList)):
-        if lethalList[index][3]:
-            right += 1
-        else:
-            wrong += 1
-        lethalFile.write('%d,%d\n' %(wrong,right))
-    lethalFile.close()
-    
-    print "  %d knockouts in non-lethal list" %(len(nonlethalList))
-    right = 0
-    wrong = 0
-    nonlethalFile = open(args.phenosimset+'.nonlethal.csv', 'w')
-    nonlethalFile.write('wrong,right\n')
-    for index in range(len(nonlethalList)):
-        if nonlethalList[index][3]:
-            right += 1
-        else:
-            wrong += 1
-        nonlethalFile.write('%d,%d\n' %(wrong,right))
-    nonlethalFile.close()
+    step += 1
+    print "+++ Step %d: Save analysis to file +++" %(step)
+    resultList.sort(key=itemgetter(2), reverse=True)
+    resultFile = open(args.phenosimset+'.results.csv', 'w')
+    resultFile.write('prob,true,reaction\n')
+    for index in range(len(resultList)):
+        resultFile.write('%f,%d,%s\n' %(resultList[index][2], resultList[index][3], resultList[index][1]))
+    print "  Saved analysis to %s" %(resultFile.name)
+    resultFile.close()
     exit(0)
     
