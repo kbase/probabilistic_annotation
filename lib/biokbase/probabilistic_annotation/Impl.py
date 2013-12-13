@@ -47,13 +47,14 @@ class WrongVersionError(Exception):
     pass
 #END_HEADER
 
-'''
 
-Module Name:
-ProbabilisticAnnotation
+class ProbabilisticAnnotation:
+    '''
+    Module Name:
+    ProbabilisticAnnotation
 
-Module Description:
-The purpose of the Probabilistic Annotation service is to provide users with
+    Module Description:
+    The purpose of the Probabilistic Annotation service is to provide users with
 alternative annotations for genes, each attached to a likelihood score, and to
 translate these likelihood scores into likelihood scores for the existence of
 reactions in metabolic models.  With the Probabilistic Annotation service:
@@ -68,10 +69,14 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
   available genetic evidence into the gapfilling process and provides putative
   gene annotations automatically, reducing the effort needed to search for
   evidence for gapfilled reactions.
+    '''
 
-'''
-class ProbabilisticAnnotation:
-
+    ######## WARNING FOR GEVENT USERS #######
+    # Since asynchronous IO can lead to methods - even the same method -
+    # interrupting each other, you must be *very* careful when using global
+    # state. A method could easily clobber the state set by another while
+    # the latter method is running.
+    #########################################
     #BEGIN_CLASS_HEADER
     def _checkInputArguments(self, input, requiredArgs, defaultArgDict):
         ''' Check that required input arguments are present and set defaults for non-required arguments.
@@ -845,8 +850,9 @@ class ProbabilisticAnnotation:
      
     #END_CLASS_HEADER
 
-    def __init__(self, config): #config contains contents of config file in hash or 
-                                #None if it couldn't be found
+    # config contains contents of config file in a hash or None if it couldn't
+    # be found
+    def __init__(self, config):
         #BEGIN_CONSTRUCTOR
         '''Constructor for ProbabilisticAnnotation object.
 
@@ -982,10 +988,11 @@ class ProbabilisticAnnotation:
 
         #At some point might do deeper type checking...
         if not isinstance(jobid, basestring):
-            raise ValueError('Method annotate return value jobid is not type basestring as required.')
+            raise ValueError('Method annotate return value ' +
+                             'jobid is not type basestring as required.')
         # return the results
-        return [ jobid ]
-        
+        return [jobid]
+
     def calculate(self, input):
         # self.ctx is set by the wsgi application class
         # return variables are: output
@@ -1098,10 +1105,11 @@ class ProbabilisticAnnotation:
 
         #At some point might do deeper type checking...
         if not isinstance(output, list):
-            raise ValueError('Method calculate return value output is not type list as required.')
+            raise ValueError('Method calculate return value ' +
+                             'output is not type list as required.')
         # return the results
-        return [ output ]
-        
+        return [output]
+
     def get_rxnprobs(self, input):
         # self.ctx is set by the wsgi application class
         # return variables are: output
@@ -1126,7 +1134,35 @@ class ProbabilisticAnnotation:
 
         #At some point might do deeper type checking...
         if not isinstance(output, list):
-            raise ValueError('Method get_rxnprobs return value output is not type list as required.')
+            raise ValueError('Method get_rxnprobs return value ' +
+                             'output is not type list as required.')
         # return the results
-        return [ output ]
-        
+        return [output]
+
+    def get_probanno(self, input):
+        # self.ctx is set by the wsgi application class
+        # return variables are: output
+        #BEGIN get_probanno
+        input = self._checkInputArguments(input,
+                                          ['probanno', 'probanno_workspace'],
+                                          {}
+                                          )
+
+        wsClient = workspaceService(self.config["workspace_url"])
+        getObjectParams = { "id"        : input["probanno"],
+                            "type"      : "ProbAnno",
+                            "workspace" : input["probanno_workspace"],
+                            "auth"      : self.ctx["token"]
+                            }
+
+        probAnnoObject = wsClient.get_object(getObjectParams)
+        output = probAnnoObject["data"]["roleset_probabilities"]
+
+        #END get_probanno
+
+        #At some point might do deeper type checking...
+        if not isinstance(output, dict):
+            raise ValueError('Method get_probanno return value ' +
+                             'output is not type dict as required.')
+        # return the results
+        return [output]

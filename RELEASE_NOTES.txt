@@ -5,6 +5,14 @@ This KBase service computes likelihoods for annotations and reactions for a give
 Likelihoods are computed based on similarity to genes with literature evidence and genes
 in subsystems. More ambiguous role calls are given lower probabilities.
 
+VERSION 1.0.3 (Released 12-13-2013)
+
+NEW FEATURES
+- pa-getprobanno function to get a tabular format from a ProbAnno object
+
+UPDATED FEATURES / MAJOR BUG FIXES:
+- None
+
 VERSION 1.0.2 (Released 11-7-2013)
 -----------------------------------------
 

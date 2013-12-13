@@ -172,8 +172,9 @@ sub annotate
     if ($result) {
 	if ($result->is_error) {
 	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-					       code => $result->content->{code},
+					       code => $result->content->{error}->{code},
 					       method_name => 'annotate',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
 					      );
 	} else {
 	    return wantarray ? @{$result->result} : $result->result->[0];
@@ -314,8 +315,9 @@ sub calculate
     if ($result) {
 	if ($result->is_error) {
 	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-					       code => $result->content->{code},
+					       code => $result->content->{error}->{code},
 					       method_name => 'calculate',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
 					      );
 	} else {
 	    return wantarray ? @{$result->result} : $result->result->[0];
@@ -386,8 +388,6 @@ reaction_id is a string
 
 Convert a reaction probability object into a human-readable table.
 
-GetRxnprobsParams is a structure
-
 =back
 
 =cut
@@ -422,8 +422,9 @@ sub get_rxnprobs
     if ($result) {
 	if ($result->is_error) {
 	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
-					       code => $result->content->{code},
+					       code => $result->content->{error}->{code},
 					       method_name => 'get_rxnprobs',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
 					      );
 	} else {
 	    return wantarray ? @{$result->result} : $result->result->[0];
@@ -432,6 +433,107 @@ sub get_rxnprobs
         Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method get_rxnprobs",
 					    status_line => $self->{client}->status_line,
 					    method_name => 'get_rxnprobs',
+				       );
+    }
+}
+
+
+
+=head2 get_probanno
+
+  $output = $obj->get_probanno($input)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$input is a GetProbannoParams
+$output is a roleset_probabilities
+GetProbannoParams is a reference to a hash where the following keys are defined:
+	probanno has a value which is a probanno_id
+	probanno_workspace has a value which is a workspace_id
+probanno_id is a string
+workspace_id is a string
+roleset_probabilities is a reference to a hash where the key is a feature_id and the value is a reference to a list where each element is a function_probability
+feature_id is a string
+function_probability is a reference to a list containing 2 items:
+	0: (annotation) a string
+	1: (probability) a float
+
+</pre>
+
+=end html
+
+=begin text
+
+$input is a GetProbannoParams
+$output is a roleset_probabilities
+GetProbannoParams is a reference to a hash where the following keys are defined:
+	probanno has a value which is a probanno_id
+	probanno_workspace has a value which is a workspace_id
+probanno_id is a string
+workspace_id is a string
+roleset_probabilities is a reference to a hash where the key is a feature_id and the value is a reference to a list where each element is a function_probability
+feature_id is a string
+function_probability is a reference to a list containing 2 items:
+	0: (annotation) a string
+	1: (probability) a float
+
+
+=end text
+
+=item Description
+
+Convert a ProbAnno object into a human-readbale table.
+
+=back
+
+=cut
+
+sub get_probanno
+{
+    my($self, @args) = @_;
+
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function get_probanno (received $n, expecting 1)");
+    }
+    {
+	my($input) = @args;
+
+	my @_bad_arguments;
+        (ref($input) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"input\" (value was \"$input\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to get_probanno:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'get_probanno');
+	}
+    }
+
+    my $result = $self->{client}->call($self->{url}, {
+	method => "ProbabilisticAnnotation.get_probanno",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'get_probanno',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method get_probanno",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'get_probanno',
 				       );
     }
 }
@@ -449,16 +551,16 @@ sub version {
             Bio::KBase::Exceptions::JSONRPC->throw(
                 error => $result->error_message,
                 code => $result->content->{code},
-                method_name => 'get_rxnprobs',
+                method_name => 'get_probanno',
             );
         } else {
             return wantarray ? @{$result->result} : $result->result->[0];
         }
     } else {
         Bio::KBase::Exceptions::HTTP->throw(
-            error => "Error invoking method get_rxnprobs",
+            error => "Error invoking method get_probanno",
             status_line => $self->{client}->status_line,
-            method_name => 'get_rxnprobs',
+            method_name => 'get_probanno',
         );
     }
 }
@@ -1299,8 +1401,8 @@ verbose has a value which is a bool
 =item Description
 
 Inputs for get_rxnprobs function.
-rxnprobs_id - ID for RxnProbs object in the workspace
-workspace_id - ID for workspace in which RxnProbs object is held.
+rxnprobs_id rxnprobs- ID for RxnProbs object in the workspace
+workspace_id rxnprobs_workspace - ID for workspace in which RxnProbs object is held.
 
 
 =item Definition
@@ -1354,6 +1456,78 @@ a reference to a list where each element is a reaction_probability
 =begin text
 
 a reference to a list where each element is a reaction_probability
+
+=end text
+
+=back
+
+
+
+=head2 GetProbannoParams
+
+=over 4
+
+
+
+=item Description
+
+Inputs for get_probanno function.
+probanno_id probanno - ID for probanno object
+workspace_id probanno_workspace - ID for workspace in which ProbAnno object is held.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+probanno has a value which is a probanno_id
+probanno_workspace has a value which is a workspace_id
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+probanno has a value which is a probanno_id
+probanno_workspace has a value which is a workspace_id
+
+
+=end text
+
+=back
+
+
+
+=head2 roleset_probabilities
+
+=over 4
+
+
+
+=item Description
+
+Output for get_probanno function.
+It is a mapping from a feature (gene) ID to a list of (annotation, likelihood) tuples.
+Annotations are roles separated by a "///" delimiter
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the key is a feature_id and the value is a reference to a list where each element is a function_probability
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the key is a feature_id and the value is a reference to a list where each element is a function_probability
 
 =end text
 

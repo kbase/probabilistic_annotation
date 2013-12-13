@@ -196,8 +196,8 @@ module ProbabilisticAnnotation
 
     /*
         Inputs for get_rxnprobs function.
-	rxnprobs_id - ID for RxnProbs object in the workspace
-	workspace_id - ID for workspace in which RxnProbs object is held.
+	rxnprobs_id rxnprobs- ID for RxnProbs object in the workspace
+	workspace_id rxnprobs_workspace - ID for workspace in which RxnProbs object is held.
     */
     typedef structure {
 	rxnprobs_id rxnprobs;
@@ -212,9 +212,29 @@ module ProbabilisticAnnotation
 
     /*
         Convert a reaction probability object into a human-readable table.
-
-	GetRxnprobsParams is a structure 
     */
     funcdef get_rxnprobs(GetRxnprobsParams input) returns(reaction_probability_list output);
+
+    /*
+        Inputs for get_probanno function.
+	probanno_id probanno - ID for probanno object
+	workspace_id probanno_workspace - ID for workspace in which ProbAnno object is held.
+    */
+    typedef structure {
+	probanno_id probanno;
+	workspace_id probanno_workspace;
+    } GetProbannoParams;
+
+    /* 
+        Output for get_probanno function.
+	It is a mapping from a feature (gene) ID to a list of (annotation, likelihood) tuples.
+	Annotations are roles separated by a "///" delimiter
+    */
+    typedef mapping<feature_id, list<function_probability>> roleset_probabilities;
+    
+    /*
+        Convert a ProbAnno object into a human-readbale table.
+    */
+    funcdef get_probanno(GetProbannoParams input) returns(roleset_probabilities output);
 
 };
