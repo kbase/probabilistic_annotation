@@ -800,17 +800,6 @@ class Workflow:
             print '  Found filtered model %s/%s' %(self.args.workspace, stdIterativeIntModelFiltered)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
-        # This step is necessary for us to do some post-processing and delete reactions with too little effect
-        step += 1
-        stdIterativeIntFollowupSensitivity = '%s.model.std.iterative.int.filtered.followup_sensitivity' %(self.args.genome)
-        print '+++ Step %d: Run a follow-up reaction sensitivity analysis to get inactive reactions after deletion from model +++' %(step)
-        if self._isObjectMissing('RxnSensitivity', stdIterativeIntFollowupSensitivity):
-            reactions_to_test = self._sortGapfilledReactions(stdIterativeIntModelFiltered, rxnprobs=None)
-            print ' Deleteting unnecessary reactions from the model according to rxn sensitivity analysis... '
-            self._runReactionSensitivity(stdIterativeIntModelFiltered, reactions_to_test, stdIterativeIntFollowupSensitivity, deleteReactions=False)
-        else:
-            print '  Found follow-up reaction sensitivity object %s/%s' %(self.args.workspace, stdIterativeIntFollowupSensitivity)
-        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
         stdIterativeCompleteFba = "%s.model.std.iterative.int.fba" %(self.args.genome)
@@ -977,18 +966,6 @@ class Workflow:
             self._runReactionDeletion( probIterativeIntModel, probIterativeIntModelFiltered, probIterativeIntSensitivity)
         else:
             print '  Found filtered model %s/%s' %(self.args.workspace, probIterativeIntModelFiltered)
-        print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
-
-        # This step is necessary for us to do some analysis of the inactive reactions after deleting unnecessary gapfill solutions.
-        step += 1
-        probIterativeIntFollowupSensitivity = '%s.model.pa.iterative.int.filtered.followup_sensitivity' %(self.args.genome)
-        print '+++ Step %d: Run a follow-up reaction sensitivity analysis to get inactive reactions after deletion from model +++' %(step)
-        if self._isObjectMissing('RxnSensitivity', probIterativeIntFollowupSensitivity):
-            reactions_to_test = self._sortGapfilledReactions(probIterativeIntModelFiltered, rxnprobs=None)
-            print ' Deleteting unnecessary reactions from the model according to rxn sensitivity analysis... '
-            self._runReactionSensitivity(probIterativeIntModelFiltered, reactions_to_test, probIterativeIntFollowupSensitivity, deleteReactions=False)
-        else:
-            print '  Found follow-up reaction sensitivity object %s/%s' %(self.args.workspace, probIterativeIntFollowupSensitivity)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
