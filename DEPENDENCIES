@@ -4,4 +4,5 @@ idserver
 typecomp
 kb_seed
 workspace_service
+user_and_job_state
 KBaseFBAModeling

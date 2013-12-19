@@ -25,7 +25,7 @@ DESCRIPTION
       
       This command takes a significant amount of time to run (since it has to
       run BLAST against a large database), so it is placed on a queue and 
-      returns a job ID.  Use the kbws-checkjob command to see if your job has
+      returns a job ID.  Use the pa-checkjob command to see if your job has
       finished.  When it is done the results are saved in a ProbAnno typed
       object with the specified ID.
       
@@ -46,8 +46,7 @@ EXAMPLES
 SEE ALSO
       pa-calculate
       pa-url
-      kbws-checkjob
-      kbws-jobs
+      pa-checkjob
       kbfba-gapfill
       
 AUTHORS
