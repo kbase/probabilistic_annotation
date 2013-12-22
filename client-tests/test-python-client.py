@@ -44,7 +44,7 @@ class TestPythonClient(unittest.TestCase):
             # Hopefully this means the workspace does not exist. (It could also mean someone messed up setting up the URLs)
 #            traceback.print_exc(file=sys.stderr)
             pass
-        
+
         wsMetadata = wsClient.create_workspace( { "workspace": self._config["wsid"], "default_permission": "n", "auth": self._token } )
 
         # We also need to put in a mapping and a biochemistry object somewhere.
@@ -65,7 +65,7 @@ class TestPythonClient(unittest.TestCase):
         # (Note - this won't be allowed with the new version of the workspace but it agrees with what is in there now)
         mappingObject = json.load(open(self._config["test_mapping_object"], "r"))
         wsClient.save_object( {
-                "id" : "default",
+                "id" : "default-mapping",
                 "type" : "Mapping",
                 "data" : mappingObject,
                 "auth" : self._token,

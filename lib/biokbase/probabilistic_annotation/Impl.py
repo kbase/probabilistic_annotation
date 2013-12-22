@@ -259,7 +259,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         # maximums for all targets, plus a diluting pseudocount.
         for query in idToTargetList:
             # What rolestrings do the targets have? And what is their maximum score?
-            targetToMaxScore = []
+            targetToMaxScore = {}
             for tup in idToTargetList[query]:
                 if tup[0] not in targetIdToRoleString:
                     # sys.stderr.write("ERROR: Target ID %s from the BLAST file had no roles in the rolestring dictionary??\n" %(tup[0]))
