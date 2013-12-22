@@ -59,7 +59,7 @@ class TestPythonClient(unittest.TestCase):
 #            traceback.print_exc(file=sys.stderr)
             pass
 
-        depWsMetadata = wsClient.create_workspace( { "workspace": self._config["dependency_ws"], "default_permission": "w", "auth": self._token } )
+        depWsMetadata = wsClient.create_workspace( { "workspace": self._config["dependency_ws"], "default_permission": "n", "auth": self._token } )
 
         # Load the mapping and biochemsitry objects
         # (Note - this won't be allowed with the new version of the workspace but it agrees with what is in there now)
