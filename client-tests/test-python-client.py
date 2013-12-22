@@ -45,7 +45,7 @@ class TestPythonClient(unittest.TestCase):
 #            traceback.print_exc(file=sys.stderr)
             pass
         
-        wsMetadata = wsClient.create_workspace( { "workspace": self._config["wsid"], "default_permission": "w", "auth": self._token } )
+        wsMetadata = wsClient.create_workspace( { "workspace": self._config["wsid"], "default_permission": "n", "auth": self._token } )
 
         # We also need to put in a mapping and a biochemistry object somewhere.
         # To do this, I just create a "depednecy workspace" and pull them from there.
