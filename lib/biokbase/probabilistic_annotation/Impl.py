@@ -254,48 +254,36 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         # It is a dictionary query -> [ (roleset1, probability_1), (roleset2, probability_2), ...]
         rolestringTuples = {}
         # For each query gene we calcualte the likelihood of each possible rolestring.
+        # We are calculating the probabilities as P(A) = [Max[A]]/[ Sum[Max[A_i]] + PC ]
+        # where max(A) is the maximum score of targets with annotation A and the denominator is the sum of these
+        # maximums for all targets, plus a diluting pseudocount.
         for query in idToTargetList:
-            # First we need to know the maximum score
-            # I have no idea why but I'm pretty sure Python is silently turning the second element of these tuples
-            # into strings.
-            #
-            # That's why I turn them back...
-            maxscore = 0
+            # What rolestrings do the targets have? And what is their maximum score?
+            targetToMaxScore = []
             for tup in idToTargetList[query]:
-                if float(tup[1]) > maxscore:
-                    maxscore = float(tup[1])
-    
-            # Now we calculate the cumulative squared scores
-            # for each possible rolestring. This along with PC*maxscore is equivalent
-            # to multiplying all scores by themselves and then dividing by the max score.
-            # This is done to avoid some pathological cases and give more weight to higher-scoring hits
-            # and not let much lower-scoring hits \ noise drown them out.
-            rolestringToScore = {}
-            for tup in idToTargetList[query]:
-                try:
-                    rolestring = targetIdToRoleString[tup[0]]
-                except KeyError:
-    #                sys.stderr.write("ERROR: Target ID %s from the BLAST file had no roles in the rolestring dictionary??\n" %(tup[0]))
+                if tup[0] not in targetIdToRoleString:
+                    # sys.stderr.write("ERROR: Target ID %s from the BLAST file had no roles in the rolestring dictionary??\n" %(tup[0]))
                     continue
-                if rolestring in rolestringToScore:
-                    rolestringToScore[rolestring] += (float(tup[1]) ** 2)
+                rolestr = targetIdToRoleString[tup[0]]
+                if rolestr in targetToMaxScore:
+                    if targetToMaxScore[rolestr] < float(tup[1]):
+                        targetToMaxScore[rolestr] = float(tup[1])
+                        pass
+                    pass
                 else:
-                    rolestringToScore[rolestring] = (float(tup[1])**2)
-    
-            # Now lets iterate over all of them and calculate the probability
-            # Probability = sum(S(X)^2)/(sum(S(X)^2 + PC*maxscore))
-            # Lets get the denominator first
-            denom = float(self.config["pseudo_count"]) * maxscore
-            for stri in rolestringToScore:
-                denom += rolestringToScore[stri]
-    
-            # Now the numerators, which are different for every rolestring
-            for stri in rolestringToScore:
-                p = rolestringToScore[stri]/denom
-                if query in rolestringTuples:
-                    rolestringTuples[query].append( (stri, p) )
-                else:
-                    rolestringTuples[query] = [ (stri, p) ]
+                    targetToMaxScore[rolestr] = float(tup[1])
+                    pass
+                pass
+            # The denominator is the same always.
+            denom = float(self.config["pseudo_count"]) + sum( [ targetToMaxScore[role] for role in targetToMaxScore ] )
+            
+            # Calculate likelihoods
+            for role in targetToMaxScore:
+                p = targetToMaxScore[role]/denom
+                rolestringTuples[query].append( (role, p) )
+
+            pass
+
     
         # Save the generated data when debug is turned on.
         if self.config["debug"]:
