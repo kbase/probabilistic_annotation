@@ -111,7 +111,7 @@ class TestPythonClient(unittest.TestCase):
         self.assertEqual(jobCompleted, True)
         
         # Look for the ProbAnno object in the test workspace.
-        wsClient = Workspace(self._config["workspace_url"])
+        wsClient = Workspace(self._config["workspace_url"], token=self._token)
         try:
             probannoObjectId = { 'workspace': self._config['test_ws'], 'name': self._config['probannoid'] }
             objectList = wsClient.get_objects( [ probannoObjectId ] )
@@ -135,7 +135,7 @@ class TestPythonClient(unittest.TestCase):
             } )
          
         # Look for the RxnProbs object in the test workspace.
-        wsClient = Workspace(self._config["workspace_url"])
+        wsClient = Workspace(self._config["workspace_url"], token=self._token)
         try:
             rxnprobsObjectId = { 'workspace': self._config['test_ws'], 'name': self._config['rxnprobsid'] }
             objectList = wsClient.get_objects( [ rxnprobsObjectId ] )
