@@ -11,7 +11,8 @@ NEW FEATURES
 - None
 
 UPDATED FEATURES / MAJOR BUG FIXES:
-- Switched to user and job state service for job management.
+- Switched to user and job state service for job management
+- Switched to workspace deluxe service for typed objects
 
 ANTICIPATED FUTURE DEVELOPMENTS:
 - None
