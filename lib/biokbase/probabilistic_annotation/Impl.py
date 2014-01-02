@@ -14,10 +14,10 @@ from biokbase.cdmi.client import CDMI_EntityAPI
 from biokbase.userandjobstate.client import UserAndJobState
 
 # Current version number of ProbAnno object
-ProbAnnoType = 'ProbabilisticAnnotation.ProbAnno-0.1'
+ProbAnnoType = 'ProbabilisticAnnotation.ProbAnno-1.0'
 
 # Current version number of RxnProbs object
-RxnProbsType = 'ProbabilisticAnnotation.RxnProbs-0.2'
+RxnProbsType = 'ProbabilisticAnnotation.RxnProbs-1.0'
 
 # Exception thrown when static database files are not ready
 class NotReadyError(Exception):
