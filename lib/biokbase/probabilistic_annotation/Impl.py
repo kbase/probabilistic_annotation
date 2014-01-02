@@ -14,11 +14,9 @@ from biokbase.cdmi.client import CDMI_EntityAPI
 from biokbase.userandjobstate.client import UserAndJobState
 
 # Current version number of ProbAnno object
-ProbAnnoVersion = 1
 ProbAnnoType = 'ProbabilisticAnnotation.ProbAnno-0.1'
 
 # Current version number of RxnProbs object
-RxnProbsVersion = 1
 RxnProbsType = 'ProbabilisticAnnotation.RxnProbs-0.2'
 
 # Exception thrown when static database files are not ready
@@ -361,7 +359,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         # The Genome object data ["features"] is a list of dictionaries. We want to make our data structure and 
         # then add that to the dictionary.  I use the ii in range so I can edit the elements without changes being lost.
     
-        objectData = {}
+        objectData = dict()
         objectData["id"] = input["probanno"]
         objectData["genome"] = input["genome"]
         objectData["genome_workspace"] = input["genome_workspace"];
@@ -383,11 +381,17 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         objectMetaData = dict()
         objectMetaData['num_rolesets'] = len(objectData["roleset_probabilities"])
         objectMetaData['num_skipped_features'] = len(objectData["skipped_features"])
-        objectSaveData = dict();
-        objectSaveData['type'] = 'ProbabilisticAnnotation.ProbAnno-0.1'
+        objectProvData = dict()
+        objectProvData['time'] = timestamp(0)
+        objectProvData['service'] = os.environ['KB_SERVICE_NAME']
+        objectProvData['script'] = 'pa-annotate'
+        objectProvData['input_ws_objects'] = [ '%s/%s/%d' %(genomeObject['info'][7], genomeObject['info'][1], genomeObject['info'][4]) ]
+        objectSaveData = dict()
+        objectSaveData['type'] = ProbAnnoType
         objectSaveData['name'] = input["probanno"]
         objectSaveData['data'] = objectData
         objectSaveData['meta'] = objectMetaData
+        objectSaveData['provenance'] = [ objectProvData ]
         metadata = wsClient.save_objects( { 'workspace': input["probanno_workspace"], 'objects': [ objectSaveData ] } )
         
         sys.stderr.write("done\n")
@@ -1030,9 +1034,9 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         probannoObjectId = { 'workspace': input["probanno_workspace"], 'name': input["probanno"] }
         objectList = wsClient.get_objects( [ probannoObjectId ] )
         probannoObject = objectList[0]
-        # Need to figure out how to handle version check.
-#         if "version" not in probannoObject["metadata"][10] or probannoObject["metadata"][10]["version"] != ProbAnnoVersion:
-#             raise WrongVersionError("ProbAnno object version is not %d" %(ProbAnnoVersion))
+        if probannoObject['info'][2] != ProbAnnoType:
+             raise WrongVersionError("ProbAnno object type %s is not %s for object %s"
+                                     %(probannoObject['info'][2], ProbAnnoType, probannoObject['info'][1]))
         genome = probannoObject["data"]["genome"]
         
         # Create a temporary directory for storing intermediate files. Only used when debug flag is on.
@@ -1100,11 +1104,17 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         objectData["reaction_probabilities"] = reactionProbs
 
         objectMetaData = { "num_reaction_probs": len(objectData["reaction_probabilities"]) }
+        objectProvData = dict()
+        objectProvData['time'] = timestamp(0)
+        objectProvData['service'] = os.environ['KB_SERVICE_NAME']
+        objectProvData['script'] = 'pa-calculate'
+        objectProvData['input_ws_objects'] = [ '%s/%s/%d' %(probannoObject['info'][7], probannoObject['info'][1], probannoObject['info'][4]) ]
         objectSaveData = dict();
-        objectSaveData['type'] = 'ProbabilisticAnnotation.RxnProbs-0.2'
+        objectSaveData['type'] = RxnProbsType
         objectSaveData['name'] = input["rxnprobs"]
         objectSaveData['data'] = objectData
         objectSaveData['meta'] = objectMetaData
+        objectSaveData['provenance'] = [ objectProvData ]
         objectInfo = wsClient.save_objects( { 'workspace': input["rxnprobs_workspace"], 'objects': [ objectSaveData ] } )
         output = objectInfo[0]
         
@@ -1133,7 +1143,8 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         objectList = wsClient.get_objects( [ rxnProbsObjectId ] )
         rxnProbsObject = objectList[0]
         if rxnProbsObject['info'][2] != RxnProbsType:
-            raise TypeError('Object type %s is not %s' %(rxnProbsObject['info'][2], RxnProbsType))
+            raise WrongVersionError('RxnProbs object type %s is not %s for object %s'
+                                    %(rxnProbsObject['info'][2], RxnProbsType, rxnProbsObject['info'][1]))
         output = rxnProbsObject["data"]["reaction_probabilities"]
         #END get_rxnprobs
 
@@ -1158,7 +1169,8 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         objectList = wsClient.get_objects( [ probAnnoObjectId ] )
         probAnnoObject = objectList[0]
         if probAnnoObject['info'][2] != ProbAnnoType:
-            raise TypeError('Object type %s is not %s' %(probAnnoObject['info'][2], ProbAnnoType))            
+            raise WrongVersionError('ProbAnno object type %s is not %s for object %s'
+                                    %(probAnnoObject['info'][2], ProbAnnoType, probAnnoObject['info'][1]))            
         output = probAnnoObject["data"]["roleset_probabilities"]
 
         #END get_probanno
