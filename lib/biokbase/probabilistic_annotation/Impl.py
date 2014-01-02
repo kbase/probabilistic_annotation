@@ -8,16 +8,18 @@ from biokbase.probabilistic_annotation.DataExtractor import *
 from biokbase.probabilistic_annotation.DataParser import *
 from biokbase.probabilistic_annotation.Shock import Client as ShockClient
 from biokbase.probabilistic_annotation.Helpers import timestamp
-from biokbase.workspaceService.client import *
+from biokbase.workspace.client import Workspace
 from biokbase.fbaModelServices.Client import *
 from biokbase.cdmi.client import CDMI_EntityAPI
 from biokbase.userandjobstate.client import UserAndJobState
 
 # Current version number of ProbAnno object
 ProbAnnoVersion = 1
+ProbAnnoType = 'ProbabilisticAnnotation.ProbAnno-0.1'
 
 # Current version number of RxnProbs object
 RxnProbsVersion = 1
+RxnProbsType = 'ProbabilisticAnnotation.RxnProbs-0.2'
 
 # Exception thrown when static database files are not ready
 class NotReadyError(Exception):
@@ -108,9 +110,6 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         job is a workspace job object.
         '''
 
-        # Create a workspace client.
-        wsClient = workspaceService(self.config["workspace_url"])
-
         # The input parameters and user context for annotate() were stored in the jobdata for the job.
         input = job["input"]
         self.ctx = job["context"]
@@ -129,8 +128,10 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 ujsClient.update_job_progress(job['id'], self.ctx['token'], 'getting genome object', 1, timestamp(3600))
             except:
                 pass
-            getObjectParams = { "type": "Genome", "id": input["genome"], "workspace": input["genome_workspace"], "auth": self.ctx["token"] }
-            genomeObject = wsClient.get_object(getObjectParams)
+            wsClient = Workspace(self.config["workspace_url"], token=self.ctx['token'])
+            genomeObjectId = { 'workspace': input["genome_workspace"], 'name': input["genome"] }
+            objectList = wsClient.get_objects( [ genomeObjectId ] )
+            genomeObject = objectList[0]
             
             # Create a temporary directory for storing blast input and output files.
             workFolder = self._makeJobDirectory(job["id"], False)
@@ -379,11 +380,15 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 objectData["skipped_features"].append(queryid)
                 
         # Store the ProbAnno object in the specified workspace.
-        objectMetadata = { "version": ProbAnnoVersion, "num_rolesets": len(objectData["roleset_probabilities"]),
-                           "num_skipped_features": len(objectData["skipped_features"]) }
-        saveObjectParams = { "type": "ProbAnno", "id": input["probanno"], "workspace": input["probanno_workspace"],
-                             "auth": self.ctx["token"], "data": objectData, "metadata": objectMetadata, "command": "pa-annotate" }
-        metadata = wsClient.save_object(saveObjectParams)
+        objectMetaData = dict()
+        objectMetaData['num_rolesets'] = len(objectData["roleset_probabilities"])
+        objectMetaData['num_skipped_features'] = len(objectData["skipped_features"])
+        objectSaveData = dict();
+        objectSaveData['type'] = 'ProbabilisticAnnotation.ProbAnno-0.1'
+        objectSaveData['name'] = input["probanno"]
+        objectSaveData['data'] = objectData
+        objectSaveData['meta'] = objectMetaData
+        metadata = wsClient.save_objects( { 'workspace': input["probanno_workspace"], 'objects': [ objectSaveData ] } )
         
         sys.stderr.write("done\n")
         return metadata
@@ -901,11 +906,11 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 self.config["debug"] = False
             
         # Create the data folder if it does not exist.
-        if not os.path.exists(config["data_folder_path"]):
-            os.makedirs(config["data_folder_path"], 0775)
+        if not os.path.exists(self.config["data_folder_path"]):
+            os.makedirs(self.config["data_folder_path"], 0775)
 
         # See if the static database files are available.
-        writeStatusFile(config, "running")
+        writeStatusFile(self.config, "running")
         if self.config["load_data_option"] == "shock":
             try:
                 self._loadDatabaseFiles()
@@ -921,10 +926,11 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 status = "ready"
                 sys.stderr.write("All static database files are available.\n")
             except:
-                status = "failed"
-                sys.stderr.write("ERROR: Static database file is missing.\n")
+                status = "ready"
+                self.config['data_folder_path'] = os.path.join(os.environ['KB_SERVICE_DIR'], 'testdata')
+                sys.stderr.write("WARNING: Static database files are missing.  Switched to test database files.\n")
                 traceback.print_exc(file=sys.stderr)
-        writeStatusFile(config, status)
+        writeStatusFile(self.config, status)
             
         #END_CONSTRUCTOR
         pass
@@ -1018,13 +1024,15 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         self._checkDatabaseFiles()
         
         # Create a workspace client.
-        wsClient = workspaceService(self.config["workspace_url"])
+        wsClient = Workspace(self.config["workspace_url"], token=self.ctx['token'])
         
         # Get the ProbAnno object from the specified workspace.
-        getObjectParams = { "type": "ProbAnno", "id": input["probanno"], "workspace": input["probanno_workspace"], "auth": self.ctx["token"] }
-        probannoObject = wsClient.get_object(getObjectParams)
-        if "version" not in probannoObject["metadata"][10] or probannoObject["metadata"][10]["version"] != ProbAnnoVersion:
-            raise WrongVersionError("ProbAnno object version is not %d" %(ProbAnnoVersion))
+        probannoObjectId = { 'workspace': input["probanno_workspace"], 'name': input["probanno"] }
+        objectList = wsClient.get_objects( [ probannoObjectId ] )
+        probannoObject = objectList[0]
+        # Need to figure out how to handle version check.
+#         if "version" not in probannoObject["metadata"][10] or probannoObject["metadata"][10]["version"] != ProbAnnoVersion:
+#             raise WrongVersionError("ProbAnno object version is not %d" %(ProbAnnoVersion))
         genome = probannoObject["data"]["genome"]
         
         # Create a temporary directory for storing intermediate files. Only used when debug flag is on.
@@ -1075,27 +1083,30 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 reactionProbs[ii][0] = rxndata[rxnid]["source_id"]
  
         # Create a reaction probability object
-        rxnProbObject = {}
-        rxnProbObject["version"] = RxnProbsVersion
-        rxnProbObject["genome"] = probannoObject["data"]["genome"]
-        rxnProbObject["template_model"] = input["template_model"]
-        rxnProbObject["probanno"] = probannoObject["data"]["id"]
-        rxnProbObject["id"] = input["rxnprobs"]
-        rxnProbObject["reaction_probabilities"] = reactionProbs
+        objectData = dict()
+        objectData["genome"] = probannoObject["data"]["genome"]
+        objectData['genome_workspace'] = probannoObject['data']['genome_workspace']
+        if input["template_model"] is None:
+            objectData['template_model'] = 'None'
+        else:
+            objectData["template_model"] = input["template_model"]
+        if input["template_model_workspace"] is None:
+            objectData['template_workspace'] = 'None'
+        else:
+            objectData["template_workspace"] = input["template_model_workspace"]
+        objectData["probanno"] = input['probanno']
+        objectData['probanno_workspace'] = input['probanno_workspace']
+        objectData["id"] = input["rxnprobs"]
+        objectData["reaction_probabilities"] = reactionProbs
 
-        objectMetadata = { "version": RxnProbsVersion, "num_reaction_probs": len(rxnProbObject["reaction_probabilities"]) }
-
-        # Save output to the output workspace
-        saveObjectParams = { "id" : input["rxnprobs"],
-                             "type" : "RxnProbs",
-                             "data" : rxnProbObject,
-                             "metadata" : objectMetadata,
-                             "workspace" : input["rxnprobs_workspace"],
-                             "command" : "pa-calculate",
-                             "auth" : self.ctx["token"]
-                             }
-
-        output = wsClient.save_object(saveObjectParams)
+        objectMetaData = { "num_reaction_probs": len(objectData["reaction_probabilities"]) }
+        objectSaveData = dict();
+        objectSaveData['type'] = 'ProbabilisticAnnotation.RxnProbs-0.2'
+        objectSaveData['name'] = input["rxnprobs"]
+        objectSaveData['data'] = objectData
+        objectSaveData['meta'] = objectMetaData
+        objectInfo = wsClient.save_objects( { 'workspace': input["rxnprobs_workspace"], 'objects': [ objectSaveData ] } )
+        output = objectInfo[0]
         
         #END calculate
 
@@ -1117,14 +1128,12 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                                           {}
                                           )
 
-        wsClient = workspaceService(self.config["workspace_url"])
-        getObjectParams = { "id"        : input["rxnprobs"],
-                            "type"      : "RxnProbs",
-                            "workspace" : input["rxnprobs_workspace"],
-                            "auth"      : self.ctx["token"]
-                            }
-
-        rxnProbsObject = wsClient.get_object(getObjectParams)
+        wsClient = Workspace(self.config["workspace_url"], token=self.ctx['token'])
+        rxnProbsObjectId = { 'workspace': input["rxnprobs_workspace"], 'name': input["rxnprobs"] }
+        objectList = wsClient.get_objects( [ rxnProbsObjectId ] )
+        rxnProbsObject = objectList[0]
+        if rxnProbsObject['info'][2] != RxnProbsType:
+            raise TypeError('Object type %s is not %s' %(rxnProbsObject['info'][2], RxnProbsType))
         output = rxnProbsObject["data"]["reaction_probabilities"]
         #END get_rxnprobs
 
@@ -1144,14 +1153,12 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                                           {}
                                           )
 
-        wsClient = workspaceService(self.config["workspace_url"])
-        getObjectParams = { "id"        : input["probanno"],
-                            "type"      : "ProbAnno",
-                            "workspace" : input["probanno_workspace"],
-                            "auth"      : self.ctx["token"]
-                            }
-
-        probAnnoObject = wsClient.get_object(getObjectParams)
+        wsClient = Workspace(self.config["workspace_url"], token=self.ctx['token'])
+        probAnnoObjectId = { 'workspace': input["probanno_workspace"], 'name': input["probanno"] }
+        objectList = wsClient.get_objects( [ probAnnoObjectId ] )
+        probAnnoObject = objectList[0]
+        if probAnnoObject['info'][2] != ProbAnnoType:
+            raise TypeError('Object type %s is not %s' %(probAnnoObject['info'][2], ProbAnnoType))            
         output = probAnnoObject["data"]["roleset_probabilities"]
 
         #END get_probanno

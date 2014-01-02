@@ -7,7 +7,7 @@ use warnings;
 use Getopt::Long::Descriptive;
 use Bio::KBase::probabilistic_annotation::Client;
 use Bio::KBase::probabilistic_annotation::Helpers qw(get_probanno_client);
-use Bio::KBase::workspaceService::Helpers qw(workspace printObjectMeta);
+use Bio::KBase::workspace::ScriptHelpers qw(workspace);
 
 my $manpage =
 "
@@ -112,7 +112,6 @@ if (!defined($output)) {
 	print "Calculating reaction probabilities failed!\n";
 	exit 1;
 } else {
-	print "Reaction probabilities successfully generated in workspace:";
-	printObjectMeta($output)
+	print "Reaction probabilities successfully calculated and saved in ".$output->[7]."/".$output->[1]."\n";
 }
 exit 0;

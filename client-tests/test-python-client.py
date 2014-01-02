@@ -5,9 +5,10 @@ import traceback
 import time
 import os
 import json
-from biokbase.workspaceService.Client import workspaceService
-from biokbase.workspaceService.Client import ServerError as WorkspaceServerError
+from biokbase.workspace.client import Workspace
+from biokbase.workspace.client import ServerError as WorkspaceServerError
 from biokbase.fbaModelServices.Client import fbaModelServices
+from biokbase.userandjobstate.client import UserAndJobState, ServerError as JobStateServerError
 from biokbase.probabilistic_annotation.Client import ProbabilisticAnnotation
 from biokbase.probabilistic_annotation.DataParser import getConfig
 
@@ -18,79 +19,73 @@ class TestPythonClient(unittest.TestCase):
         self._config = getConfig(os.environ["KB_TEST_CONFIG"])
 
         # Get an authorization token for the test user.
-        ws = workspaceService(self._config["workspace_url"], user_id=self._config["test_user"], password=self._config["test_pwd"])
-        self._token = ws._headers['AUTHORIZATION']
-
-        # In the test environment (as of 08-09-2013) the RxnProbs object isn't defined in the workspace so it isn't allowed to save the results.
-        # This is a patch until we fix that more permanently.
-        try:
-            ws.add_type( { "type" : "RxnProbs",
-                           "auth" : self._token 
-                           } )
-        except:
-            # Type already exists
-            pass
+        wsClient = Workspace(self._config["workspace_url"], user_id=self._config["test_user"], password=self._config["test_pwd"])
+        self._token = wsClient._headers['AUTHORIZATION']
 
     def test_loadGenome(self):
         ''' Load a test Genome object into the test workspace. '''
         
         # Create the test workspace.
-        wsClient = workspaceService(self._config["workspace_url"])
+        wsClient = Workspace(self._config["workspace_url"], token=self._token)
         try:
-            # When the workspace exists, delete it so there is a clean slate for the test.
-            wsMetadata = wsClient.get_workspacemeta( { "workspace": self._config["wsid"], "auth": self._token } )
-            wsClient.delete_workspace( { "workspace": self._config["wsid"], "auth": self._token } )
+            # When the workspace exists, make sure all of the objects are deleted so there is a clean slate for the test.
+            objectList = wsClient.list_objects( { 'workspaces': [ self._config['test_ws'] ] } )
+            deleteList = list()
+            for object in objectList:
+                deleteList.append( { 'wsid': object[6], 'objid': object[0], 'ver': object[4] })
+            if len(deleteList) > 0:
+                wsClient.delete_objects(deleteList)
+
         except WorkspaceServerError as e:
             # Hopefully this means the workspace does not exist. (It could also mean someone messed up setting up the URLs)
-#            traceback.print_exc(file=sys.stderr)
-            pass
-        
-        wsMetadata = wsClient.create_workspace( { "workspace": self._config["wsid"], "default_permission": "w", "auth": self._token } )
+            traceback.print_exc(file=sys.stderr)
+            wsInfo = wsClient.create_workspace( { "workspace": self._config["test_ws"] } )
 
         # We also need to put in a mapping and a biochemistry object somewhere.
-        # To do this, I just create a "depednecy workspace" and pull them from there.
+        # To do this, I just create a "dependency workspace" and pull them from there.
         self._config["dependency_ws"]
         try:
             # When the workspace exists, delete it so there is a clean slate for the test.
-            wsMetadata = wsClient.get_workspacemeta( { "workspace": self._config["dependency_ws"], "auth": self._token } )
-            wsClient.delete_workspace( { "workspace": self._config["dependency_ws"], "auth": self._token } )
+            wsInfo = wsClient.get_workspace_info( { "workspace": self._config["dependency_ws"] } )
         except WorkspaceServerError as e:
             # Hopefully this means the workspace does not exist. (It could also mean someone messed up setting up the URLs)
 #            traceback.print_exc(file=sys.stderr)
-            pass
-
-        depWsMetadata = wsClient.create_workspace( { "workspace": self._config["dependency_ws"], "default_permission": "w", "auth": self._token } )
+            depWsInfo = wsClient.create_workspace( { "workspace": self._config["dependency_ws"] } )
 
         # Load the mapping and biochemsitry objects
         # (Note - this won't be allowed with the new version of the workspace but it agrees with what is in there now)
-        mappingObject = json.load(open(self._config["test_mapping_object"], "r"))
-        wsClient.save_object( {
-                "id" : "default",
-                "type" : "Mapping",
-                "data" : mappingObject,
-                "auth" : self._token,
-                "workspace" : self._config["dependency_ws"]
-               } )
+        #mappingObject = json.load(open(self._config["test_mapping_object"], "r"))
+        #mappingObjectData = { 'type': 'Mapping', 'name': 'default', 'data': mappingObject }
 
-        biochemistryObject = json.load(open(self._config["test_biochemistry_object"], "r"))
-        wsClient.save_object( {
-                "id" : "default",
-                "type" : "Biochemistry",
-                "data" : biochemistryObject,
-                "auth" : self._token,
-                "workspace" : self._config["dependency_ws"]
-               } )
-
+#         biochemistryObject = json.load(open(self._config["test_biochemistry_object"], "r"))
+#         biochemistryObjectData = { 'type': 'Biochemistry', 'name': 'default', 'data': biochemistryObject }
+#         
+#         objectList = list()
+        #objectList.append(mappingObjectData)
+#         objectList.append(biochemistryObjectData)
+#         wsClient.save_objects( { 'workspace': self._config["dependency_ws"], 'objects': objectList } )
 
         # Load the test Genome object into the workspace.
-        fbaClient = fbaModelServices(self._config["fbamodelservices_url"])
+#         fbaClient = fbaModelServices(self._config["fbamodelservices_url"])
+#         testGenome = json.load(open(self._config["genome_file"], "r"))
+#         genomeMetadata = fbaClient.genome_object_to_workspace( { 
+#             "genomeobj": testGenome,
+#             "workspace": self._config["test_ws"],
+#             "auth": self._token
+#             "mapping_workspace": self._config["dependency_ws"]
+#             } )
+        testContigSet = json.load(open(self._config['contigset_file'], 'r'))
+        contigSetSaveData = dict()
+        contigSetSaveData['type'] = 'KBaseGenomes.ContigSet'
+        contigSetSaveData['name'] = self._config['contigsetid']
+        contigSetSaveData['data'] = testContigSet        
+        wsClient.save_objects( { 'workspace': self._config['test_ws'], 'objects': [ contigSetSaveData ] } )
         testGenome = json.load(open(self._config["genome_file"], "r"))
-        genomeMetadata = fbaClient.genome_object_to_workspace( { 
-            "genomeobj": testGenome,
-            "workspace": self._config["wsid"],
-            "auth": self._token,
-            "mapping_workspace": self._config["dependency_ws"]
-            } )
+        genomeSaveData = dict()
+        genomeSaveData['type'] = 'KBaseGenomes.Genome'
+        genomeSaveData['name'] = self._config['genomeid']
+        genomeSaveData['data'] = testGenome
+        wsClient.save_objects( { 'workspace': self._config['test_ws'], 'objects': [ genomeSaveData ] } )
         
     def test_annotate(self):
         ''' Run pa-annotate on a valid Genome object and verify that the job runs and returns a valid ProbAnno object in the expected time.'''
@@ -99,25 +94,33 @@ class TestPythonClient(unittest.TestCase):
         paClient = ProbabilisticAnnotation(self._config["probanno_url"], token=self._token)
         jobid = paClient.annotate( {
             "genome": self._config["genomeid"],
-            "genome_workspace": self._config["wsid"],
+            "genome_workspace": self._config["test_ws"],
             "probanno": self._config["probannoid"],
-            "probanno_workspace": self._config["wsid"] } )
+            "probanno_workspace": self._config["test_ws"] } )
         
         # Allow time for the command to run.
         time.sleep(float(self._config["runtime"]))
         
+        # Make sure the job has completed.
+        ujsClient = UserAndJobState(self._config['ujs_url'], token=self._token)
+        jobList = ujsClient.list_jobs([ self._config['test_user'] ], 'C')
+        jobCompleted = False
+        for job in jobList:
+            if jobid == job[0]:
+                jobCompleted = True
+        self.assertEqual(jobCompleted, True)
+        
         # Look for the ProbAnno object in the test workspace.
-        wsClient = workspaceService(self._config["workspace_url"])
+        wsClient = Workspace(self._config["workspace_url"])
         try:
-            output = wsClient.get_object( {
-                "workspace": self._config["wsid"],
-                "type": "ProbAnno",
-                "id": self._config["probannoid"],
-                "auth": self._token } )
-            self.assertEqual(output["metadata"][4], "pa-annotate")
+            probannoObjectId = { 'workspace': self._config['test_ws'], 'name': self._config['probannoid'] }
+            objectList = wsClient.get_objects( [ probannoObjectId ] )
+            probannoObject = objectList[0]
+            self.assertEqual(probannoObject['info'][1], self._config['probannoid'])
             # TODO Could add some checking of the object data here
         except WorkspaceServerError as e:
-            self.fail(msg = "The expected object %s did not get created in the workspace %s!\n" %(self._config["probannoid"], self._config["wsid"]))
+            traceback.print_exc(file=sys.stderr)
+            self.fail(msg = "The expected object %s did not get created in the workspace %s!\n" %(self._config["probannoid"], self._config["test_ws"]))
         
     def test_calculate(self):
         ''' Run pa-calculate on a valid ProbAnno object and verify that the job runs and returns a valid RxnProbs object.'''
@@ -126,39 +129,50 @@ class TestPythonClient(unittest.TestCase):
         paClient = ProbabilisticAnnotation(self._config["probanno_url"], token=self._token)
         rxnprobsMetadata = paClient.calculate( {
             "probanno":           self._config["probannoid"],
-            "probanno_workspace": self._config["wsid"],
+            "probanno_workspace": self._config["test_ws"],
             "rxnprobs":           self._config["rxnprobsid"],
-            "rxnprobs_workspace": self._config["wsid"] 
+            "rxnprobs_workspace": self._config["test_ws"] 
             } )
          
         # Look for the RxnProbs object in the test workspace.
-        wsClient = workspaceService(self._config["workspace_url"])
+        wsClient = Workspace(self._config["workspace_url"])
         try:
-            output = wsClient.get_object( {
-                "workspace": rxnprobsMetadata[7],
-                "type": rxnprobsMetadata[1],
-                "id": rxnprobsMetadata[0],
-                "auth": self._token } )
-            self.assertEqual(output["metadata"][4], "pa-calculate")
+            rxnprobsObjectId = { 'workspace': self._config['test_ws'], 'name': self._config['rxnprobsid'] }
+            objectList = wsClient.get_objects( [ rxnprobsObjectId ] )
+            rxnprobsObject = objectList[0]
+            self.assertEqual(rxnprobsObject['info'][1], self._config['rxnprobsid'])
             # TODO Could add some checking of the object data here
         except WorkspaceServerError as e:
-            self.fail(msg = "The expected object %s did not get created in the workspace %s!\n" %(self._config["rxnprobsid"], self._config["wsid"]))
+            traceback.print_exc(file=sys.stderr)
+            self.fail(msg = "The expected object %s did not get created in the workspace %s!\n" %(self._config["rxnprobsid"], self._config["test_ws"]))
 
     def test_get_rxnprobs(self):
         ''' Verify that we can successfully get a list of rxnprobs data from a valid RxnProbs object.'''
         paClient = ProbabilisticAnnotation(self._config["probanno_url"], token=self._token)
         rxnProbsData = paClient.get_rxnprobs( {
                 "rxnprobs":           self._config["rxnprobsid"],
-                "rxnprobs_workspace": self._config["wsid"]
+                "rxnprobs_workspace": self._config["test_ws"]
                 })
 
+    def test_get_probanno(self):
+        return
+    
     def test_cleanup(self):
         ''' Cleanup objects created by tests. '''
         
-        # Delete the test workspace.
-        wsClient = workspaceService(self._config["workspace_url"])
-        wsClient.delete_workspace( { "workspace": self._config["wsid"], "auth": self._token } )
-        wsClient.delete_workspace( { "workspace": self._config["dependency_ws"], "auth": self._token } )
+        # Delete all of the objects in the test workspace.
+        wsClient = Workspace(self._config["workspace_url"], token=self._token)
+        listObjectsParams = dict()
+        listObjectsParams['workspaces'] = [ self._config['test_ws'] ]
+        objectList = wsClient.list_objects(listObjectsParams)
+        deleteList = list()
+        for object in objectList:
+            deleteList.append( { 'wsid': object[6], 'objid': object[0], 'ver': object[4] })
+        wsClient.delete_objects(deleteList)
+        objectList = wsClient.list_objects(listObjectsParams)
+        for object in objectList:
+            print 'After delete Object %s %s' %(object[1], object[4])
+        
         
 if __name__ == '__main__':
     # Create a suite, add tests to the suite, run the suite.
