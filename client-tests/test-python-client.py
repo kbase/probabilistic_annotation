@@ -108,7 +108,7 @@ class TestPythonClient(unittest.TestCase):
         for job in jobList:
             if jobid == job[0]:
                 jobCompleted = True
-        self.assertEqual(jobCompleted, True)
+        self.assertTrue(jobCompleted, 'Job did not complete before timeout of %s seconds' %(self._config['runtime']))
         
         # Look for the ProbAnno object in the test workspace.
         wsClient = Workspace(self._config["workspace_url"], token=self._token)
@@ -116,8 +116,7 @@ class TestPythonClient(unittest.TestCase):
             probannoObjectId = { 'workspace': self._config['test_ws'], 'name': self._config['probannoid'] }
             objectList = wsClient.get_objects( [ probannoObjectId ] )
             probannoObject = objectList[0]
-            self.assertEqual(probannoObject['info'][1], self._config['probannoid'])
-            # TODO Could add some checking of the object data here
+            self.assertEqual(probannoObject['info'][1], self._config['probannoid'], 'ProbAnno object id %s is not %s' %(probannoObject['info'][1], self._config['probannoid']))
         except WorkspaceServerError as e:
             traceback.print_exc(file=sys.stderr)
             self.fail(msg = "The expected object %s did not get created in the workspace %s!\n" %(self._config["probannoid"], self._config["test_ws"]))
@@ -140,8 +139,7 @@ class TestPythonClient(unittest.TestCase):
             rxnprobsObjectId = { 'workspace': self._config['test_ws'], 'name': self._config['rxnprobsid'] }
             objectList = wsClient.get_objects( [ rxnprobsObjectId ] )
             rxnprobsObject = objectList[0]
-            self.assertEqual(rxnprobsObject['info'][1], self._config['rxnprobsid'])
-            # TODO Could add some checking of the object data here
+            self.assertEqual(rxnprobsObject['info'][1], self._config['rxnprobsid'], 'RxnProbs object id %s is not %s' %(rxnprobsObject['info'][1], self._config['rxnprobsid']))
         except WorkspaceServerError as e:
             traceback.print_exc(file=sys.stderr)
             self.fail(msg = "The expected object %s did not get created in the workspace %s!\n" %(self._config["rxnprobsid"], self._config["test_ws"]))
@@ -153,9 +151,16 @@ class TestPythonClient(unittest.TestCase):
                 "rxnprobs":           self._config["rxnprobsid"],
                 "rxnprobs_workspace": self._config["test_ws"]
                 })
+        self.assertNotEqual(len(rxnProbsData), 0, 'Length of output array is zero')
 
     def test_get_probanno(self):
-        return
+        ''' Verify that we can successfully get a list of roleset probabilities from a valid ProbAnno object. '''
+        paClient = ProbabilisticAnnotation(self._config["probanno_url"], token=self._token)
+        probAnnoData = paClient.get_probanno( {
+                "probanno":           self._config["probannoid"],
+                "probanno_workspace": self._config["test_ws"]
+                })
+        self.assertNotEqual(len(probAnnoData), 0, 'Length of output array is zero')
     
     def test_cleanup(self):
         ''' Cleanup objects created by tests. '''
@@ -173,7 +178,6 @@ class TestPythonClient(unittest.TestCase):
         for object in objectList:
             print 'After delete Object %s %s' %(object[1], object[4])
         
-        
 if __name__ == '__main__':
     # Create a suite, add tests to the suite, run the suite.
     suite = unittest.TestSuite()
@@ -181,6 +185,7 @@ if __name__ == '__main__':
     suite.addTest(TestPythonClient('test_annotate'))
     suite.addTest(TestPythonClient('test_calculate'))
     suite.addTest(TestPythonClient('test_get_rxnprobs'))
+    suite.addTest(TestPythonClient('test_get_probanno'))
     suite.addTest(TestPythonClient('test_cleanup'))
     unittest.TextTestRunner().run(suite)
     
