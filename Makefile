@@ -99,6 +99,8 @@ deploy-service-files:
 	chmod +x $(SERV_SERVICE_DIR)/start_service; \
 	tpage $(SERV_TPAGE_ARGS) service/stop_service.tt > $(SERV_SERVICE_DIR)/stop_service; \
 	chmod +x $(SERV_SERVICE_DIR)/stop_service;
+	if [ ! -d $(SERV_SERVICE_DIR)/testdata ] ; then mkdir -p $(SERV_SERVICE_DIR)/testdata ; fi
+	cp client-tests/TESTDATA/* $(SERV_SERVICE_DIR)/testdata;
 
 # Deploy client artifacts, including the application programming interface
 # libraries, command line scripts, and associated reference documentation.
