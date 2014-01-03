@@ -1,2 +1,6 @@
-#group-name	probanno-commands	Probabilistic Annotation
-#command-set	scripts/(.*).pl	probanno-commands
+#group-name	probanno	Probabilistic Annotation
+pa-annotate	probanno
+pa-calculate	probanno
+pa-checkjob	probanno
+pa-getrxnprobs	probanno
+pa-url	probanno
