@@ -28,6 +28,10 @@ class NoDataError(Exception):
 class NoGrowthError(Exception):
     pass
 
+''' Exception raised when unable to get an object from a workspace '''
+class CannotGetObjectError(Exception):
+    pass
+
 ''' Run a command and get the output. '''
 
 class Command:
@@ -44,6 +48,25 @@ class Command:
 ''' Run the workflow for probabilistic annotation paper. '''
 
 class Workflow:
+
+    ''' Get an object of a certain type with a certain ID '''
+    def _getWsObject(self, type, id, workspace=None):      
+        getObjectParams = dict()
+        getObjectParams['type'] = type
+        getObjectParams['id'] = id
+        getObjectParams['auth'] = self.token
+        if workspace is None:
+            getObjectParams['workspace'] = self.args.workspace
+        else:
+            getObjectParams['workspace'] = workspace
+
+        try:
+            obj = self.wsClient.get_object(getObjectParams)
+        except:
+            raise CannotGetObjectError("Unable to get %s object %s/%s" %(type, self.args.workspace, id) )
+
+        return obj
+        
 
     ''' Check if object should be created. '''
 
@@ -226,12 +249,8 @@ class Workflow:
         # Get the hidden GapFill object attached to the Model object.
         # The solutions that we need to integrate are in there and we need to reach into 
         # it to find out how many there are and if there was a valid solution found.
-        getObjectParams = dict()
-        getObjectParams['id'] = gapfill_uuid
-        getObjectParams['type'] = 'GapFill'
-        getObjectParams['workspace'] = 'NO_WORKSPACE'
-        getObjectParams['auth'] = self.token
-        gapfillObject = self.wsClient.get_object(getObjectParams)
+        gapfillObject = self._getWsObject('Gapfill', gapfill_uuid, workspace='NO_WORKSPACE')
+
         gapfillSolutionIds = []
         for ii in range(len(gapfillObject['data']['gapfillingSolutions'])):
             gapfill_solutionid = '%s.solution.%s' %(gapfill_uuid, ii)
@@ -283,12 +302,7 @@ class Workflow:
     def _getObjectiveValue(self, fba):
         # Get the FBA object and extract the objective.
         # (note - the objective value is in the metadata so we should be getting this from _runFBA to not run into troubles with multiple FBAs in a single model)
-        getObjectParams = dict()
-        getObjectParams['id'] = fba
-        getObjectParams['type'] = 'FBA'
-        getObjectParams['workspace'] = self.args.workspace
-        getObjectParams['auth'] = self.token
-        fbaObject = self.wsClient.get_object(getObjectParams)
+        fbaObject = self._getWsObject('FBA', fba)
         # maybe should save all of these. But I don't know what to do with them.
         value = None
         for result in fbaObject['data']['fbaResults']:
@@ -299,12 +313,7 @@ class Workflow:
     def _getMediaIdsFromPhenotypeSet(self, phenoid):
         # Get a list of media IDs and workspaces from a phenotypeSet object
         # Returns a list of unique (media, workspace) tuples
-        getPhenotypeParams = dict()
-        getPhenotypeParams['id'] = phenoid
-        getPhenotypeParams['type'] = 'PhenotypeSet'
-        getPhenotypeParams['workspace'] = self.args.knockoutws
-        getPhenotypeParams['auth'] = self.token
-        phenotypeSetObject = self.wsClient.get_object(getPhenotypeParams)
+        phenotypeSetObject = self._getWsObject('PhenotypeSet', phenoid)
 
         mediaTuples = set()
         for phenotypeSet in phenotypeSetObject['data']['phenotypes']:
@@ -333,82 +342,38 @@ class Workflow:
         
         return objmeta
 
-    ''' Given a model ID for an INTEGRATED model,get the model, find all the gapfilled reactions,
-        and sort them. If a rxnprobs object is specified the reactions are sorted by likelihood. Otherwise,
-        they are returned in the reverse order in which they appear in the solution object (because lowest-priority
-        activated reactions are gapfilled last) '''
-    def _sortGapfilledReactions(self, model, rxnprobs=None):
-        getModelParams = dict()
-        getModelParams['models'] = [ model ]
-        getModelParams['workspaces'] = [ self.args.workspace ]
-        getModelParams['auth'] = self.token
-        models = self.fbaClient.get_models( getModelParams )
-
-        # Get a list of reaction IDs
-        # (I think these are the ones we will need to pass to the reaction sensitivity script)
-        #
-        # Note - I'm not sure what the reaction sensitivity script does with compartments
-        gapfilledReactionIds = []
-        for reaction in models[0]['reactions']:
-            if str(reaction['gapfilled']) == "1":
-                gapfilledReactionIds.append(reaction['reaction'])
-
-        # I am depending here on the assumption (currently true) that the order that reactions appear when you do a get_model
-        # is stable and that the order of gapfilled reactions in the model is the SAME as the order in which they were added
-        # in the original gapfill solution
-        #
-        # In such a case we want to reverse the reactions so that the "low-priority" gapfill solutions are tested for removal first.
-        # OR we don't because the reason we have this analysis in the first place is because later solutions can clobber earlier ones...
-        # Not sure which we should be doing...
-        gapfilledReactionIds.reverse()
-        probabilities = [0]*len(gapfilledReactionIds)
-
-        # Now we need to set priorities by the probabilities. Because Python's sort is stable, we can then just combine
-        # them into a set of tuples and sort them, and any set of reactions with the same likelihood will have order preserved
-        # from the above default.
-        if rxnprobs is not None:
-            # Get a list of reaction probabilities from the RxnProbs object.
-            getObjectParams = dict()
-            getObjectParams['auth'] = self.token
-            getObjectParams['workspace'] = self.args.workspace
-            getObjectParams['type'] = 'RxnProbs'
-            getObjectParams['id'] = rxnprobs
-            rxnprobs = self.wsClient.get_object(getObjectParams)            
-            rxnToProbability = {}
-            for rxnarray in rxnprobs['data']['reaction_probabilities']:
-                rxnid = rxnarray[0]
-                prob = rxnarray[1]
-                rxnToProbability[rxnid] = prob
-                pass
-
-            # Now we get the probabilities of all the gapfilled reactions.
-            for ii in range(len(gapfilledReactionIds)):
-                if gapfilledReactionIds[ii] in rxnToProbability:
-                    probabilities[ii] = rxnToProbability[gapfilledReactionIds[ii]]
-                    pass
-                pass
-            
-            # Now we set up a sort. We need to sort from LOW to HIGH probability (so that high-probability reactions
-            # would be deleted last). This is the default so we should be OK.
-            arrayToSort = []
-            for ii in range(len(gapfilledReactionIds)):
-                arrayToSort.append( [ gapfilledReactionIds[ii], probabilities[ii] ] )
-
-            sortedArray = sorted(arrayToSort, key=itemgetter(1))
-            gapfilledReactionIds = map(itemgetter(0), sortedArray)
-
-        return gapfilledReactionIds
-
+    ''' Find the UUID for an integrated iterative gapfill to pass to the reaction sensntivity analysis. '''
+    def _findIterativeGapfillUUID(self, model):       
+        modelobj = self._getWsObject('Model', model)
+        integrated_uuid_list = modelobj["data"]["integratedGapfilling_uuids"]
+        for uuid in integrated_uuid_list:
+            # This is likely going to change on us sometime soon. But I need it to work now, darn it.
+            gapfill_obj = self._getWsObject('Gapfill', uuid, workspace='NO_WORKSPACE')
+            if int(gapfill_obj["data"]["completeGapfill"]) == 1:
+                # I am assuming here that there is only one iterative gapfill done on the model. When using
+                # this workflow, that is a valid assumption.
+                return uuid
+        return None
+    
     ''' Run a reaction sensntivity analysis, saving the results in the specified rxnsensitivity object.
         IMPORTANT: Reactions are tested (deleted) in the order in which they are given in reactions_to_delete.'''
-    def _runReactionSensitivity(self, model,reactions_to_delete, rxnsensitivity, deleteReactions=True):
+    def _runReactionSensitivity(self, model, rxnsensitivity, rxnprobs=None, deleteReactions=True):
+        gapfillUUID = self._findIterativeGapfillUUID(model)
+        if gapfillUUID is None:
+            raise IOError("For some reason we couldnt find an integrated iterative gapfill UUID")
+
         reactionSensitivityParams = dict()
         reactionSensitivityParams['model'] = model
         reactionSensitivityParams['model_ws'] = self.args.workspace
-        reactionSensitivityParams['reactions_to_delete'] = reactions_to_delete
         reactionSensitivityParams['rxnsens_uid'] = rxnsensitivity
         reactionSensitivityParams['workspace'] = self.args.workspace
         reactionSensitivityParams['auth'] = self.token
+        reactionSensitivityParams['gapfill_solution_id'] = gapfillUUID
+
+        if rxnprobs is not None:
+            reactionSensitivityParams['rxnprobs_id'] = rxnprobs
+            reactionSensitivityParams['rxnprobs_ws'] = self.args.workspace
+
         if deleteReactions:
             reactionSensitivityParams['delete_noncontributing_reactions'] = 1
         else:
@@ -776,10 +741,8 @@ class Workflow:
         stdIterativeIntSensitivity = '%s.model.std.iterative.int.sensitivity' %(self.args.genome)
         print '+++ Step %d: Order gapfilled reactions by probability and iteratively check the sensitivity of removing them' %(step)
         if self._isObjectMissing('RxnSensitivity', stdIterativeIntSensitivity):
-            print '  Getting the reactions in the reverse of the order in which they were added by Gapfill...'
-            reactions_to_test = self._sortGapfilledReactions(stdIterativeIntModel, rxnprobs=None)
             print '  Submitting reaction sensitivity job and saving results to %s/%s ...' %(self.args.workspace, stdIterativeIntSensitivity)
-            self._runReactionSensitivity(stdIterativeIntModel, reactions_to_test, stdIterativeIntSensitivity)
+            self._runReactionSensitivity(stdIterativeIntModel, stdIterativeIntSensitivity, rxnprobs=None)
         else:
             print '  Found rxn sensntivity object %s/%s' %(self.args.workspace, stdIterativeIntSensitivity)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
@@ -944,10 +907,8 @@ class Workflow:
         probIterativeIntSensitivity = '%s.model.pa.iterative.int.sensitivity' %(self.args.genome)
         print '+++ Step %d: Order gapfilled reactions by probability and iteratively check the sensitivity of removing them' %(step)
         if self._isObjectMissing('RxnSensitivity', probIterativeIntSensitivity):
-            print '   Sorting gapfilled reactions by likelihood (and then by order of priority of activated reactions)'
-            reactions_to_test = self._sortGapfilledReactions(probIterativeIntModel, rxnprobs=rxnprobs)
             print '  Submitting reaction sensitivity job and saving results to %s/%s ...' %(self.args.workspace, probIterativeIntSensitivity)
-            self._runReactionSensitivity(probIterativeIntModel, reactions_to_test, probIterativeIntSensitivity)
+            self._runReactionSensitivity(probIterativeIntModel, probIterativeIntSensitivity, rxnprobs=rxnprobs)
         else:
             print '  Found rxn sensntivity object %s/%s' %(self.args.workspace, probIterativeIntSensitivity)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
