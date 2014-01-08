@@ -23,8 +23,8 @@ if __name__ == "__main__":
     parser.add_argument('--csv', help='generate output in csv format', action='store_true', dest='csv', default=False)
     parser.add_argument('--split', help='split results by media', action='store_true', dest='split', default=False)
     parser.add_argument('--fba-url', help='url for fba modeling service', action='store', dest='fbaurl', default='http://bio-data-1.mcs.anl.gov/services/fba')
-    parser.add_argument('--ws-url', help='url for workspace service', action='store', dest='wsurl', default='http://www.kbase.us/services/workspace/')
-    parser.add_argument('--cdmi-url', help='url for cdmi service', action='store', dest='cdmiurl', default='http://www.kbase.us/services/cdmi_api/')
+    parser.add_argument('--ws-url', help='url for workspace service', action='store', dest='wsurl', default='http://kbase.us/services/workspace/')
+    parser.add_argument('--cdmi-url', help='url for cdmi service', action='store', dest='cdmiurl', default='http://kbase.us/services/cdmi_api/')
     args = parser.parse_args()
 
     if args.rxnprobs is not None and args.rxnprobsws is None:
