@@ -145,18 +145,12 @@ class Workflow:
     def _gapfill(self, draftModel, model, rxnprobs, iterative=False, media=None, mediaws="KBaseMedia"):
         gapfillFormulation = dict()
 
-        # These parameters were set to maximize the consistency between gapfill solutions and the B subtilis
-        # "gold standard" reactions (e.g. maximize the number of high-confidence thimgs we get back when we knock them out).
-        if iterative:
-            gapfillFormulation['directionpen'] = 12
-            gapfillFormulation['singletranspen'] = 25
-            gapfillFormulation['biomasstranspen'] = 25
-            gapfillFormulation['transpen'] = 25
-        else:
-            gapfillFormulation['directionpen'] = 40
-            gapfillFormulation['singletranspen'] = 55
-            gapfillFormulation['biomasstranspen'] = 55
-            gapfillFormulation['transpen'] = 55
+        # From looking at 4 organisms, you get the best accuracy by using a fairly high directionality penalty (8 or 12 as opposed to 4)
+        # and a low to moderate transporter penalty (15 or 25). I use these since they also give good consistency with B subtilis knockout tests.
+        gapfillFormulation['directionpen'] = 12
+        gapfillFormulation['singletranspen'] = 25
+        gapfillFormulation['biomasstranspen'] = 25
+        gapfillFormulation['transpen'] = 25
 
         gapfillFormulation['allowedcmps'] = [ 'c', 'e', 'p' ]
         gapfillFormulation['nobiomasshyp'] = 1
