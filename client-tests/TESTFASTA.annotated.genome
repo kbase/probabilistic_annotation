@@ -1,24 +1,20 @@
 {
    "scientific_name" : "E_coli_enolase",
    "source" : "ECOLI_ENOLASE",
+   "source_id" : "g.22994",
    "domain" : "Bacteria",
-   "contigs" : [
-      {
-         "dna" : "ttccatctataaaattccgggcctgttgaaatctcaggggctggacgattatatttgtaaacgattcagcttaaactgcccggaagcgaatctgtccgaatgggaacaggttatcttcgaagaagcgaacccggtaagtgaagtcaccatcggtatggtcggcaagtacattgaactgccggatgcttataaatcagtgatcgaagcactgaaacacggtgggctgaagaatcgtgtcagcgtcaacatcaaactgatcgattcacaagatgttgaaacgcgcggcgttgaaatccttaaaggtctggacgcaatcctcgtacctggcggtttcggctatcgtggcgtagaaggcatgattacgaccgcgcgttttgcgcgtgagaacaatattccttatctgggcatttgcctgggtatgcaggtggcgttaattgattacgctcgccatgttgccaacatggagaacgccaactctacggaatttgtgccagactgtaagtacccggttgtggcgctgattaccgagtggcgcgatgaaaacggcaacgttgaagttcgtagcgagaagagcgatctcggcggtaccatgcgtctcggcgcacagcagtgccagttggttgacgatagcctggttcgccagctgtacaatgcgccgacaattgttgagcgtcatcgtcaccgttacgaagtcaacaacatgctgttgaaacagattgaagatgcaggtctgcgcgttgcgggccgttccggggatgatcagttggtcgagatcatcgaagttccgaatcacccgtggttcgtggcttgccagttccatccggagtttacttctactccacgtgatggtcacccgctgtttgcaggctttgtgaaagccgccagcgagttccagaaacgtcaggcgaagtaagtaaaaaagttagagcggcaacgcgtaccctgggtacgcgttgtttgtctggagtttcagtttaactagtgacttgaggaaaacctaATGTCCAAAATCGTAAAAATCATCGGTCGTGAAATCATCGACTCCCGTGGTAACCCGACTGTTGAAGCCGAAGTACATCTGGAGGGTGGTTTCGTCGGTATGGCAGCTGCTCCGTCAGGTGCTTCTACTGGTTCCCGTGAAGCTCTGGAACTGCGCGATGGCGACAAATCCCGTTTCCTGGGTAAAGGCGTAACCAAAGCTGTTGCTGCGGTAAACGGCCCGATCGCTCAGGCGCTGATTGGCAAAGATGCTAAAGATCAGGCTGGCATTGACAAGATCATGATCGACCTGGACGGCACCGAAAACAAATCCAAATTCGGCGCGAACGCAATCCTGGCTGTATCTCTGGCTAACGCCAAAGCTGCTGCAGCTGCTAAAGGTATGCCGCTGTACGAGCACATCGCTGAACTGAACGGTACTCCGGGCAAATACTCTATGCCGGTTCCGATGATGAACATCATCAACGGTGGTGAGCACGCTGACAACAACGTTGATATCCAGGAATTCATGATTCAGCCGGTTGGCGCGAAAACTGTGAAAGAAGCCATCCGCATGGGTTCTGAAGTTTTCCATCACCTGGCAAAAGTTCTGAAAGCGAAAGGCATGAACACTGCTGTTGGTGACGAAGGTGGCTATGCGCCGAACCTGGGTTCCAACGCTGAAGCTCTGGCTGTTATCGCTGAAGCTGTTAAAGCTGCTGGTTATGAACTGGGCAAAGACATCACTTTGGCGATGGACTGCGCAGCTTCTGAATTCTACAAAGATGGTAAATACGTTCTGGCTGGCGAAGGCAACAAAGCGTTCACCTCTGAAGAATTCACTCACTTCCTGGAAGAACTGACCAAACAGTACCCGATCGTTTCTATCGAAGACGGTCTGGACGAATCTGACTGGGACGGTTTCGCATACCAGACCAAAGTTCTGGGCGACAAAATCCAGCTGGTTGGTGACGACCTGTTCGTAACCAACACCAAGATCCTGAAAGAAGGTATCGAAAAAGGTATCGCTAACTCCATCCTGATCAAATTCAACCAGATCGGTTCTCTGACCGAAACTCTGGCTGCAATCAAGATGGCGAAAGATGCTGGCTACACTGCAGTTATCTCTCACCGTTCTGGCGAAACTGAAGACGCTACCATCGCTGACCTGGCTGTTGGTACTGCTGCAGGCCAGATCAAAACTGGTTCTATGAGCCGTTCTGACCGTGTTGCTAAATACAACCAGCTGATTCGTATCGAAGAAGCTCTGGGCGAAAAAGCACCGTACAACGGTCGTAAAGAGATCAAAGGCCAGGCATAAgactgactttatctgatttaaaaatgccagcctccgggctggcattttttatggttgagttaccagcggccggatgcgccgccacctccagaagaaccgcccccgccgctaaatccgccgctatctgagcctccagcggaaccgctgttgtctgaatgataacttctaccagatgctcttttctgaagtacacataaacaggtaaagaccataaatatggtgaaagtaaaaaagaaggaaaatacagcaatggaaaaaattttatcggagaacaggaataaatctaaaagatagattgctgaaatacagactccacttttacatgcgcgacaaaaattactgccttgatgaaaaaaccagaaagggaagaacatcactgcaaatacccaaaaaatagcaaagtaataatgatcactggaagacgctgattcactttctgaaggattagtcggatattggtgttgtgaagtgagttggttattcaaagcgtttatagctagctctaatcccttagctaatttttgttgtttaaatgcgggtatcatgttgctacggatgatatctccagccagagcatcggttaccttttcttccagcccataacctacctggatgcggacagtgcgatccgaccaggcaacaacgatcagtatcccatcattacgtttggcatctcctaaacgccaattgtcaaaaactcttgtagcatattgttcaattgtctcgtctttggttgtgggaacaattaatacggcaatttgcacttgggtattattgaaaatagattctaacttgtgcgtcagttctttcttttcttgtgagtttaagctactcgtaagatccgtaacttgttgctgtaattgtgggacaatagttggttgggctgcaacaaaggaacatacgaaagtgaacattagtatgaaatagcgcattataaatttctcattaaatctggataaataaattgacggcggcatcggtaattttatattcgttatca",
-         "id" : "ECOLI_ENOLASE"
-      }
-   ],
    "features" : [
       {
          "protein_translation" : "MKSQGLDDYICKRFSLNCPEANLSEWEQVIFEEANPVSEVTIGMVGKYIELPDAYKSVIEALKHGGLKNRVSVNIKLIDSQDVETRGVEILKGLDAILVPGGFGYRGVEGMITTARFARENNIPYLGICLGMQVALIDYARHVANMENANSTEFVPDCKYPVVALITEWRDENGNVEVRSEKSDLGGTMRLGAQQCQLVDDSLVRQLYNAPTIVERHRHRYEVNNMLLKQIEDAGLRVAGRSGDDQLVEIIEVPNHPWFVACQFHPEFTSTPRDGHPLFAGFVKAASEFQKRQAK",
          "location" : [
             [
                "ECOLI_ENOLASE",
-               "26",
+               26,
                "+",
                888
             ]
          ],
+         "md5" : "2103db1913a9c60bf1f514b2918f4b8b",
          "function" : "CTP synthase (EC 6.3.4.2)",
          "aliases" : [],
          "id" : "kb|g.22994.CDS.0",
@@ -41,11 +37,12 @@
          "location" : [
             [
                "ECOLI_ENOLASE",
-               "1001",
+               1001,
                "+",
                1299
             ]
          ],
+         "md5" : "2b75da91ab90b47ce882b14ddcd5d3d5",
          "function" : "Enolase (EC 4.2.1.11)",
          "aliases" : [],
          "id" : "kb|g.22994.CDS.1",
@@ -68,11 +65,12 @@
          "location" : [
             [
                "ECOLI_ENOLASE",
-               "3276",
+               3276,
                "-",
                918
             ]
          ],
+         "md5" : "194d890e0267c2b5932cb4e34751e0d5",
          "function" : "Uncharacterized protein YgcG",
          "aliases" : [],
          "id" : "kb|g.22994.CDS.2",
@@ -92,5 +90,8 @@
       }
    ],
    "id" : "kb|g.22994",
-   "genetic_code" : "11"
+   "genetic_code" : 11,
+   "publications" : [ ],
+   "contig_ids" : [ ],
+   "contigset_ref" : "ProbannoUnitTest/kb|g.22994.contigset"
 }
