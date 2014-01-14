@@ -43,7 +43,7 @@ rxns_in_model = set()
 genes_in_model = set()
 integrated_reactions = set()
 for reaction in models[0]["reactions"]:
-    if str(reaction["gapfilled"]) == "0":
+    if str(reaction["gapfilled"]) != "1":
         rxns_in_model.add(reaction["reaction"])
         for feature in reaction["features"]:
             genes_in_model.add(feature)
