@@ -368,7 +368,7 @@ class Workflow:
         reactionSensitivityParams['rxnsens_uid'] = rxnsensitivity
         reactionSensitivityParams['workspace'] = self.args.workspace
         reactionSensitivityParams['auth'] = self.token
-        reactionSensitivityParams['gapfill_solution_id'] = gapfillUUID
+        reactionSensitivityParams['gapfill_solution_id'] = "%s.solution.0" %(gapfillUUID)
 
         if rxnprobs is not None:
             reactionSensitivityParams['rxnprobs_id'] = rxnprobs
