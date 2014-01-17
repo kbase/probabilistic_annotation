@@ -31,7 +31,7 @@ if __name__ == "__main__":
     parser.add_argument('--rxnprobsws', help='workspace containing RxnProbs object (same as workspace if not specified)', action='store', dest='rxnprobsws', default=None)
     parser.add_argument('--script-dir', help='path to directory with analysis scripts', action='store', dest='scriptDir', default='.')
     parser.add_argument('--fba-url', help='url for fba modeling service', action='store', dest='fbaurl', default='http://bio-data-1.mcs.anl.gov/services/fba')
-    parser.add_argument('--ws-url', help='url for workspace service', action='store', dest='wsurl', default='http://www.kbase.us/services/workspace/')
+    parser.add_argument('--ws-url', help='url for workspace service', action='store', dest='wsurl', default='http://kbase.us/services/workspace/')
     args = parser.parse_args()
     
     if args.probanno is None:
@@ -160,35 +160,32 @@ if __name__ == "__main__":
     print "  %d simulations in phenotype simulation set" %(len(phenoSimSet['phenotypeSimulations']))
 
     # Go through the list of simulations, for each gene and see if the gene is in the genesToReactions
-    # dictionary.  If so, mark it as known and include the probability.  Otherwise, mark it as unknown
-    # and set the probability to 0.5.  In both cases, set a flag indicating if the simulation was
-    # correct or incorrect.
+    # dictionary.  If so, add it to list of results.
     step += 1
     print "+++ Step %d: Analyze phenotype simulation set results +++" %(step)
-    numKnown = 0
+    totalPos = 0
+    totalNeg = 0
     resultList = list()
     for sim in phenoSimSet['phenotypeSimulations']:
-        if sim[3] == 'CP' or sim[3] == 'CN':
-            right = 1
-        else:
-            right = 0
         geneList = sim[0][0]
         for gene in geneList:
             if gene in genesToReactions:
                 for reaction in genesToReactions[gene]:
-                    resultList.append( (gene, reaction, genesToReactions[gene][reaction], right ) )
-                    numKnown += 1
-            else:
-                resultList.append( (gene, 'unknown', 0.5, right) )
-    print "  %d genes had reactions with known probabilities" %(numKnown)
+                    resultList.append( (gene, reaction, genesToReactions[gene][reaction], sim[3] ) )
+                    if sim[3] == 'CP' or sim[3] == 'FP':
+                        totalPos += 1
+                    else:
+                        totalNeg += 1
+    print "  %d total positive predictions %d total negative predictions" %(totalPos, totalNeg)
 
+    # Save the list of results to a file.  The file is read by GenerateROCPlot.py.
     step += 1
     print "+++ Step %d: Save analysis to file +++" %(step)
     resultList.sort(key=itemgetter(2), reverse=True)
     resultFile = open(args.phenosimset+'.results.csv', 'w')
-    resultFile.write('prob,true,reaction\n')
+    resultFile.write('gene,reaction,prob,type\n')
     for index in range(len(resultList)):
-        resultFile.write('%f,%d,%s\n' %(resultList[index][2], resultList[index][3], resultList[index][1]))
+        resultFile.write('%s,%s,%f,%s\n' %(resultList[index][0], resultList[index][1], resultList[index][2], resultList[index][3]))
     print "  Saved analysis to %s" %(resultFile.name)
     resultFile.close()
     exit(0)
