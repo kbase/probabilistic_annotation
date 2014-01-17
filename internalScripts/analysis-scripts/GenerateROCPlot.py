@@ -32,7 +32,7 @@ if __name__ == "__main__":
     print "totalPos %d totalNeg %d" %(totalPos, totalNeg)
     resultList.sort(key=itemgetter(0), reverse=True)
     rocFile = open(args.outputFile, 'w')
-    rocFile.write("prob,totalPos,numTP,numFP,tpr,fpr,totalNeg,numTN,numFN,tnr,fnr\n")
+    rocFile.write("prob,totalPos,numTP,numFP,totalNeg,numTN,numFN,tpr,fpr,tnr,fnr,ppv,npv\n")
     for cutoff in numpy.arange(0,1,0.05):
         numTP = 0
         numFP = 0
@@ -44,23 +44,37 @@ if __name__ == "__main__":
                     numTP += 1
                 elif resultList[i][1] == 'FP':
                     numFP += 1
-                elif resultList[i][1] == 'TN':
+                elif resultList[i][1] == 'CN':
                     numTN += 1
-                else:
+                elif resultList[i][1] == 'FN':
                     numFN += 1
-        if totalPos > 0:
-            tpr = float(numTP)/float(totalPos)
-            fpr = float(numFP)/float(totalPos)
+                else:
+                    print "Invalid value for type %s" %(resultList[i][1])
+        if (numTP + numFN) > 0:
+            tpr = float(numTP) / (float(numTP) + float(numFN))
         else:
-            tpr = float(0.0)
-            fpr = float(0.0)
-        if totalNeg > 0:
-            tnr = float(numTN)/float(totalNeg)
-            fnr = float(numFN)/float(totalNeg)
+            tpr = 0.0
+        if (numFP + numTN) > 0:
+            fpr = float(numFP) / (float(numFP) + float(numTN))
         else:
-            tnr = float(0.0)
-            fnr = float(0.0)
-        rocFile.write("%f,%d,%d,%d,%f,%f,%d,%d,%d,%f,%f\n" %(cutoff, totalPos, numTP, numFP, tpr, fpr, totalNeg, numTN, numFN, tnr, fnr) )
+            fpr = 0.0
+        if (numFP + numTN) > 0:
+            tnr = float(numTN) / (float(numFP) + float(numTN))
+        else:
+            tnr = 0.0
+        if (numFN + numTP) > 0:
+            fnr = float(numFN) / (float(numFN) + float(numTP))
+        else:
+            fnr = 0.0
+        if (numTP + numFP) > 0:
+            ppv = float(numTP) / (float(numTP) + float(numFP))
+        else:
+            ppv = 0.0
+        if (numTN + numFN) > 0:
+            npv = float(numTN) / (float(numTN) + float(numFN))
+        else:
+            npv = 0.0
+        rocFile.write("%f,%d,%d,%d,%d,%d,%d,%f,%f,%f,%f,%f,%f\n" %(cutoff, totalPos, numTP, numFP, totalNeg, numTN, numFN, tpr, fpr, tnr, fnr, ppv, npv) )
     rocFile.close()
 
 #     plt.plot(tpr, fpr)
