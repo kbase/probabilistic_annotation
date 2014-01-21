@@ -37,7 +37,7 @@ SERVER_TESTS = $(wildcard server-tests/*.t)
 # Chris's suggestion is to use the deploy.cfg in the test environment and to work
 # with the production team to use a different one in the production environment.
 # So that's what we're going to do!
-test: | verify-test-user test-service test-client test-scripts
+test: | verify-test-user test-service test-scripts
 
 verify-test-user:
 	if [ -z "$$(TEST_USER_PASS)" ] ; then \
