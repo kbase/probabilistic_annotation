@@ -30,7 +30,7 @@ DESCRIPTION
       object with the specified ID.
       
       The ProbAnno object can be used as input to gapfilling a metabolic model
-      using the --probanno option for the kbfba-gapfill command.
+      using the --probanno option for the fba-gapfill command.
       
       Options:
       -e, --showerror    Show any errors in execution
@@ -47,7 +47,7 @@ SEE ALSO
       pa-calculate
       pa-url
       pa-checkjob
-      kbfba-gapfill
+      fba-gapfill
       
 AUTHORS
       Matt Benedict, Mike Mundy
