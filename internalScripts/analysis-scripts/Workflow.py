@@ -8,7 +8,8 @@ import traceback
 import sys
 import time
 from operator import itemgetter
-from biokbase.workspaceService.Client import workspaceService
+from biokbase.workspace.client import Workspace
+from biokbase.workspaceService.Client import workspaceService as oldWorkspace
 from biokbase.fbaModelServices.Client import fbaModelServices
 from biokbase.probabilistic_annotation.Client import ProbabilisticAnnotation
 
@@ -104,7 +105,9 @@ class Workflow:
         while not done:
             time.sleep(increment)
             totaltime += increment
-            jobList = self.wsClient.get_jobs( { 'jobids': [ jobid ], 'auth': self.token } )
+            # NOTE - This will fail for now because get_jobs no longer exists.
+            # I guess we need to migrate this to use the UJS instead?
+            jobList = self.jobClient.get_jobs( { 'jobids': [ jobid ], 'auth': self.token } )
             if jobList[0]['status'] == 'done':
                 done = True
             if jobList[0]['status'] == 'error':
@@ -415,11 +418,12 @@ class Workflow:
         # Save the arguments.
         self.args = args
 
-        # Create clients for the three services.
+        # Create clients for the three services and the jobs [temporary]
         self.paClient = ProbabilisticAnnotation(self.args.paurl)
         self.token = self.paClient._headers['AUTHORIZATION'] # ProbAnno is an authenticated client
-        self.wsClient = workspaceService(self.args.wsurl)
-        self.fbaClient = fbaModelServices(self.args.fbaurl)
+        self.wsClient = Workspace(self.args.wsurl, token=self.token)
+        self.jobClient = oldWorkspace(self.args.joburl, token=self.token)
+        self.fbaClient = fbaModelServices(self.args.fbaurl, token=self.token)
 
     ''' Run the workflow. '''
 
@@ -1187,18 +1191,19 @@ if __name__ == "__main__":
     parser.add_argument('--genome_source', help='Source for genome. Valid values include "kbase", "seed", "rast". (Default is seed)', action='store', dest='source', default='seed')
     parser.add_argument('-w', '--workspace', help='workspace for storing objects', action='store', dest='workspace')
     parser.add_argument('--force', help='Force rebuilding of all objects', action='store_true', dest='force', default=False)
-    parser.add_argument('--standard', help='Run standard gap fill workflow', action='store_true', dest='standard', default=False)
-    parser.add_argument('--prob', help='Run probabilistic gap fill workflow', action='store_true', dest='prob', default=False)
-    parser.add_argument('--iterative', help='Run standard iterative gap fill workflow ', action='store_true', dest='iterative', default=False)
-    parser.add_argument('--iterativeprob', help='Run probabilistic iterative gap fill workflow ', action='store_true', dest='iterativeprob', default=False)
+    parser.add_argument('--network', help='Run network-based gap fill workflow', action='store_true', dest='standard', default=False)
+    parser.add_argument('--likeliood', help='Run likelihood-based gap fill workflow', action='store_true', dest='prob', default=False)
+    parser.add_argument('--iterative', help='Run network-based iterative gap fill workflow ', action='store_true', dest='iterative', default=False)
+    parser.add_argument('--iterative-likelihood', help='Run likelihood-based iterative gap fill workflow ', action='store_true', dest='iterativeprob', default=False)
     parser.add_argument('--num-solutions', help='Number of solutions to find for gap fill (ignored for iterative gap filling)', action='store', dest='numsolutions', type=int, default=3)
-    parser.add_argument('--ws-url', help='URL for workspace service', action='store', dest='wsurl', default='http://kbase.us/services/workspace')
-    parser.add_argument('--fba-url', help='URL for fba model service', action='store', dest='fbaurl', default='http://bio-data-1.mcs.anl.gov/services/fba')
+    parser.add_argument('--ws-url', help='URL for workspace service', action='store', dest='wsurl', default='http://kbase.us/services/ws')
+    parser.add_argument('--job-url', help='URL for old workspace service (needed for job support)', action='store', dest='joburl', default='http://kbase.us/services/workspace')
+    parser.add_argument('--fba-url', help='URL for fba model service', action='store', dest='fbaurl', default='http://kbase.us/services/fba_model_services')
     parser.add_argument('--pa-url', help='URL for probabilistic annotation service', action='store', dest='paurl', default='http://kbase.us/services/probabilistic_annotation')
     parser.add_argument('--knockout', help='OPTIONAL. Provide a knockout data PhenotypeSet and we will create a new model gapfilled to each media in it.', action='store', dest='knockout', default=None)
-    parser.add_argument('--knockoutws', help='OPTIONAL. Workspace for provided knockout data PhenotypeSet (default is the same as the current workspace', action='store', dest='knockoutws', default=None)
-    parser.add_argument('--biologdata', help='OPTIONAL. Provide a knockout data PhenotypeSet and we will create a new model gapfilled to each media in it.', action='store', dest='biolog', default=None)
-    parser.add_argument('--biologdataws', help='OPTIONAL. Workspace for provided knockout data PhenotypeSet (default is the same as the current workspace', action='store', dest='biologws', default=None)
+    parser.add_argument('--knockoutws', help='OPTIONAL. Workspace for provided knockout data PhenotypeSet (default is the same as the current workspace)', action='store', dest='knockoutws', default=None)
+    parser.add_argument('--biologdata', help='OPTIONAL. Biolog PhenotypeSet object', action='store', dest='biolog', default=None)
+    parser.add_argument('--biologdataws', help='OPTIONAL. Workspace for provided biolog data PhenotypeSet (default is the same as the current workspace)', action='store', dest='biologws', default=None)
     parser.add_argument('--positiveTransportersOnly', help='OPTIONAL. Add transporters for only media that produced growth in a PhenotypeSet before simulating. Only relevant for biolog data. Default is to add transporters for ALL media.', action='store_true', default=False)
     parser.add_argument('--maxtime', 
                         help='OPTIONAL. Maximum amount of time to wait for a job to finish (by default the maximum is 2 hour for normal gapfill jobs and probanno jobs and 4 days for iterative gapfill)',
