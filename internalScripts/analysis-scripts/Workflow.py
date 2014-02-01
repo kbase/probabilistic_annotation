@@ -1206,7 +1206,7 @@ if __name__ == "__main__":
     parser.add_argument('--biologdataws', help='OPTIONAL. Workspace for provided biolog data PhenotypeSet (default is the same as the current workspace)', action='store', dest='biologws', default=None)
     parser.add_argument('--positiveTransportersOnly', help='OPTIONAL. Add transporters for only media that produced growth in a PhenotypeSet before simulating. Only relevant for biolog data. Default is to add transporters for ALL media.', action='store_true', default=False)
     parser.add_argument('--maxtime', 
-                        help='OPTIONAL. Maximum amount of time to wait for a job to finish (by default the maximum is 2 hour for normal gapfill jobs and probanno jobs and 4 days for iterative gapfill)',
+                        help='OPTIONAL. Maximum amount of time to wait for a job to finish (by default the maximum is 2 hours for targeted gapfill jobs and 4 days for iterative gapfill)',
                         action='store', default=None)
     args = parser.parse_args()
 
