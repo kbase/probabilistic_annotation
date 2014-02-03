@@ -35,6 +35,13 @@ token = authdata['token']
 fbaClient = fbaModelServices(options.url)
 wsClient = workspaceService("http://kbase.us/services/workspace/")
 
+if wsClient.has_object( { "workspace": options.ws,
+                          "auth" : token,
+                          "id" : options.modelid + ".REINTEGRATED",
+                          "type" : "Model" } ):
+    print "Integrated model %s already exists" %(options.modelid + ".REINTEGRATED")
+    exit(2)
+
 ### Get the model object
 #
 models = fbaClient.get_models( { "models" : [ options.modelid ],

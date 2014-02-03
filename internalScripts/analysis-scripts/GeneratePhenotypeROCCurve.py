@@ -31,7 +31,7 @@ if __name__ == "__main__":
     parser.add_argument('--rxnprobsws', help='workspace containing RxnProbs object (same as workspace if not specified)', action='store', dest='rxnprobsws', default=None)
     parser.add_argument('--script-dir', help='path to directory with analysis scripts', action='store', dest='scriptDir', default='.')
     parser.add_argument('--fba-url', help='url for fba modeling service', action='store', dest='fbaurl', default='http://bio-data-1.mcs.anl.gov/services/fba')
-    parser.add_argument('--ws-url', help='url for workspace service', action='store', dest='wsurl', default='http://www.kbase.us/services/workspace/')
+    parser.add_argument('--ws-url', help='url for workspace service', action='store', dest='wsurl', default='http://kbase.us/services/workspace/')
     args = parser.parse_args()
     
     if args.probanno is None:
@@ -89,6 +89,8 @@ if __name__ == "__main__":
                         if geneList[index] not in genesToReactions:
                             genesToReactions[geneList[index]] = dict()
                         genesToReactions[geneList[index]][rxnid] = 0.0
+
+    
     resultsFile.close()
     print "  %d genes in genes to reactions dictionary" %(len(genesToReactions))
 
@@ -127,7 +129,7 @@ if __name__ == "__main__":
     # then find the roles in the probanno object for the gene
     step += 1
     print "+++ Step %d: Find maximum probability of reaction given gene +++" %(step)
-    probsFile = open(args.genome+'.probs', 'w')
+    probsFile = open(args.model+'.probs', 'w')
     numProbs = 0
     for gene in genesToReactions:
         if gene in rolesetProbabilities:
