@@ -1,12 +1,12 @@
+# Include standard makefile
+TOP_DIR = ../..
+include $(TOP_DIR)/tools/Makefile.common
+
 # Set default locations for runtime and deployment
 # if the directories are not already set:
 DEPLOY_RUNTIME ?= /kb/runtime
 TARGET         ?= /kb/deployment
 TOOLS_DIR      ?= /kb/dev_container/tools
-
-# Include standard makefile
-TOP_DIR = ../..
-include $(TOP_DIR)/tools/Makefile.common
 
 INTERNAL_PYTHON = $(wildcard internalScripts/*.py)
 
@@ -23,7 +23,17 @@ SERV_TPAGE = $(KB_RUNTIME)/bin/perl $(KB_RUNTIME)/bin/tpage
 SERV_TPAGE_ARGS = --define kb_top=$(TARGET) --define kb_runtime=$(KB_RUNTIME) --define kb_service_name=$(SERV_SERVICE) \
 	--define kb_service_port=$(SERV_SERVICE_PORT) --define kb_service_psgi=lib/$(SERV_PSGI_PATH)
 
-all: compile-typespec
+# This stuff is needed to properly implement the all target
+SRC_PYTHON = $(wildcard scripts/*.py)
+BIN_PYTHON = $(addprefix $(BIN_DIR)/,$(basename $(notdir $(SRC_PYTHON))))
+
+SRC_PERL = $(wildcard scripts/*.pl)
+BIN_PERL = $(addprefix $(BIN_DIR)/,$(basename $(notdir $(SRC_PERL))))
+
+all: compile-typespec bin
+
+# Binaries (used when doing 'all')
+bin: $(BIN_PYTHON) $(BIN_PERL)
 
 # TESTS
 CLIENT_TESTS_PYTHON = $(wildcard client-tests/*.py)
@@ -82,6 +92,7 @@ test-client:
 			fi \
 		fi \
 	done
+
 
 # Deployment
 
