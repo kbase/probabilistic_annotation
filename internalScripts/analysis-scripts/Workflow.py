@@ -70,7 +70,6 @@ class Workflow:
             else:
                 objectIdentity['workspace'] = workspace
             objectIdentity['name'] = id
-
         return objectIdentity
 
 
@@ -257,16 +256,17 @@ class Workflow:
         
         # Just use the first unintegrated gap fill solution.
         gapfill = gapfillList[0]
-        gapfill_ref = gapfill[1]
+        gapfill_id = gapfill[0]
 
         # Get the hidden GapFill object attached to the Model object.
         # The solutions that we need to integrate are in there and we need to reach into 
         # it to find out how many there are and if there was a valid solution found.
-        gapfillObject = self._getWsObject('Gapfill', gapfill_ref, workspace=self.args.workspace, idtype='ref')
+        gapfillObject = self._getWsObject('Gapfill', gapfill_id, workspace=self.args.workspace, idtype='name')
 
         gapfillSolutionIds = []
         for ii in range(len(gapfillObject['data']['gapfillingSolutions'])):
-            gapfill_solutionid = '%s.gfsol.%s' %(gapfill_ref, ii)
+            # Recent change: Gf solution IDs start counting from 1 now.
+            gapfill_solutionid = '%s.gfsol.%s' %(gapfill_id, ii + 1)
             gapfillSolutionIds.append(gapfill_solutionid)
 
         if getAll:
@@ -353,12 +353,18 @@ class Workflow:
         
         return objmeta
 
-    ''' Find the UUID for an integrated iterative gapfill to pass to the reaction sensntivity analysis. '''
+    ''' Find the ID for an integrated iterative gapfill to pass to the reaction sensntivity analysis. '''
     def _findIterativeGapfillUUID(self, model):       
-        modelobj = self._getWsObject('Model', model)
-        integrated_uuid_list = modelobj["data"]["integratedGapfilling_uuids"]
-        for uuid in integrated_uuid_list:
-            gapfill_obj = self._getWsObject('Gapfill', uuid, workspace=self.args.workspace, idtype='ref')
+        getModelParams = dict()
+        getModelParams['models'] = [ model ]
+        getModelParams['workspaces'] = [ self.args.workspace ]
+        getModelParams['auth'] = self.token
+        models = self.fbaClient.get_models(getModelParams)
+        gapfillList = models[0]["integrated_gapfillings"]
+
+        for gfarray in gapfillList:
+            gapfill = gfarray[0]
+            gapfill_obj = self._getWsObject('Gapfill', gapfill, workspace=self.args.workspace, idtype='name')
             if int(gapfill_obj["data"]["completeGapfill"]) == 1:
                 # I am assuming here that there is only one iterative gapfill done on the model. When using
                 # this workflow, that is a valid assumption.
