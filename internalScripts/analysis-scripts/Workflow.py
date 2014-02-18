@@ -3,13 +3,14 @@
 # Note -u forces stdout to be unbuffered.
 
 import argparse
+import re
 import subprocess
 import traceback
 import sys
 import time
 from operator import itemgetter
 from biokbase.workspace.client import Workspace
-from biokbase.workspaceService.Client import workspaceService as oldWorkspace
+from biokbase.workspaceService.client import workspaceService as oldWorkspace
 from biokbase.fbaModelServices.Client import fbaModelServices
 from biokbase.probabilistic_annotation.Client import ProbabilisticAnnotation
 
@@ -50,39 +51,45 @@ class Command:
 
 class Workflow:
 
+    def _makeObjectIdentity(self, type, id, workspace=None, idtype = 'name'):
+        # Create a valid ObjectIdentity object
+        objectIdentity = dict()
+
+        # This function accepts multiple input formats but we for now only
+        # need to support two: name/workspace pairs and references.
+        if idtype == 'ref':
+            # The get_models function adds extra stuff to the beginning of the ID that causes get_objects to choke.
+            # This regex gets rid fo that.
+            good_ref = re.search(r'\d+/\d+/\d+', id)
+            assert (good_ref is not None)
+            objectIdentity['ref'] = good_ref.group(0)
+        elif idtype == 'name':
+            if workspace is None:
+                objectIdentity['workspace'] = self.args.workspace
+            else:
+                objectIdentity['workspace'] = workspace
+            objectIdentity['name'] = id
+
+        return objectIdentity
+
+
     ''' Get an object of a certain type with a certain ID '''
-    def _getWsObject(self, type, id, workspace=None):      
-        getObjectParams = dict()
-        getObjectParams['type'] = type
-        getObjectParams['id'] = id
-        getObjectParams['auth'] = self.token
-        if workspace is None:
-            getObjectParams['workspace'] = self.args.workspace
-        else:
-            getObjectParams['workspace'] = workspace
+    def _getWsObject(self, type, id, workspace=None, idtype='name'):      
+
+        objectIdentity = self._makeObjectIdentity(type, id, workspace=workspace, idtype = idtype)
 
         try:
-            obj = self.wsClient.get_object(getObjectParams)
+            objs = self.wsClient.get_objects( [ objectIdentity ] )
         except:
             raise CannotGetObjectError("Unable to get %s object %s/%s" %(type, self.args.workspace, id) )
 
-        return obj
-        
+        return objs[0]        
 
     ''' Check if object should be created. '''
+    def _isObjectMissing(self, type, id, workspace=None):
 
-    def _isObjectMissing(self, type, id):
-
-        # See if the object exists.
-        hasObjectParams = dict()
-        hasObjectParams['type'] = type
-        hasObjectParams['id'] = id
-        hasObjectParams['workspace'] = self.args.workspace
-        hasObjectParams['auth'] = self.token
-        # note - there is a has_object command, which is probably faster (since you don't have to
-        # send the whole object across the pipe)
         try:
-            exists = self.wsClient.get_object(hasObjectParams)
+            exists = self._getWsObject(type, id, workspace=workspace, idtype='name')
         except:
             return True
         if not exists:
@@ -91,7 +98,9 @@ class Workflow:
         # Delete the object if it exists and force option is turned on.
         if self.args.force:
             self.wsClient.delete_object(hasObjectParams)
-            self.wsClient.delete_object_permanently(hasObjectParams)
+            # This functionality has been removed (sigh...)
+            # --force probably will no longer work until / unless I figure out how to get around it.
+#            self.wsClient.delete_object_permanently(hasObjectParams)
             return True
 
         return False
@@ -247,16 +256,16 @@ class Workflow:
         
         # Just use the first unintegrated gap fill solution.
         gapfill = gapfillList[0]
-        gapfill_uuid = gapfill[1]
+        gapfill_ref = gapfill[1]
 
         # Get the hidden GapFill object attached to the Model object.
         # The solutions that we need to integrate are in there and we need to reach into 
         # it to find out how many there are and if there was a valid solution found.
-        gapfillObject = self._getWsObject('Gapfill', gapfill_uuid, workspace='NO_WORKSPACE')
+        gapfillObject = self._getWsObject('Gapfill', gapfill_ref, workspace=self.args.workspace, idtype='ref')
 
         gapfillSolutionIds = []
         for ii in range(len(gapfillObject['data']['gapfillingSolutions'])):
-            gapfill_solutionid = '%s.solution.%s' %(gapfill_uuid, ii)
+            gapfill_solutionid = '%s.gfsol.%s' %(gapfill_ref, ii)
             gapfillSolutionIds.append(gapfill_solutionid)
 
         if getAll:
@@ -350,8 +359,7 @@ class Workflow:
         modelobj = self._getWsObject('Model', model)
         integrated_uuid_list = modelobj["data"]["integratedGapfilling_uuids"]
         for uuid in integrated_uuid_list:
-            # This is likely going to change on us sometime soon. But I need it to work now, darn it.
-            gapfill_obj = self._getWsObject('Gapfill', uuid, workspace='NO_WORKSPACE')
+            gapfill_obj = self._getWsObject('Gapfill', uuid, workspace=self.args.workspace, idtype='ref')
             if int(gapfill_obj["data"]["completeGapfill"]) == 1:
                 # I am assuming here that there is only one iterative gapfill done on the model. When using
                 # this workflow, that is a valid assumption.
