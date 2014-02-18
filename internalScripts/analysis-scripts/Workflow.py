@@ -3,6 +3,7 @@
 # Note -u forces stdout to be unbuffered.
 
 import argparse
+import getpass
 import re
 import subprocess
 import traceback
@@ -90,7 +91,7 @@ class Workflow:
 
         try:
             exists = self._getWsObject(type, id, workspace=workspace, idtype='name')
-        except:
+        except CannotGetObjectError:
             return True
         if not exists:
             return True
@@ -316,11 +317,9 @@ class Workflow:
         # (note - the objective value is in the metadata so we should be getting this from _runFBA to not run into troubles with multiple FBAs in a single model)
         fbaObject = self._getWsObject('FBA', fba)
         # maybe should save all of these. But I don't know what to do with them.
-        value = None
-        for result in fbaObject['data']['fbaResults']:
-            print '  Objective value is %s' %(result['objectiveValue'])
-            value = float(result['objectiveValue'])
-        return value
+        value = fbaObject['data']['objectiveValue']
+        print '  Objective value is %s' %(value)
+        return float(value)
 
     def _getMediaIdsFromPhenotypeSet(self, phenoid):
         # Get a list of media IDs and workspaces from a phenotypeSet object
