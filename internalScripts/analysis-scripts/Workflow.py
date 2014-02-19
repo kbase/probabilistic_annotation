@@ -75,14 +75,11 @@ class Workflow:
 
     ''' Get an object of a certain type with a certain ID '''
     def _getWsObject(self, type, id, workspace=None, idtype='name'):      
-
         objectIdentity = self._makeObjectIdentity(type, id, workspace=workspace, idtype = idtype)
-
         try:
             objs = self.wsClient.get_objects( [ objectIdentity ] )
         except:
             raise CannotGetObjectError("Unable to get %s object %s/%s" %(type, self.args.workspace, id) )
-
         return objs[0]        
 
     ''' Check if object should be created. '''
@@ -97,10 +94,8 @@ class Workflow:
 
         # Delete the object if it exists and force option is turned on.
         if self.args.force:
-            self.wsClient.delete_object(hasObjectParams)
-            # This functionality has been removed (sigh...)
-            # --force probably will no longer work until / unless I figure out how to get around it.
-#            self.wsClient.delete_object_permanently(hasObjectParams)
+            identity = self._makeObjectIdentity(type, id, workspace=workspace, idtype='name')
+            self.wsClient.delete_objects( [ identity ] )
             return True
 
         return False
@@ -227,18 +222,7 @@ class Workflow:
         job = self.fbaClient.queue_gapfill_model(gapfillParams)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         print '  Waiting for job %s to end ...' %(job['id'])
-        try:
-            self._waitForJob(job['id'])
-        except JobError:
-            # Delete the incomplete model object so this step is re-run.
-            deleteObjectParams = dict()
-            deleteObjectParams['type'] = 'Model'
-            deleteObjectParams['id'] = model
-            deleteObjectParams['workspace'] = self.args.workspace
-            deleteObjectParams['auth'] = self.token
-            self.wsClient.delete_object(deleteObjectParams)
-            self.wsClient.delete_object_permanently(deleteObjectParams)
-            raise
+        self._waitForJob(job['id'])
 
     ''' Find the first solution after running gap fill. Or, if getAll is specified (needed for iterative gapfill),
         find all of the solutions after running gap fill. '''
@@ -402,13 +386,9 @@ class Workflow:
             self._waitForJob(job['id'])
         except JobError:
             # Delete the incomplete reaction sensitivity object so this step is re-run.
-            deleteObjectParams = dict()
-            deleteObjectParams['type'] = 'RxnSensitivity'
-            deleteObjectParams['id'] = rxnsensitivity
-            deleteObjectParams['workspace'] = self.args.workspace
-            deleteObjectParams['auth'] = self.token
-            self.wsClient.delete_object(deleteObjectParams)
-            self.wsClient.delete_object_permanently(deleteObjectParams)
+            # TODO: Check if this is still necessary?
+            identity = self._makeObjectIdentity('RxnSensitivity', rxnsensitivity, workspace=self.args.workspace, idtype='name')
+            self.wsClient.delete_objects( [ identity ] )
             raise
 
         return
