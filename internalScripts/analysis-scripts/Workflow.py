@@ -13,7 +13,9 @@ from operator import itemgetter
 from biokbase.workspace.client import Workspace
 from biokbase.workspaceService.client import workspaceService as oldWorkspace
 from biokbase.fbaModelServices.Client import fbaModelServices
-from biokbase.probabilistic_annotation.Client import ProbabilisticAnnotation
+from biokbase.probabilistic_annotation.Client import ProbabilisticAnnotation, _read_inifile
+from biokbase.probabilistic_annotation.Helpers import job_info_dict
+from biokbase.userandjobstate.client import UserAndJobState, ServerError as JobStateServerError
 
 ''' Exception raised when a command returns a non-zero return code. '''
 class CommandError(Exception):
@@ -101,7 +103,8 @@ class Workflow:
         return False
 
     ''' Wait for the specified job to finish. '''
-
+    # Note - this is DEPRECIATED but we still keep it because it's needed for FBA.
+    # Eventually everything will switch to UJS and we'll use waitForUjs for all jobs.
     def _waitForJob(self, jobid):
         done = False
         totaltime = 0
@@ -109,8 +112,6 @@ class Workflow:
         while not done:
             time.sleep(increment)
             totaltime += increment
-            # NOTE - This will fail for now because get_jobs no longer exists.
-            # I guess we need to migrate this to use the UJS instead?
             jobList = self.jobClient.get_jobs( { 'jobids': [ jobid ], 'auth': self.token } )
             if jobList[0]['status'] == 'done':
                 done = True
@@ -122,6 +123,50 @@ class Workflow:
                 print '  [ERROR]'
                 print jobList[0]
                 raise JobError("Job %s did not finish within specified maximum time of %d seconds" %(jobid, self.args.maxtime))
+        return
+
+    '''Wait for a job submitted using the User and Job State service'''
+    # Note - this should be used for probanno jobs. FBA jobs still use the old queue management system for now.
+    def _waitForUjs(self, jobid):
+        done = False
+        totaltime = 0
+        increment = 60
+        while not done:
+            time.sleep(increment)
+            totaltime += increment
+
+            jobinfo = None
+            try:
+                jobinfo = self.ujsClient.get_job_info(jobid)
+            except:
+                print '  [ERROR]'
+                raise JobError('Unable to check status of job %s' %(jobid))
+
+            infodict = job_info_dict(jobinfo)
+
+            # Check if the job had an error.
+            if infodict['error']:
+                print '  [ERROR]'
+                print "Job '%s' (%s) ended with error '%s'." %(infodict['id'], infodict['description'], infodict['status'])
+                print 'Error details:'
+                print self.ujsClient.get_detailed_error(infodict['id'])
+                self.ujsClient.delete_job(infodict['id'])
+                raise JobError('Error')
+            # Check if the job is complete.
+            elif infodict['complete']:
+                print "Job '%s' (%s) completed successfully." %(infodict['id'], infodict['description'])
+                self.ujsClient.delete_job(infodict['id'])
+                done = True
+                break
+            # Job is still running.
+            else:
+                print "Job '%s' (%s) has status '%s' and is working on task %s of %s." \
+                    %(infodict['id'], infodict['description'], infodict['status'], infodict['total_progress'], infodict['max_progress'])
+
+            if totaltime > self.args.maxtime:
+                print '  [ERROR]'
+                raise JobError("Job %s did not finish within specified maximum time of %d seconds" %(jobid, self.args.maxtime))
+
         return
 
     ''' Load genome into the workspace from the specified source. (Note - this step is the same for all types of Gapfill)'''
@@ -158,7 +203,8 @@ class Workflow:
         jobid = self.paClient.annotate(annotateParams)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         print '  Waiting for job %s to end ...' %(jobid)
-        self._waitForJob(jobid)
+        # Probanno annotate jobs use the user and job state service.
+        self._waitForUjs(jobid)
         return
 
     ''' Run a Calculate (to get RxnProbs) job on your genome. Note - this is the same for probanno gapfill of both normal and iterative varieties '''
@@ -417,6 +463,7 @@ class Workflow:
         self.wsClient = Workspace(self.args.wsurl, token=self.token)
         self.jobClient = oldWorkspace(self.args.joburl, token=self.token)
         self.fbaClient = fbaModelServices(self.args.fbaurl, token=self.token)
+        self.ujsClient = UserAndJobState(self.args.ujsurl, token=self.token)
 
     ''' Run the workflow. '''
 
@@ -1185,7 +1232,7 @@ if __name__ == "__main__":
     parser.add_argument('-w', '--workspace', help='workspace for storing objects', action='store', dest='workspace')
     parser.add_argument('--force', help='Force rebuilding of all objects', action='store_true', dest='force', default=False)
     parser.add_argument('--network', help='Run network-based gap fill workflow', action='store_true', dest='standard', default=False)
-    parser.add_argument('--likeliood', help='Run likelihood-based gap fill workflow', action='store_true', dest='prob', default=False)
+    parser.add_argument('--likelihood', help='Run likelihood-based gap fill workflow', action='store_true', dest='prob', default=False)
     parser.add_argument('--iterative', help='Run network-based iterative gap fill workflow ', action='store_true', dest='iterative', default=False)
     parser.add_argument('--iterative-likelihood', help='Run likelihood-based iterative gap fill workflow ', action='store_true', dest='iterativeprob', default=False)
     parser.add_argument('--num-solutions', help='Number of solutions to find for gap fill (ignored for iterative gap filling)', action='store', dest='numsolutions', type=int, default=3)
@@ -1201,6 +1248,7 @@ if __name__ == "__main__":
     parser.add_argument('--maxtime', 
                         help='OPTIONAL. Maximum amount of time to wait for a job to finish (by default the maximum is 2 hours for targeted gapfill jobs and 4 days for iterative gapfill)',
                         action='store', default=None)
+    parser.add_argument('--ujsurl', help='URL for user and job state service (needed to check probanno jobs)', action='store', dest='ujsurl', default='https://kbase.us/services/userandjobstate/')
     args = parser.parse_args()
 
     if args.knockoutws is None:
