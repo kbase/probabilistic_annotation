@@ -168,8 +168,12 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
 
             # Remove the temporary directory only if our job succeeds. If it does that means there were no errors so we don't need it.
             if not self.config["debug"] or self.config["debug"] == "0":
-                shutil.rmtree(workFolder)
-
+                try:
+                    shutil.rmtree(workFolder)
+                except OSError:
+                    # For some reason deleting the directory was failing in production. Rather than have all jobs look like they failed
+                    # I catch and log the exception here (since the user still gets the same result if the directory remains intact)
+                    sys.stderr.write("WARNING: Unable to delete temporary directory %s\n" %(workFolder))
         except:
             tb = traceback.format_exc()
             sys.stderr.write(tb)
