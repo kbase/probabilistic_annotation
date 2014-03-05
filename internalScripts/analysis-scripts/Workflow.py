@@ -295,7 +295,7 @@ class Workflow:
 
         gapfillSolutionIds = []
         for ii in range(len(gapfillObject['data']['gapfillingSolutions'])):
-            # Recent change: Gf solution IDs start counting from 1 now.
+            # Recent change: Gf solution IDs start counting from 1 now? Sometimes? I don't understand...
             gapfill_solutionid = '%s.gfsol.%s' %(gapfill_id, ii + 1)
             gapfillSolutionIds.append(gapfill_solutionid)
 
@@ -398,7 +398,7 @@ class Workflow:
             if int(gapfill_obj["data"]["completeGapfill"]) == 1:
                 # I am assuming here that there is only one iterative gapfill done on the model. When using
                 # this workflow, that is a valid assumption.
-                return uuid
+                return gapfill
         return None
     
     ''' Run a reaction sensntivity analysis, saving the results in the specified rxnsensitivity object.
@@ -414,7 +414,7 @@ class Workflow:
         reactionSensitivityParams['rxnsens_uid'] = rxnsensitivity
         reactionSensitivityParams['workspace'] = self.args.workspace
         reactionSensitivityParams['auth'] = self.token
-        reactionSensitivityParams['gapfill_solution_id'] = "%s.solution.0" %(gapfillUUID)
+        reactionSensitivityParams['gapfill_solution_id'] = "%s.gfsol.1" %(gapfillUUID)
 
         if rxnprobs is not None:
             reactionSensitivityParams['rxnprobs_id'] = rxnprobs
@@ -425,6 +425,7 @@ class Workflow:
         else:
             reactionSensitivityParams['delete_noncontributing_reactions'] = 0
 
+        print reactionSensitivityParams
         job = self.fbaClient.reaction_sensitivity_analysis(reactionSensitivityParams)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         print '  Waiting for job %s to end ...' %(job['id'])
