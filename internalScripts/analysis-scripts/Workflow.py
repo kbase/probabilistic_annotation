@@ -295,7 +295,7 @@ class Workflow:
 
         gapfillSolutionIds = []
         for ii in range(len(gapfillObject['data']['gapfillingSolutions'])):
-            # Recent change: Gf solution IDs start counting from 1 now? Sometimes? I don't understand...
+            # Recent change: Gf solution IDs start counting from 1 now
             gapfill_solutionid = '%s.gfsol.%s' %(gapfill_id, ii + 1)
             gapfillSolutionIds.append(gapfill_solutionid)
 
@@ -424,19 +424,17 @@ class Workflow:
             reactionSensitivityParams['delete_noncontributing_reactions'] = 1
         else:
             reactionSensitivityParams['delete_noncontributing_reactions'] = 0
-
-        print reactionSensitivityParams
-        job = self.fbaClient.reaction_sensitivity_analysis(reactionSensitivityParams)
+        
+        # Reaction sensitivity is a long-running job.
+        # Since it does not queue by default we need to do it manually to avoid timeouts.
+        queue_job_params = dict()
+        queue_job_params['method'] = 'reaction_sensitivity_analysis'
+        queue_job_params['parameters'] = reactionSensitivityParams
+        job = self.fbaClient.queue_job(queue_job_params)
+        
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         print '  Waiting for job %s to end ...' %(job['id'])
-        try:
-            self._waitForJob(job['id'])
-        except JobError:
-            # Delete the incomplete reaction sensitivity object so this step is re-run.
-            # TODO: Check if this is still necessary?
-            identity = self._makeObjectIdentity('RxnSensitivity', rxnsensitivity, workspace=self.args.workspace, idtype='name')
-            self.wsClient.delete_objects( [ identity ] )
-            raise
+        self._waitForJob(job['id'])
 
         return
 
