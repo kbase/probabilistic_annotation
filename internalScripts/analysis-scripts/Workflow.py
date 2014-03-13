@@ -33,6 +33,10 @@ class NoDataError(Exception):
 class NoGrowthError(Exception):
     pass
 
+''' Exception raised when we cannot find a workspace '''
+class CannotFindWorkspaceError(Exception):
+    pass
+
 ''' Exception raised when unable to get an object from a workspace '''
 class CannotGetObjectError(Exception):
     pass
@@ -53,6 +57,14 @@ class Command:
 ''' Run the workflow for probabilistic annotation paper. '''
 
 class Workflow:
+
+    def _checkIfWorkspaceExists(self, workspace):
+        workspaceIdentity = dict()
+        workspaceIdentity["workspace"] = workspace
+        try:
+            self.wsClient.get_workspace_info( workspaceIdentity )
+        except:
+            raise CannotFindWorkspaceError("Could not find workspace %s. Do you have permission to read and write to it?")
 
     def _makeObjectIdentity(self, type, id, workspace=None, idtype = 'name'):
         # Create a valid ObjectIdentity object
@@ -84,11 +96,37 @@ class Workflow:
             raise CannotGetObjectError("Unable to get %s object %s/%s" %(type, self.args.workspace, id) )
         return objs[0]        
 
+    ''' Check if object exists. If so, get the objectinfo, which includes name, ref, id, etc.
+    Note this is the replacement for hasobject() in the old workspace server.'''
+    def _getObjectInfo(self, type, id, workspace=None, idtype = 'name'):
+        objectIdentity = self._makeObjectIdentity(type, id, workspace=workspace, idtype=idtype)
+        # The get_object_info() syntax is set to change in a few months. Lets try to avoid this failing
+        # because of a trivial syntax change...
+        try:
+            objinfo = self.wsClient.get_object_info( [ objectIdentity ], 0 )
+        except:
+            # Note that ServerError could mean either bad syntax (i.e. they replaced the function with another of the same name)
+            # or the object doesn't exist. Great...
+            get_obj_info_params = dict()
+            get_obj_info_params['objects'] = [ objectIdentity ]
+            get_obj_info_params['includeMetadata'] = 0
+            get_obj_info_params['ignoreErrors'] = 0
+            try:
+                objinfo = self.wsClient.get_object_info(get_obj_info_params)
+            except:
+                try:
+                    objinfo = self.wsClient.get_object_info_new(get_obj_info_params)
+                except:
+                    raise CannotGetObjectError("Unable to get %s object %s/%s" %(type, self.args.workspace, id) )
+
+        return objinfo[0]
+
     ''' Check if object should be created. '''
     def _isObjectMissing(self, type, id, workspace=None):
 
         try:
-            exists = self._getWsObject(type, id, workspace=workspace, idtype='name')
+#            exists = self._getWsObject(type, id, workspace=workspace, idtype='name')
+            exists = self._getObjectInfo(type, id, workspace=workspace, idtype='name')
         except CannotGetObjectError:
             return True
         if not exists:
@@ -351,15 +389,21 @@ class Workflow:
         print '  Objective value is %s' %(value)
         return float(value)
 
-    def _getMediaIdsFromPhenotypeSet(self, phenoid):
+    def _getMediaIdsFromPhenotypeSet(self, phenoid, workspace=None):
         # Get a list of media IDs and workspaces from a phenotypeSet object
         # Returns a list of unique (media, workspace) tuples
-        phenotypeSetObject = self._getWsObject('PhenotypeSet', phenoid)
+        phenotypeSetObject = self._getWsObject('PhenotypeSet', phenoid, workspace=workspace)
 
-        mediaTuples = set()
+        mediaRefs = set()
         for phenotypeSet in phenotypeSetObject['data']['phenotypes']:
             for phenotype in phenotypeSet:
-                mediaTuples.add( (phenotypeSet[1], phenotypeSet[2]) )
+                mediaRefs.add( (phenotypeSet["media_ref"] ) )
+
+        # Convert references to (workspace, ID) tuples so that we can call gap fill/FBA with it.
+        mediaTuples = set()
+        for ref in mediaRefs:
+            objinfo = self._getObjectInfo('Media', ref, workspace=None, idtype = 'ref')
+            mediaTuples.add( (objinfo[1], objinfo[7]) )
 
         return mediaTuples
 
@@ -475,7 +519,7 @@ class Workflow:
         print '  Workspace service url is %s' %(self.args.wsurl)
         print '  FBA model service url is %s' %(self.args.fbaurl)
         print '  Checking workspace %s ...' %(self.args.workspace)
-        wsMeta = self.wsClient.get_workspacemeta( { 'workspace': self.args.workspace, 'auth': self.token } )
+        wsMeta = self._checkIfWorkspaceExists(self.args.workspace)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         
         step += 1
@@ -585,7 +629,7 @@ class Workflow:
         print '  Workspace service url is %s' %(self.args.wsurl)
         print '  FBA model service url is %s' %(self.args.fbaurl)
         print '  Checking workspace %s ...' %(self.args.workspace)
-        wsMeta = self.wsClient.get_workspacemeta( { 'workspace': self.args.workspace, 'auth': self.token } )
+        wsMeta = self._checkIfWorkspaceExists(self.args.workspace)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
@@ -715,7 +759,7 @@ class Workflow:
         print '  Workspace service url is %s' %(self.args.wsurl)
         print '  FBA model service url is %s' %(self.args.fbaurl)
         print '  Checking workspace %s ...' %(self.args.workspace)
-        wsMeta = self.wsClient.get_workspacemeta( { 'workspace': self.args.workspace, 'auth': self.token } )
+        wsmeta = self._checkIfWorkspaceExists(self.args.workspace)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
@@ -862,7 +906,7 @@ class Workflow:
         print '  Workspace service url is %s' %(self.args.wsurl)
         print '  FBA model service url is %s' %(self.args.fbaurl)
         print '  Checking workspace %s ...' %(self.args.workspace)
-        wsMeta = self.wsClient.get_workspacemeta( { 'workspace': self.args.workspace, 'auth': self.token } )
+        wsmeta = self._checkIfWorkspaceExists(self.args.workspace)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
@@ -1050,7 +1094,7 @@ class Workflow:
         step += 1
         print '+++ Step %d: Find all media conditions in phenotype set +++' %(step)
         print '  Checking phenotype set %s/%s...' %(self.args.workspace, self.args.knockout)
-        mediaTuples = self._getMediaIdsFromPhenotypeSet(self.args.knockout)
+        mediaTuples = self._getMediaIdsFromPhenotypeSet(self.args.knockout, workspace=self.args.knockoutws)
         print '  Found %d media conditions in phenotype set' %(len(mediaTuples))
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
