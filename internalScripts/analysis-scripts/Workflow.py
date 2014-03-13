@@ -467,7 +467,7 @@ class Workflow:
     ''' Run the workflow. '''
 
     def runStandard(self):
-        print '=== Started Standard Gap Fill Workflow ==='
+        print '=== Started Network-based Gap Fill Workflow ==='
 
         step = 0
         print '+++ Step %d: Initialize' %(step)
@@ -499,16 +499,16 @@ class Workflow:
 
         step += 1
         stdModel = '%s.model.std' %(self.args.genome)
-        print '+++ Step %d: Run standard gap fill on complete media' %(step)
+        print '+++ Step %d: Run network-based gap fill on complete media' %(step)
         if self._isObjectMissing('Model', stdModel):
-            print '  Submitting job and saving standard gap fill model to %s/%s ...' %(self.args.workspace, stdModel)
+            print '  Submitting job and saving network-based gap fill model to %s/%s ...' %(self.args.workspace, stdModel)
             self._gapfill(draftModel, stdModel, None)
         else:
             print '  Found standard gap fill model %s/%s' %(self.args.workspace, stdModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        print '+++ Step %d: Find standard gap fill unintegrated solutions (we only will integrate the first solution)' %(step)
+        print '+++ Step %d: Find network-based gap fill unintegrated solutions (we only will integrate the first solution)' %(step)
         print '  Checking gap fill model %s/%s ...' %(self.args.workspace, stdModel)
         solutionList = self._findGapfillSolution(stdModel)
         print '  Found unintegrated solution %s' %(solutionList[0])
@@ -516,26 +516,26 @@ class Workflow:
 
         step += 1
         stdIntModel = "%s.model.std.int" %(self.args.genome)
-        print '+++ Step %d: Integrate standard gap fill solution 0 on complete media (NOTE - you should check that the solution is optimal)' %(step)
+        print '+++ Step %d: Integrate network-based gap fill solution 1 on complete media (NOTE - you should check that the solution is optimal)' %(step)
         if self._isObjectMissing('Model', stdIntModel):
             print '  Integrating solution %s into model %s/%s ...' %(solutionList[0], self.args.workspace, stdIntModel)
             self._integrateSolutions(stdModel, stdIntModel, solutionList, None)
         else:
-            print '  Found integrated standard gap fill model %s/%s' %(self.args.workspace, stdIntModel)
+            print '  Found integrated network-based gap fill model %s/%s' %(self.args.workspace, stdIntModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
         stdCompleteFba = "%s.model.std.int.fba" %(self.args.genome)
-        print "+++ Step %d: Check for growth of standard gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
+        print "+++ Step %d: Check for growth of network-based gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
         if self._isObjectMissing('FBA', stdCompleteFba):
             print '  Running fba and saving complete media standard gap fill FBA object to %s/%s' %(self.args.workspace, stdCompleteFba)
             self._runFBA(stdIntModel, stdCompleteFba)
         else:
-            print '  Found complete media standard gap fill FBA object %s/%s'  %(self.args.workspace, stdCompleteFba)
+            print '  Found complete media network-based gap fill FBA object %s/%s'  %(self.args.workspace, stdCompleteFba)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         obj = self._getObjectiveValue(stdCompleteFba)
         if obj is None or float(obj) < 1E-5:
-            print '   [ERROR] Standard gapfilled model did not grow on minimal media after gapfilling'
+            print '   [ERROR] Network-based gapfilled model did not grow on minimal media after gapfilling'
             raise NoGrowthError('Growth rate was 0 or unable to calculate')
 
         step += 1
@@ -569,15 +569,15 @@ class Workflow:
             print '   Found existing FBA solution %s/%s' %(self.args.workspace, stdMinimalFba)
         obj = self._getObjectiveValue(stdMinimalFba)
         if obj is None or float(obj) < 1E-5:
-            print '   [ERROR] Standard gapfilled model did not grow on minimal media after gapfilling'
+            print '   [ERROR] Network-based gapfilled model did not grow on minimal media after gapfilling'
             raise NoGrowthError('Growth rate was 0 or unable to calculate')
 
-        print '=== Completed Standard Gap Fill Workflow ==='
+        print '=== Completed Network-based Gap Fill Workflow ==='
 
         return
 
     def runProbabilistic(self):
-        print '=== Started Probabilistic Gap Fill Workflow ==='
+        print '=== Started Likelihood-based Gap Fill Workflow ==='
 
         step = 0
         print '+++ Step %d: Initialize' %(step)
@@ -629,43 +629,43 @@ class Workflow:
 
         step += 1
         probModel = '%s.model.pa' %(self.args.genome)
-        print '+++ Step %d: Run probabilistic gap fill on complete media' %(step)
+        print '+++ Step %d: Run likelihood-based gap fill on complete media' %(step)
         if self._isObjectMissing('Model', probModel):
-            print '  Submitting job and saving probabilistic gap fill model to %s/%s ...' %(self.args.workspace, probModel)
+            print '  Submitting job and saving likelihood-based gap fill model to %s/%s ...' %(self.args.workspace, probModel)
             self._gapfill(draftModel, probModel, rxnprobs)
         else:
-            print '  Found probabilistic gap fill model %s/%s' %(self.args.workspace, probModel)
+            print '  Found likelihood-based gap fill model %s/%s' %(self.args.workspace, probModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        print '+++ Step %d: Find probabilistic unintegrated solutions' %(step)
+        print '+++ Step %d: Find unintegrated likelihood-based gap fill solutions' %(step)
         print '  Checking gap fill model %s/%s ...' %(self.args.workspace, probModel)
         solutionList = self._findGapfillSolution(probModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
         probIntModel = "%s.model.pa.int" %(self.args.genome)
-        print "+++ Step %d: Integrate probablisitic gap fill solution 0 on complete media (NOTE - you should check that the solution is optimal)" %(step)
+        print "+++ Step %d: Integrate likelihood-based gap fill solution 1 on complete media (NOTE - you should check that the solution is optimal)" %(step)
         print '  Integrating solution %s into model %s/%s ...' %(solutionList[0], self.args.workspace, probIntModel)
         if self._isObjectMissing('Model', probIntModel):
             print '  Integrating probabilisitc gap fill solution 0 into model %s/%s ...' %(self.args.workspace, probIntModel)
             self._integrateSolutions(probModel, probIntModel, solutionList, rxnprobs)
         else:
-            print '  Found integrated probabilistic gap fill model %s/%s' %(self.args.workspace, probIntModel)
+            print '  Found integrated likelihood-based gap fill model %s/%s' %(self.args.workspace, probIntModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
         probCompleteFba = "%s.model.pa.int.fba" %(self.args.genome)
-        print "+++ Step %d: Check for growth of probabilistic gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
+        print "+++ Step %d: Check for growth of likelihood-based gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
         if self._isObjectMissing('FBA', probCompleteFba):
-            print '  Running fba and saving complete media probabilistic gap fill FBA object to %s/%s' %(self.args.workspace, probCompleteFba)
+            print '  Running fba and saving complete media likelihood-based gap fill FBA object to %s/%s' %(self.args.workspace, probCompleteFba)
             self._runFBA(probIntModel, probCompleteFba)
         else:
-            print '  Found complete media probanno gap fill FBA object %s/%s'  %(self.args.workspace, probCompleteFba)
+            print '  Found complete media likelihood-based gap fill FBA object %s/%s'  %(self.args.workspace, probCompleteFba)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         obj = self._getObjectiveValue(probCompleteFba)
         if obj is None or float(obj) < 1E-5:
-            print '   [ERROR] Probabilistic gapfilled model did not grow on complete media'
+            print '   [ERROR] Likelihood-based gapfilled model did not grow on complete media'
             raise NoGrowthError('Growth rate was 0 or unable to calculate')
 
         step += 1
@@ -699,15 +699,15 @@ class Workflow:
             print '   Found existing FBA solution %s/%s' %(self.args.workspace, probMinimalFba)
         obj = self._getObjectiveValue(probMinimalFba)
         if obj is None or float(obj) < 1E-5:
-            print '   [ERROR] Probabilistic gapfilled model did not grow on minimal media after gapfilling'
+            print '   [ERROR] Likelihood-based gapfilled model did not grow on minimal media after gapfilling'
             raise NoGrowthError('Growth rate was 0 or unable to calculate')
 
-        print '=== Completed Probabilistic Gap Fill Workflow ==='
+        print '=== Completed Likelihood-based Gap Fill Workflow ==='
 
         return
 
     def runIterative(self):
-        print '=== Started Standard Iterative Gap Fill Workflow ==='
+        print '=== Started Network-based Iterative Gap Fill Workflow ==='
 
         step = 0
         print '+++ Step %d: Initialize' %(step)
@@ -743,16 +743,16 @@ class Workflow:
         # integration bug...
         step += 1
         stdModel = '%s.model.std' %(self.args.genome)
-        print '+++ Step %d: Run standard gap fill on complete media' %(step)
+        print '+++ Step %d: Run network-based gap fill on complete media' %(step)
         if self._isObjectMissing('Model', stdModel):
-            print '  Submitting job and saving standard gap fill model to %s/%s ...' %(self.args.workspace, stdModel)
+            print '  Submitting job and saving network-based gap fill model to %s/%s ...' %(self.args.workspace, stdModel)
             self._gapfill(draftModel, stdModel, None)
         else:
-            print '  Found standard gap fill model %s/%s' %(self.args.workspace, stdModel)
+            print '  Found network-based gap fill model %s/%s' %(self.args.workspace, stdModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        print '+++ Step %d: Find standard gap fill unintegrated solutions (we only will integrate the first solution)' %(step)
+        print '+++ Step %d: Find network-based gap fill unintegrated solutions (we only will integrate the first solution)' %(step)
         print '  Checking gap fill model %s/%s ...' %(self.args.workspace, stdModel)
         solutionList = self._findGapfillSolution(stdModel)
         print '  Found unintegrated solution %s' %(solutionList[0])
@@ -760,29 +760,29 @@ class Workflow:
 
         step += 1
         stdIntModel = "%s.model.std.int" %(self.args.genome)
-        print '+++ Step %d: Integrate standard gap fill solution 0 on complete media (NOTE - you should check that the solution is optimal)' %(step)
+        print '+++ Step %d: Integrate network-based gap fill solution 1 on complete media (NOTE - you should check that the solution is optimal)' %(step)
         if self._isObjectMissing('Model', stdIntModel):
             print '  Integrating solution %s into model %s/%s ...' %(solutionList[0], self.args.workspace, stdIntModel)
             self._integrateSolutions(stdModel, stdIntModel, solutionList, None)
         else:
-            print '  Found integrated standard gap fill model %s/%s' %(self.args.workspace, stdIntModel)
+            print '  Found integrated network-based gap fill model %s/%s' %(self.args.workspace, stdIntModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         
         # Note - iterative gapfilling automatically integrates solutions now.
         step += 1
         stdIterativeModel = '%s.model.std.iterative.int' %(self.args.genome)
-        print '+++ Step %d: Run standard iterative gap fill on complete media [note - iterative gapfill automatically will integrate the solutions]' %(step)
+        print '+++ Step %d: Run network-based iterative gap fill on complete media [note - iterative gapfill automatically will integrate the solutions]' %(step)
         if self._isObjectMissing('Model', stdIterativeModel):
-            print '  Submitting job and saving standard iterative gap fill model to %s/%s ...' %(self.args.workspace, stdIterativeModel)
+            print '  Submitting job and saving network-based iterative gap fill model to %s/%s ...' %(self.args.workspace, stdIterativeModel)
             self._gapfill(stdIntModel, stdIterativeModel, None, iterative=True)
         else:
-            print '  Found standard iterative gap fill model %s/%s' %(self.args.workspace, stdIterativeModel)
+            print '  Found network-based iterative gap fill model %s/%s' %(self.args.workspace, stdIterativeModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         stdIterativeIntModel = stdIterativeModel
 
         step += 1
         stdIterativeIntSensitivity = '%s.model.std.iterative.int.sensitivity' %(self.args.genome)
-        print '+++ Step %d: Order gapfilled reactions by probability and iteratively check the sensitivity of removing them' %(step)
+        print '+++ Step %d: Check sensitivity of removing gap filled reactions...' %(step)
         if self._isObjectMissing('RxnSensitivity', stdIterativeIntSensitivity):
             print '  Submitting reaction sensitivity job and saving results to %s/%s ...' %(self.args.workspace, stdIterativeIntSensitivity)
             self._runReactionSensitivity(stdIterativeIntModel, stdIterativeIntSensitivity, rxnprobs=None)
@@ -803,16 +803,16 @@ class Workflow:
 
         step += 1
         stdIterativeCompleteFba = "%s.model.std.iterative.int.fba" %(self.args.genome)
-        print "+++ Step %d: Check for growth of standard iterative gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
+        print "+++ Step %d: Check for growth of network-based iterative gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
         if self._isObjectMissing('FBA', stdIterativeCompleteFba):
-            print '  Running fba and saving complete media standard iterative gap fill FBA object to %s/%s' %(self.args.workspace, stdIterativeCompleteFba)
+            print '  Running fba and saving complete media network-based iterative gap fill FBA object to %s/%s' %(self.args.workspace, stdIterativeCompleteFba)
             self._runFBA(stdIterativeIntModelFiltered, stdIterativeCompleteFba)
         else:
-            print '  Found complete media standard iterative gap fill FBA object %s/%s'  %(self.args.workspace, stdIterativeCompleteFba)
+            print '  Found complete media network-based iterative gap fill FBA object %s/%s'  %(self.args.workspace, stdIterativeCompleteFba)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         obj = self._getObjectiveValue(stdIterativeCompleteFba)
         if obj is None or float(obj) < 1E-5:
-            print '   [ERROR] Standard iterative gapfilled model did not grow on complete media'
+            print '   [ERROR] Network-based iterative gapfilled model did not grow on complete media'
             raise NoGrowthError('Growth rate was 0 or unable to calculate')
 
         step += 1
@@ -846,15 +846,15 @@ class Workflow:
             print '   Found existing FBA solution %s/%s' %(self.args.workspace, stdIterativeMinimalFba)
         obj = self._getObjectiveValue(stdIterativeMinimalFba)
         if obj is None or float(obj) < 1E-5:
-            print '   [ERROR] Standard iterative gapfilled model did not grow on minimal media after gap filling.'
+            print '   [ERROR] Network-based iterative gapfilled model did not grow on minimal media after gap filling.'
             raise NoGrowthError('Growth rate was 0 or unable to calculate')
 
-        print '=== Completed Standard Iterative Gap Fill Workflow ==='
+        print '=== Completed Network-based Iterative Gap Fill Workflow ==='
 
         return
 
     def runIterativeProbabilistic(self):
-        print '=== Iterative Gap Fill Workflow (with probanno) ==='
+        print '=== Iterative Gap Fill Workflow (with likelihoods) ==='
 
         step = 0
         print '+++ Step %d: Initialize' %(step)
@@ -908,41 +908,41 @@ class Workflow:
         # to biomass to work aroudn MFA toolkit's integration bug. It makes iterative gapfill SO much faster.
         step += 1
         probModel = '%s.model.pa' %(self.args.genome)
-        print '+++ Step %d: Run probabilistic gap fill on complete media' %(step)
+        print '+++ Step %d: Run likelihood-based gap fill on complete media' %(step)
         if self._isObjectMissing('Model', probModel):
-            print '  Submitting job and saving probabilistic gap fill model to %s/%s ...' %(self.args.workspace, probModel)
+            print '  Submitting job and saving likelihood-based gap fill model to %s/%s ...' %(self.args.workspace, probModel)
             self._gapfill(draftModel, probModel, rxnprobs)
         else:
-            print '  Found probabilistic gap fill model %s/%s' %(self.args.workspace, probModel)
+            print '  Found likelihood-based gap fill model %s/%s' %(self.args.workspace, probModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
-        print '+++ Step %d: Find probabilistic unintegrated solutions' %(step)
+        print '+++ Step %d: Find unintegrated solutions for likelihood-based gap fill' %(step)
         print '  Checking gap fill model %s/%s ...' %(self.args.workspace, probModel)
         solutionList = self._findGapfillSolution(probModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         step += 1
         probIntModel = "%s.model.pa.int" %(self.args.genome)
-        print "+++ Step %d: Integrate probablisitic gap fill solution 0 on complete media (NOTE - you should check that the solution is optimal)" %(step)
+        print "+++ Step %d: Integrate likelihood-based gap fill solution 1 on complete media (NOTE - you should check that the solution is optimal)" %(step)
         print '  Integrating solution %s into model %s/%s ...' %(solutionList[0], self.args.workspace, probIntModel)
         if self._isObjectMissing('Model', probIntModel):
-            print '  Integrating probabilisitc gap fill solution 0 into model %s/%s ...' %(self.args.workspace, probIntModel)
+            print '  Integrating likelihood-based gap fill solution 1 into model %s/%s ...' %(self.args.workspace, probIntModel)
             self._integrateSolutions(probModel, probIntModel, solutionList, rxnprobs)
         else:
-            print '  Found integrated probabilistic gap fill model %s/%s' %(self.args.workspace, probIntModel)
+            print '  Found integrated likelihood-based gap fill model %s/%s' %(self.args.workspace, probIntModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
 
         #### Above this line, everything about this is exactly the same as for probanno without iterative gapfill
 
         step += 1
         probIterativeModel = '%s.model.pa.iterative.int' %(self.args.genome)
-        print '+++ Step %d: Run probabilistic iterative gap fill on complete media [ note - iterative gapfill will automatically integrate the solutions]' %(step)
+        print '+++ Step %d: Run likelihood-based iterative gap fill on complete media [ note - iterative gapfill will automatically integrate the solutions]' %(step)
         if self._isObjectMissing('Model', probIterativeModel):
-            print '  Submitting job and saving probabilistic iterative gap fill model to %s/%s ...' %(self.args.workspace, probIterativeModel)
+            print '  Submitting job and saving likelihood-based iterative gap fill model to %s/%s ...' %(self.args.workspace, probIterativeModel)
             self._gapfill(probIntModel, probIterativeModel, rxnprobs, iterative=True)
         else:
-            print '  Found probabilistic gap fill model %s/%s' %(self.args.workspace, probIterativeModel)
+            print '  Found likelihood-based gap fill model %s/%s' %(self.args.workspace, probIterativeModel)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         probIterativeIntModel = probIterativeModel
 
@@ -968,16 +968,16 @@ class Workflow:
 
         step += 1
         probIterativeCompleteFba = "%s.model.pa.iterative.int.fba" %(self.args.genome)
-        print "+++ Step %d: Check for growth of probabilistic iterative gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
+        print "+++ Step %d: Check for growth of likelihood-based iterative gap fill model on complete media (all available transporters to the cell are turned on)" %(step)
         if self._isObjectMissing('FBA', probIterativeCompleteFba):
-            print '  Running fba and saving complete media probabilistic iterative gap fill FBA object to %s/%s' %(self.args.workspace, probIterativeCompleteFba)
+            print '  Running fba and saving complete media likelihood-based iterative gap fill FBA object to %s/%s' %(self.args.workspace, probIterativeCompleteFba)
             self._runFBA(probIterativeIntModelFiltered, probIterativeCompleteFba)
         else:
-            print '  Found complete media probabilistic iterative gap fill FBA object %s/%s'  %(self.args.workspace, probIterativeCompleteFba)
+            print '  Found complete media likelihood-based iterative gap fill FBA object %s/%s'  %(self.args.workspace, probIterativeCompleteFba)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
         obj = self._getObjectiveValue(probIterativeCompleteFba)
         if obj is None or float(obj) < 1E-5:
-            print '   [ERROR] Probabilistic iterative gapfilled model did not grow on complete media'
+            print '   [ERROR] Likelihood-based iterative gapfilled model did not grow on complete media'
             raise NoGrowthError('Growth rate was 0 or unable to calculate')
 
         step += 1
@@ -1011,10 +1011,10 @@ class Workflow:
             print '   Found existing FBA solution %s/%s' %(self.args.workspace, probIterativeMinimalFba)
         obj = self._getObjectiveValue(probIterativeMinimalFba)
         if obj is None or float(obj) < 1E-5:
-            print '   [ERROR] Probabilistic iterative gapfilled model did not grow on minimal media after gapfilling'
+            print '   [ERROR] Likelihood-based iterative gapfilled model did not grow on minimal media after gapfilling'
             raise NoGrowthError('Growth rate was 0 or unable to calculate')
 
-        print '=== Completed Probabilistic Iterative Gap Fill Workflow ==='
+        print '=== Completed Likelihood-based Iterative Gap Fill Workflow ==='
         
         return
 
@@ -1081,15 +1081,15 @@ class Workflow:
                     rxnprobs = None
                     if ".pa." in model:
                         isProbanno = True
-                        print '  Type of gap fill is probablisitic'
+                        print '  Type of gap fill is likelihood-based'
                         rxnprobs = '%s.rxnprobs' %(self.args.genome)
-                        print '  Looking for reaction probabilities object %s/%s...' %(self.args.workspace, rxnprobs)
+                        print '  Looking for RxnProbs object %s/%s...' %(self.args.workspace, rxnprobs)
                         if self._isObjectMissing('RxnProbs', rxnprobs):
-                            print '  [ERROR] RxnProbs object was not found. Try running one of the probabilistic gapfilling options of this workflow again first. '
+                            print '  [ERROR] RxnProbs object was not found. Try running one of the likelihood-based gapfilling options of this workflow again first. '
                             raise NoErrorData("No rxnprobs object found")
-                        print '  Found reaction probabilities object'
+                        print '  Found RxnProbs object'
                     else:
-                        print '  Type of gap fill is standard'
+                        print '  Type of gap fill is network-based'
                     self.args.force = oldforce
                     print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
                      
@@ -1208,21 +1208,39 @@ if __name__ == "__main__":
     description=''' Workflow.py
 
     DESCRIPTION:
-           Performs the following steps in our analysis pipeline:
-           1: Load a genome from the specified source (default: SEED) into the workspace
-           2: Generate probabilistic annotation for the genome
-           3: Calcualte rxnprobs from the probabilistic annotation
-           4: Generate a draft model (ungapfilled) from the genome
-           5: Run non-probanno gapfill (on complete media)
-           6: Run probanno gapfill (on complete media)
-           7: Integrate the non-probanno gapfill solution on complete media (no GPRs)
-           8: Integrate the probanno gapfill on complete media (including GPRs)
-           9: Check for non-zero growth for both probanno and non-probannog gapfill. Report failure if growth < 1E-5
-           IF a knockout phenotype is provided:
-           FOR EACH knockout phenotype media condition:
-               9: Gapfill to that media
-              10: Integrate the solution
-              11: Check for growth on that media. Report failure if growth < 1E-5.
+           Performs all of the steps in the workflows described in the manuscript. Each of the following four flags indicates a different workflow:
+
+           --network :             Perform network-based targeted gap filling (target is biomass)
+           --likelihood:           Perform likelihood-based targeted gap filling (target is biomass)
+           --iterative:            Perform iterative network-based gap filling workflow
+           --iterative-likelihood: Perform iterative likelihood-based gap filling workflow
+
+           The only required inputs are genome and --workspace. The genome is automatically loaded from the appropriate database (by defualt,
+           this database is the PubSEED: http://pubseed.theseed.org) and then the chosen workflow (above) is run.
+
+           Phenotype data consistency is tested separately because it has to be done with extra external data. 
+
+           If you have KNOCKOUT data: Put it in a PhenotypeSet object and run this script with:
+               --knockout (name of PhenotypeSet object)
+               --knockoutws (Optional: Name of workspace in which PhenotypeSet object is found)
+
+           The knockout data workflow differs from Biolog in that we will make sure the model is capable of growing on media on which the knockouts
+           were performed before testing the effects of knockouts. If it is not we run a gap filling to fix it.
+
+           If you have BIOLOG data: Put it in a PhenotypeSet object and run 
+               --biologdata (name of PhenotypeSet object)
+               --biologdataws (Optional: Name of workspace in which PhenotypeSet object is found)
+
+           By defualt when simulating Biolog data we try to add transporters for every media condition present in the 
+           biolog dataset. If you want to try to add transporters for ONLY positive-growth conditions (a form of data fitting),
+           use --positiveTransportersOnly.
+
+           In either case you have to have run at least one of the other workflows first (or concurrently) to generate models before running the
+           phenotype simulations.
+
+           By default the URLs point at production servers. If you are a KBase developer and want to test effects of using a modified service, you
+           can change the URLs for these services.
+
     '''
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, prog='Workflow', description=description)
