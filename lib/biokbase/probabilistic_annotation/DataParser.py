@@ -36,6 +36,10 @@ class MakeblastdbError(Exception):
 #  OTUs   #
 ###########
 
+# The OTU ID file is a list of representative OTU genome IDs.  Each line has these fields:
+#   1. Genome ID in KBase format (e.g. kb|g.0)
+#   2. Flag indicating if the genome is a prokaryote (1 means yes, 0 means no)
+
 def readOtuData(config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["otu_id_file"]), "r")
     otus = []
@@ -62,6 +66,9 @@ def writeOtuData(otus, prokotus, config):
 # Subsystem FIDs #
 ##################
 
+# The subsystem feature ID file is a list of feature IDs from SEED subsystems.  Each line has
+# one field that is the feature ID in KBase format (e.g. kb|g.3.peg.541).
+
 def readSubsystemFids(config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["subsystem_fid_file"]), "r")
     sub_fids = []
@@ -79,8 +86,11 @@ def writeSubsystemFids(sub_fids, config):
     return
 
 ##################
-# OTU FIDs       #
+# DLIT FIDs      #
 ##################
+
+# The direct literature-supported feature ID file is a list of feature IDs identified in the
+# literature.  Each line has one field that is the feature ID in KBase format (e.g. kb|g.428.peg.6254).
 
 def readDlitFids(config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["dlit_fid_file"]), "r")
@@ -101,6 +111,13 @@ def writeDlitFids(otu_fids, config):
 ###########################
 # All FID roles           #
 ###########################
+
+# The concatenated feature ID to role file is a mapping of feature IDs to functional roles.
+# Each line has these fields:
+#   1. Feature ID in KBase format (e.g. kb|g.0.peg.2094)
+#   2. List of names of functional roles (e.g. Conserved ATP-binding protein YghS)
+#
+# Note that functional roles must be separated by a string that does not occur in any role.
 
 def readAllFidRoles(config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["concatenated_fid_role_file"]), "r")
@@ -136,6 +153,13 @@ def writeAllFidRoles(otu_fidsToRoles, config):
 # Filtered OTU roles #
 ######################
 
+# The filtered feature ID to roles file is a mapping of feature IDs to functional roles where
+# there is one protein from each OTU for each functional role.  Each line has these fields:
+#   1. Feature ID in KBase format (e.g. kb|g.0.peg.2094)
+#   2. List of names of functional roles (e.g. Conserved ATP-binding protein YghS)
+#
+# Note that functional roles must be separated by a string that does not occur in any role.
+
 def readFilteredOtuRoles(config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["subsystem_otu_fid_roles_file"]), "r")
     otu_fidsToRoles = {}
@@ -169,6 +193,9 @@ def writeFilteredOtuRoles(otu_fidsToRoles, config):
 ########################
 # Subsystem FASTA file #
 ########################
+
+# The subsystem FASTA file contains the amino acid sequences for a set of feature IDs.  When the file
+# is written a BLAST database is automatically generated.
 
 def readSubsystemFasta(config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["subsystem_otu_fasta_file"]), "r")
@@ -242,6 +269,13 @@ def writeSubsystemFasta(fidsToSeqs, config):
 # Complex --> roles #
 #####################
 
+# The complex to roles file contains a mapping of complex IDs to functional roles.
+# Each line has these fields:
+#   1. Complex ID in KBase format (e.g. kb|cpx.51240)
+#   2. List of names of functional roles (e.g. V-type ATP synthase subunit H (EC 3.6.3.14))
+#
+# Note that functional roles must be separated by a string that does not occur in any role.
+
 def readComplexRoles(config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["complexes_roles_file"]), "r")
     complexToRequiredRoles = {}
@@ -267,6 +301,13 @@ def writeComplexRoles(complexToRequiredRoles, config):
 #########################
 # Reaction --> complex  #
 #########################
+
+# The reaction to complexes file contains a mapping of reaction IDs to complex IDs.
+# Each line has these fields:
+#   1. Reaction ID in KBase format (e.g. kb|rxn.5682)
+#   2. List of complex IDs in KBase format (e.g. kb|cpx.1507///kb|cpx.1813)
+#
+# Note that complex IDs must be separated by a string that does not occur in any complex ID.
 
 def readReactionComplex(config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["reaction_complexes_file"]), "r")
@@ -332,6 +373,15 @@ def getConfig(filename):
     for nameval in config.items("probabilistic_annotation"):
         retconfig[nameval[0]] = nameval[1]
     return retconfig
+
+# The status file is used to track the status of setting up the static database files when
+# the server starts.  The first line of the file contains the status which is one of
+# these values:
+#   1. 'building' when the pa-gendata command is building the files
+#   2. 'running' when the server initialization is in progress
+#   3. 'ready' when the server initialization is complete or a build is complete
+#
+# The second line has the timestamp of when the status was last changed.
 
 def readStatusFile(config):
     fid = open(os.path.join(config["data_folder_path"], StatusFiles["status_file"]), "r")
