@@ -361,18 +361,35 @@ def readRolesetProbabilityFile(roleset_probability_file):
             queryToTuplist[spl[0]] = [ (spl[1], float(spl[2])) ]
     return queryToTuplist
 
-def getConfig(filename):
+def readConfig(filename):
     # Use default config file if one is not specified.
     if filename == None:
-        filename = os.path.join(sys.environ["KB_TOP"], "deployment.cfg")
-        
-    # Read the config file and extract the probabilistic annotation section.
-    retconfig = {}
+        filename = os.path.join(os.environ['KB_TOP'], 'deployment.cfg')
+
+    # Read the config file.
     config = ConfigParser()
-    config.read(filename)
+    try:
+        config.read(filename)
+    except Exception as e:
+        print "Error while reading config file %s: %s" % (filename, e)
+
+    # Make sure there is a probabilistic_annotation section in the config file.
+    if not config.has_section('probabilistic_annotation'):
+        config.add_section('probabilistic_annotation')
+        with open(filename, 'w') as configfile:
+            config.write(configfile)
+
+    return config
+
+def getConfig(filename):
+    # Read the config file.
+    config = readConfig(filename)
+
+    # Extract the probabilistic annotation section.
+    sectionConfig = dict()
     for nameval in config.items("probabilistic_annotation"):
-        retconfig[nameval[0]] = nameval[1]
-    return retconfig
+        sectionConfig[nameval[0]] = nameval[1]
+    return sectionConfig
 
 # The status file is used to track the status of setting up the static database files when
 # the server starts.  The first line of the file contains the status which is one of
