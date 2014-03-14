@@ -64,7 +64,7 @@ def print_job(info):
     
 if __name__ == "__main__":
     # Parse options.
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, prog='pa_checkjob', epilog=desc3)
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, prog='pa-checkjob', epilog=desc3)
     parser.add_argument('-j', '--jobID', help='job ID', action='store', dest='jobID', default=None)
     parser.add_argument('--ujs-url', help='url for user and job state service', action='store', dest='ujsURL', default='https://kbase.us/services/userandjobstate/')
     usage = parser.format_usage()
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     try:
         jobList = ujsClient.list_jobs([ userID ], 'RCE')
     except JobStateServerError as e:
-        print e.message
+        print 'Error getting job list: '+e.message
         exit(1)
     
     # See if the user has any jobs in the list.
