@@ -71,3 +71,20 @@ def job_info_dict(infoTuple):
     info['description'] = infoTuple[12]
     info['results'] = infoTuple[13]
     return info
+
+''' Make an object identity. '''
+
+def make_object_identity(workspace, object, ver=None):
+
+    objectIdentity = dict()
+    if workspace.isdigit():
+        objectIdentity['wsid'] = workspace
+    else:
+        objectIdentity['workspace'] = workspace
+    if object.isdigit():
+        objectIdentity['objid'] = object
+    else:
+        objectIdentity['name'] = object
+    if ver is not None:
+        objectIdentity['ver'] = ver
+    return objectIdentity
