@@ -1,8 +1,7 @@
 #!/usr/bin/python
 
 from biokbase.fbaModelServices.Client import *
-from biokbase.workspaceService.Client import *
-from biokbase.probabilistic_annotation.Client import _read_inifile
+from biokbase.workspace.client import *
 import optparse
 import re
 import sys
@@ -13,7 +12,7 @@ description = """Given a GAPFILLED model, pull out the Gapfill solution
 parser = optparse.OptionParser(usage=usage, description=description)
 parser.add_option("-m", "--modelid", help="Model ID", action="store", type="str", dest="modelid", default=None)
 parser.add_option("-w", "--ws", help="Workspace for model and for RxnProbs object if specified...", action="store", type="str", dest="ws", default=None)
-parser.add_option("-u", "--url", help="URL for FBA model services", action="store", type="str", dest="url", default="http://bio-data-1.mcs.anl.gov/services/fba")
+parser.add_option("-u", "--url", help="URL for FBA model services", action="store", type="str", dest="url", default="https://kbase.us/services/KBaseFBAModeling")
 parser.add_option("-r", "--rxnprobsid", help="Rxnprobs object ID (optional)", action="store", type="str", dest="rxnprobsid", default=None)
 (options, args) = parser.parse_args()
 
@@ -23,17 +22,14 @@ if options.modelid is None:
 if options.ws is None:
     raise IOError("Workspace is required input")
 
-authdata = _read_inifile()
-token = authdata['token']
 fbaClient = fbaModelServices(options.url)
-wsClient = workspaceService("http://kbase.us/services/workspace/")
+wsClient = Workspace("https://kbase.us/services/ws")
 
 ### Get the model object
 #
 #try:
 models = fbaClient.get_models( { "models" : [ options.modelid ],
                                  "workspaces" : [ options.ws ],
-                                 "auth"   : token
                                  })
 #except:
 #    raise IOError("ERROR: Getting model %s from workspace %s failed (most likely this means the model does not exist in that workspace)" %(options.modelid, options.ws))
@@ -65,11 +61,9 @@ if len(gapfills) < 1:
 rxnToProbability = {}
 rxnToGapfillGpr = {}
 if options.rxnprobsid is not None:
-    rxnprobs_object = wsClient.get_object( { "workspace"     : options.ws,
-                                             "type"          : "RxnProbs",
-                                             "id"            : options.rxnprobsid,
-                                             "auth"          : token
-                                             })
+    rxnprobsIdentity = { 'workspace': options.ws, 'name': options.rxnprobsid }
+    object_list = wsClient.get_objects( [ rxnprobsIdentity ] )
+    rxnprobs_object = object_list[0]
     for rxnprob in rxnprobs_object["data"]["reaction_probabilities"]:
         rxnToProbability[rxnprob[0]] = rxnprob[1]
         rxnToGapfillGpr[rxnprob[0]] = rxnprob[4]
@@ -82,37 +76,31 @@ geneFinder = re.compile("kb\|g\.\d+\.peg\.\d+")
 geneFinder2 = re.compile("fig\|\d+\.\d+\.peg\.\d+")
 
 for gapfill in gapfills:
-    gapfill_uuid = gapfill[1]
+    gapfill_ref = gapfill[1]
 
     # Get the gapfill formulation object from the workspace (so that references to data are saved)
     # Note - FBA isn't technically the correct type but with getting objects
     # by reference the type doesn't matter...
-    gapfill_object_workspace = wsClient.get_object( { "workspace"  : "NO_WORKSPACE",
-                                                       "type"      : "FBA",
-                                                       "id"        : gapfill_uuid,
-                                                       "auth"      : token
-                                                       })
+    object_list = wsClient.get_objects( [ { 'ref': gapfill_ref } ] )
+    gapfill_object = object_list[0]
 
     # We need to reach in and grab the FBA solution object. It contains the text of the ProblemReport.txt
     # that we need to parse to get the objective values out.
     try:
-        fba_formulation_uuid = gapfill_object_workspace["data"]["fbaFormulation_uuid"]
+        fba_ref = gapfill_object["data"]["fba_ref"]
     except KeyError:
-        sys.stderr.write("WARNING: Gapfill with UUID %s had no FBA result attached to it...(in model %s)\n" %(gapfill_uuid, options.modelid))
+        sys.stderr.write("WARNING: Gapfill with reference %s had no FBA result attached to it...(in model %s)\n" %(gapfill_ref, options.modelid))
         continue
 
-    fba_formulation_object = wsClient.get_object( { "workspace" : "NO_WORKSPACE",
-                                                    "type"      : "FBA",
-                                                    "id"        : fba_formulation_uuid,
-                                                    "auth"      : token
-                                                    })
+    object_list = wsClient.get_objects( [ { 'ref': fba_ref } ] )
+    fba_object = object_list[0]
 
     # The problemreport.txt file contains the objective values...
     # But old versions of gapfill didn't return this file as part of the object.
     try:
-        problem_report_text = fba_formulation_object["data"]["fbaResults"][0]["outputfiles"]["ProblemReport.txt"]
+        problem_report_text = fba_object["data"]["outputfiles"]["ProblemReport.txt"]
     except KeyError:
-        sys.stderr.write("WARNING: No ProblemReport.txt was attached to FBA Results object %s in model %s\n" %(fba_formulation_uuid, options.modelid))
+        sys.stderr.write("WARNING: No ProblemReport.txt was attached to FBA Results object %s in model %s\n" %(fba_ref, options.modelid))
         continue
 
     #####################################################
@@ -154,10 +142,8 @@ for gapfill in gapfills:
     # match up between solutions gotten above and those returned by the FBA model service.
     #
     # It's likely we could just use what we have from the ProblemReport.txt instead.
-    gapfill_objects_fba = fbaClient.get_gapfills( { "workspaces" : [ "NO_WORKSPACE" ],
-                                                    "gapfills"   : [ gapfill_uuid ],
-                                                    "auth"       : token
-                                                    })
+    fields = gapfill_ref.split('/')
+    gapfill_objects_fba = fbaClient.get_gapfills( { "workspaces": [ fields[0] ], "gapfills" : [ fields[1] ] })
 
     ####################################################
     #    Iterate over gapfill solutions and generate   #
@@ -165,7 +151,7 @@ for gapfill in gapfills:
     ####################################################
     gapfill_solutions = gapfill_objects_fba[0]["solutions"]
     ii = 0
-    print "\t".join( [ "Sln_idx", "rxnid", "objective", "gapfill_uuid", "rxn_likelihood", "is_reversibility_change", "probanno_based_GPR", "New_genes", "Number_of_new_genes", "Rxn_integrated_and_not_deleted" ] )
+    print "\t".join( [ "Sln_idx", "rxnid", "objective", "gapfill_ref", "rxn_likelihood", "is_reversibility_change", "probanno_based_GPR", "New_genes", "Number_of_new_genes", "Rxn_integrated_and_not_deleted" ] )
     for solution in gapfill_solutions:
         reactionAdds = solution["reactionAdditions"]
         if len(reactionAdds) < 1:
@@ -227,9 +213,9 @@ for gapfill in gapfills:
 
             # This doesn't work for complete gapfilling. I just want to get a hack aroud it.
             try:
-                print "\t".join( [ str(ii), rxnid, str(solution_rxns_to_objective[rxnids]), gapfill_uuid, p, revchange, gpr, newgenes, nnew, reactionInModel ] )
+                print "\t".join( [ str(ii), rxnid, str(solution_rxns_to_objective[rxnids]), gapfill_ref, p, revchange, gpr, newgenes, nnew, reactionInModel ] )
             except KeyError:
-                print "\t".join( [ str(ii), rxnid, str(None), gapfill_uuid, p, revchange, gpr, newgenes, nnew, reactionInModel ] )
+                print "\t".join( [ str(ii), rxnid, str(None), gapfill_ref, p, revchange, gpr, newgenes, nnew, reactionInModel ] )
         
         ii += 1
 
