@@ -12,6 +12,10 @@ from biokbase.workspace.client import Workspace
 from biokbase.fbaModelServices.Client import *
 from biokbase.cdmi.client import CDMI_EntityAPI
 from biokbase.userandjobstate.client import UserAndJobState
+from biokbase import log
+
+# Current version of service.
+VERSION = '1.1.0'
 
 # Current version number of ProbAnno object
 ProbAnnoType = 'ProbabilisticAnnotation.ProbAnno-1.0'
@@ -913,19 +917,40 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             else:
                 self.config["debug"] = False
             
+        submod = os.environ.get('KB_SERVICE_NAME', 'probabilistic_annotation')
+        mylog = log.log(submod, ip_address=True, authuser=True, module=True, method=True,
+            call_id=True, config=os.getenv('KB_DEPLOYMENT_CONFIG'))
+        mylog.log_message(log.INFO, 'Server started, version is '+VERSION)
+        configValues = 'shock_url='+self.config['shock_url']
+        configValues += ', userandjobstate_url='+self.config['userandjobstate_url']
+        configValues += ', workspace_url='+self.config['workspace_url']
+        configValues += ', cdmi_url='+self.config['cdmi_url']
+        configValues += ', work_folder_path='+self.config['work_folder_path']
+        configValues += ', data_folder_path='+self.config['data_folder_path']
+        configValues += ', load_data_option='+self.config['load_data_option']
+        configValues += ', separator='+self.config['separator']
+        configValues += ', dilution_percent='+self.config['dilution_percent']
+        configValues += ', pseudo_count='+self.config['pseudo_count']
+        configValues += ', job_queue='+self.config['job_queue']
+        configValues += ', blast_threads='+self.config['blast_threads']
+        mylog.log_message(log.INFO, configValues)
+
         # Create the data folder if it does not exist.
         if not os.path.exists(self.config["data_folder_path"]):
             os.makedirs(self.config["data_folder_path"], 0775)
 
         # See if the static database files are available.
         writeStatusFile(self.config, "running")
+        status = 'failed'
         if self.config["load_data_option"] == "shock":
             try:
                 self._loadDatabaseFiles()
                 status = "ready"
                 sys.stderr.write("All static database files loaded from Shock.\n")
+                mylog.log_message(log.INFO, 'All static database files loaded from Shock')
             except:
                 sys.stderr.write("WARNING: Failed to load static database files from Shock. Checking current files but they might not be the latest!\n")
+                mylog.log_message(log.NOTICE, 'Failed to load static database files from Shock. Checking current files...')
                 traceback.print_exc(file=sys.stderr)
                 self.config["load_data_option"] = "preload"
         if self.config["load_data_option"] == "preload":
@@ -933,13 +958,20 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 self._checkIfDatabaseFilesExist()
                 status = "ready"
                 sys.stderr.write("All static database files are available.\n")
+                mylog.log_message(log.INFO, 'All static database files are available')
             except:
                 status = "ready"
                 self.config['data_folder_path'] = os.path.join(os.environ['KB_SERVICE_DIR'], 'testdata')
                 sys.stderr.write("WARNING: Static database files are missing.  Switched to test database files.\n")
+                mylog.log_message(log.NOTICE, 'Static database files are missing.  Switched to test database files')
                 traceback.print_exc(file=sys.stderr)
         writeStatusFile(self.config, status)
-            
+
+        # Validate the value of the job_queue variable.  Currently the only supported value is 'local'.
+        # Force it to a valid value to avoid an error trying to submit a job later.
+        if self.config['job_queue'] != 'local':
+            mylog.log_message(log.NOTICE, 'Configuration variable job_queue='+self.config['job_queue']+' switched to local')
+            self.config['job_queue'] = 'local'
         #END_CONSTRUCTOR
         pass
 
@@ -969,6 +1001,10 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         # Make sure the static database files are ready.
         self._checkDatabaseFiles()
         
+        # Make sure the Genome object is available.
+        wsClient = Workspace(self.config["workspace_url"], token=self.ctx['token'])
+        wsClient.get_object_info( [ { 'workspace': input['genome_workspace'], 'name': input['genome'] } ], 0 )
+
         # Create a user and job state client and authenticate as the user.
         ujsClient = UserAndJobState(self.config['userandjobstate_url'], token=self.ctx['token'])
 
@@ -976,6 +1012,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         description = 'pa-annotate for genome %s to probanno %s for user %s' %(input['genome'], input['probanno'], self.ctx['user_id'])
         progress = { 'ptype': 'task', 'max': 5 }
         jobid = ujsClient.create_and_start_job(self.ctx['token'], 'initializing', description, progress, timestamp(3600))
+        self.ctx.log_info('Started '+jobid+' for genome '+input['genome']+' to probanno '+input['probanno'])
 
         # Run the job on the local machine.
         if self.config["job_queue"] == "local":
@@ -993,7 +1030,8 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             jobScript = os.path.join(os.environ['KB_TOP'], 'bin/pa-runjob')
             cmdline = "nohup %s %s >%s 2>%s &" %(jobScript, jobDirectory, outputFilename, errorFilename)
             status = os.system(cmdline)
-    
+            self.ctx.log_info('Job %s is running on local host, status %d' %(jobid, status))
+
         #END annotate
 
         #At some point might do deeper type checking...
