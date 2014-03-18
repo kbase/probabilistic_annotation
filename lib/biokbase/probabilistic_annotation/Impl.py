@@ -7,7 +7,7 @@ from random import randint
 from biokbase.probabilistic_annotation.DataExtractor import *
 from biokbase.probabilistic_annotation.DataParser import *
 from biokbase.probabilistic_annotation.Shock import Client as ShockClient
-from biokbase.probabilistic_annotation.Helpers import timestamp
+from biokbase.probabilistic_annotation.Helpers import timestamp, make_object_identity
 from biokbase.workspace.client import Workspace
 from biokbase.fbaModelServices.Client import *
 from biokbase.cdmi.client import CDMI_EntityAPI
@@ -1003,7 +1003,8 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         
         # Make sure the Genome object is available.
         wsClient = Workspace(self.config["workspace_url"], token=self.ctx['token'])
-        wsClient.get_object_info( [ { 'workspace': input['genome_workspace'], 'name': input['genome'] } ], 0 )
+        genomeIdentity = make_object_identity(input['genome_workspace'], input['genome'])
+        wsClient.get_object_info( [ genomeIdentity ], 0 )
 
         # Create a user and job state client and authenticate as the user.
         ujsClient = UserAndJobState(self.config['userandjobstate_url'], token=self.ctx['token'])
@@ -1073,7 +1074,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         wsClient = Workspace(self.config["workspace_url"], token=self.ctx['token'])
         
         # Get the ProbAnno object from the specified workspace.
-        probannoObjectId = { 'workspace': input["probanno_workspace"], 'name': input["probanno"] }
+        probannoObjectId = make_object_identity(input["probanno_workspace"], input["probanno"])
         objectList = wsClient.get_objects( [ probannoObjectId ] )
         probannoObject = objectList[0]
         if probannoObject['info'][2] != ProbAnnoType:
@@ -1181,7 +1182,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                                           )
 
         wsClient = Workspace(self.config["workspace_url"], token=self.ctx['token'])
-        rxnProbsObjectId = { 'workspace': input["rxnprobs_workspace"], 'name': input["rxnprobs"] }
+        rxnProbsObjectId = make_object_identity(input["rxnprobs_workspace"], input["rxnprobs"])
         objectList = wsClient.get_objects( [ rxnProbsObjectId ] )
         rxnProbsObject = objectList[0]
         if rxnProbsObject['info'][2] != RxnProbsType:
@@ -1207,7 +1208,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                                           )
 
         wsClient = Workspace(self.config["workspace_url"], token=self.ctx['token'])
-        probAnnoObjectId = { 'workspace': input["probanno_workspace"], 'name': input["probanno"] }
+        probAnnoObjectId = make_object_identity(input["probanno_workspace"], input["probanno"])
         objectList = wsClient.get_objects( [ probAnnoObjectId ] )
         probAnnoObject = objectList[0]
         if probAnnoObject['info'][2] != ProbAnnoType:
