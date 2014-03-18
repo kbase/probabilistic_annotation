@@ -60,7 +60,7 @@ if __name__ == "__main__":
     if args.rxnprobsws is None:
         input['rxnprobs_workspace'] = user_workspace()
     else:
-        input['rxnprobs_workpace'] = args.rxnprobsws
+        input['rxnprobs_workspace'] = args.rxnprobsws
                 
     # Create a probabilistic annotation client.
     if args.url is None:
