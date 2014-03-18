@@ -21,6 +21,8 @@ import urllib
 import sys
 import operator #for itemgetter
 
+import time
+
 try:
     import json
 except ImportError:
@@ -116,12 +118,13 @@ def subsystemFids(count, config):
         if len(subdict) < count:
             done = True
     ssids = getFieldFromEntity(ssdict, "id")
+    sys.stderr.write('Found %d subsystems\n' %(len(ssids)))
 
     # Now lets get a list of FIDs within those subsystems
     # Break the complete list into smaller sub-lists to avoid timeouts
     start = 0
-    increment = 8
-    end = start + increment - 1
+    increment = 10
+    end = start + increment
     counter = len(ssids)
     ssfids = []
     while counter > 0:
@@ -130,7 +133,7 @@ def subsystemFids(count, config):
         except HTTPError as e:
             if increment > 1:
                 increment = increment / 2
-                end = start + increment - 1
+                end = start + increment
             sys.stderr.write("caught '%s' error, increment is now %d\n" %(e.reason, increment))
             continue
         for key in ssfiddict:
@@ -146,7 +149,7 @@ def subsystemFids(count, config):
         start += increment
         end += increment
         if end >= len(ssids):
-            end = len(ssids) - 1
+            end = len(ssids)
         counter -= increment
 
     # Uniquify!
@@ -168,10 +171,10 @@ def getDlitFids(count, config):
             done = True
 
     pubids = getFieldFromEntity(pubdict, "id")
-    sys.stderr.write("%d pubids\n" %(len(pubids)))
+    sys.stderr.write("Found %d publication IDs\n" %(len(pubids)))
     pub2seq = cdmi_entity.get_relationship_Concerns(pubids, [], [], ["id"])
     pubseqs = getFieldFromRelationship(pub2seq, "id", "to")
-    sys.stderr.write("%d pubseqs\n" %(len(pubseqs)))
+    sys.stderr.write("Found %d protein sequences from publications\n" %(len(pubseqs)))
     seq2fids = cdmi_entity.get_relationship_IsProteinFor(pubseqs, [], [], ["id"])
     fids = getFieldFromRelationship(seq2fids, "id", "to")
     return fids
@@ -221,7 +224,7 @@ def filterFidsByOtusBetter(fidsToRoles, rolesToFids, oturepsToMembers, config):
      # Break the complete list into smaller sub-lists to avoid timeouts
     start = 0
     increment = 5000
-    end = start + increment - 1
+    end = start + increment
     counter = len(fidlist)
     while counter > 0:
         try:
@@ -229,14 +232,14 @@ def filterFidsByOtusBetter(fidsToRoles, rolesToFids, oturepsToMembers, config):
         except HTTPError as e:
             if increment > 1:
                 increment = increment / 2
-                end = start + increment - 1
+                end = start + increment
             sys.stderr.write("caught '%s' error, increment is now %d\n" %(e.reason, increment))
             continue
         orgdict.extend(od)
         start += increment
         end += increment
         if end >= len(fidlist):
-            end = len(fidlist) - 1
+            end = len(fidlist)
         counter -= increment
     fidlist = getFieldFromRelationship(orgdict, "from_link", "rel")
     orglist = getFieldFromRelationship(orgdict, "id", "to")
@@ -290,6 +293,115 @@ def filterFidsByOtusBetter(fidsToRoles, rolesToFids, oturepsToMembers, config):
 
     return keptFidsToRoles, keptRolesToFids, missingRoles
 
+def filterFidsByOtusOptimized(featureIdList, rolesToFids, otuRepsToMembers, config):
+    '''Attempt to do a more intelligent filtering of FIDs by OTU.
+
+    Given all FIDs attached to a role in the unfiltered set we do the following:
+
+    Initialize KEEP
+    For each OTU and each role:
+       If role is found in the representative, add to KEEP and continue;
+       Otherwise, iterate over other genomes.
+           If role is found in one other genome, add to KEEP and continue;
+
+    This process should make our calculation less sensitive to the choice of OTUs...
+
+    '''
+
+    cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
+
+    # Identify the organism belonging to each feature ID.
+    # If this fails to find an organism we don't want it anyway...
+    fidToOrganism = dict() # Map feature IDs to organisms
+
+     # Break the complete list into smaller sub-lists to avoid timeouts
+    start = 0
+    increment = 100000
+    end = start + increment
+    counter = len(featureIdList)
+    while counter > 0:
+        try:
+            ownedBy = cdmi_entity.get_relationship_IsOwnedBy(featureIdList[start:end], [], ['from_link'], ['id'])
+        except HTTPError as e:
+            if increment > 1:
+                increment = increment / 2
+                end = start + increment
+            sys.stderr.write("caught '%s' error, increment is now %d\n" %(e.reason, increment))
+            continue
+        # just build the dictionary here, run the list of ob, extracting fid from from_link and organism from id
+        fidList = getFieldFromRelationship(ownedBy, "from_link", "rel")
+        organismList = getFieldFromRelationship(ownedBy, "id", "to")
+        for index in range(len(fidList)):
+            fidToOrganism[fidList[index]] = organismList[index]
+
+        start += increment
+        end += increment
+        if end >= len(featureIdList):
+            end = len(featureIdList)
+        counter -= increment
+
+    # Add all possible keys to the dictionaries and initialize the value.
+    # Then we don't have to check if the key exists in the main loop below.
+    keptFidsToRoles = dict()
+    for index in range(len(featureIdList)):
+        keptFidsToRoles[featureIdList[index]] = list()
+    keptRolesToFids = dict()
+    for role in rolesToFids:
+        keptRolesToFids[role] = list()
+
+    # Find the feature ID (protein) from each OTU for each functional role.
+    otuCounter = 0
+    for otuRepresentative in otuRepsToMembers:
+        # This loop takes a very long time so print a message every so often
+        # to track progress.
+        otuCounter += 1
+        if otuCounter % 10 == 0:
+            sys.stderr.write('Processed %d OTUs at %s\n' %(otuCounter, timestamp()))
+
+        # Check every functional role.
+        for role in rolesToFids:
+            keepFid = None
+            keepRole = None
+            for fid in rolesToFids[role]:
+                # This can happen due to MOL issues
+                if fid not in fidToOrganism:
+                    continue
+                organism = fidToOrganism[fid]
+
+                # If the organism is the representative we keep it and go to the next role
+                if organism == otuRepresentative:
+                    keepFid = fid
+                    keepRole = role
+                    break
+
+                # Otherwise look at the rest of the list (note that I just pick one without really paying
+                # attention to WHICH one...). We save them in case there are no examples of the role in the
+                # representative organism, but continue on anyway.
+                if organism in otuRepsToMembers[otuRepresentative]:
+                    keepFid = fid
+                    keepRole = role
+
+            # Add to the dictionaries if we are keeping the feature ID.
+            if keepFid is not None:
+                keptFidsToRoles[keepFid].append(keepRole)
+                keptRolesToFids[keepRole].append(keepFid)
+
+    # Look for any empty lists and remove them.
+    keysToRemove = list()
+    for fid in keptFidsToRoles:
+        if len(keptFidsToRoles[fid]) == 0:
+            keysToRemove.append(fid)
+    for key in keysToRemove:
+        del keptFidsToRoles[key]
+    keysToRemove = list()
+    for role in keptRolesToFids:
+        if len(keptRolesToFids[role]) == 0:
+            keysToRemove.append(role)
+    for key in keysToRemove:
+        del keptRolesToFids[key]
+
+    return keptFidsToRoles, keptRolesToFids
+
 def getOtuGenomeDictionary(count, config):
     '''Obtain a dictionary from OTU representatives to all genomes in the OTU'''
     cdmi = CDMI_API(config["cdmi_url"])
@@ -308,7 +420,7 @@ def fidsToRoles(fidlist, config):
     # Break the complete list into smaller sub-lists to avoid timeouts
     start = 0
     increment = 1000
-    end = start + increment - 1
+    end = start + increment
     counter = len(fidlist)
     fidsToRoles = {}
     rolesToFids = {}
@@ -318,7 +430,7 @@ def fidsToRoles(fidlist, config):
         except HTTPError as e:
             if increment > 1:
                 increment = increment / 2
-                end = start + increment - 1
+                end = start + increment
             sys.stderr.write("caught '%s' error, increment is now %d\n" %(e.reason, increment))
             continue
         flist = getFieldFromRelationship(roledict, "from_link", "rel")
@@ -340,7 +452,7 @@ def fidsToRoles(fidlist, config):
         start += increment
         end += increment
         if end >= len(fidlist):
-            end = len(fidlist) - 1
+            end = len(fidlist)
         counter -= increment
         
     # Convert back to lists to not break other functions.
@@ -357,7 +469,7 @@ def fidsToSequences(fidlist, config):
     fidlist = list(set(fidlist))
     start = 0
     increment = 5000
-    end = start + increment - 1
+    end = start + increment
     counter = len(fidlist)
     seqs = {}
     while counter > 0:
@@ -366,7 +478,7 @@ def fidsToSequences(fidlist, config):
         except HTTPError as e:
             if increment > 1:
                 increment = increment / 2
-                end = start + increment - 1
+                end = start + increment
             sys.stderr.write("caught '%s' error, increment is now %d\n" %(e.reason, increment))
             continue
         seqs.update(ps)
@@ -375,13 +487,13 @@ def fidsToSequences(fidlist, config):
         start += increment
         end += increment
         if end >= len(fidlist):
-            end = len(fidlist) - 1
+            end = len(fidlist)
         counter -= increment
     
     return seqs
 
 def genomesToPegs(genomes, config):
-    '''Given a list fogenome IDs, returns a list of FIDs for protein-encoding genes in the specified genomes'''
+    '''Given a list of genome IDs, returns a list of FIDs for protein-encoding genes in the specified genomes'''
 
     cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
     fiddict = cdmi_entity.get_relationship_IsOwnerOf(genomes, [], [], ["id", "feature_type"])
@@ -532,7 +644,7 @@ def reactionComplexLinks(count, config):
     start = 0
     done = False
     while not done:
-        subdict = cdmi_entity.all_entities_Reaction(count, ["id"])
+        subdict = cdmi_entity.all_entities_Reaction(start, count, ['id'])
         rxndict.update(subdict)
         start += count
         if len(subdict) < count:
@@ -555,3 +667,6 @@ def reactionComplexLinks(count, config):
             complexToRxn[cplxlist[ii]] = [ rxnlist[ii] ]
 
     return rxnToComplex, complexToRxn
+
+def timestamp():
+    return '%s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
