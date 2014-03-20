@@ -32,6 +32,10 @@ StatusFiles = {
 class MakeblastdbError(Exception):
     pass
 
+# Exception thrown when static database files are not ready
+class NotReadyError(Exception):
+    pass
+
 ###########
 #  OTUs   #
 ###########
@@ -411,4 +415,15 @@ def writeStatusFile(config, status):
     fid.write("%s\ncompleted at %s\n" %(status, time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime())))
     fid.close()
     return
+
+def checkIfDatabaseFilesExist(data_folder_path):
+    '''
+    Check for existence of all of the database files (needed if we cannot connect to Shock - particularly for testing)
+    '''
+    for key in DatabaseFiles:
+        localPath = os.path.join(data_folder_path, DatabaseFiles[key])
+        if not os.path.exists(localPath):
+            raise NotReadyError("Static database file '%s' does not exist" %(localPath))
+    return
+
 
