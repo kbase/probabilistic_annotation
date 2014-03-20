@@ -37,6 +37,10 @@ class NoGrowthError(Exception):
 class CannotFindWorkspaceError(Exception):
     pass
 
+''' Exception raised when we cannot create the specified workspace '''
+class CannotCreateWorkspaceError(Exception):
+    pass
+
 ''' Exception raised when unable to get an object from a workspace '''
 class CannotGetObjectError(Exception):
     pass
@@ -57,7 +61,6 @@ class Command:
 ''' Run the workflow for probabilistic annotation paper. '''
 
 class Workflow:
-
     def _checkIfWorkspaceExists(self, workspace):
         workspaceIdentity = dict()
         workspaceIdentity["workspace"] = workspace
@@ -123,21 +126,10 @@ class Workflow:
 
     ''' Check if object should be created. '''
     def _isObjectMissing(self, type, id, workspace=None):
-
         try:
-#            exists = self._getWsObject(type, id, workspace=workspace, idtype='name')
             exists = self._getObjectInfo(type, id, workspace=workspace, idtype='name')
         except CannotGetObjectError:
             return True
-        if not exists:
-            return True
-
-        # Delete the object if it exists and force option is turned on.
-        if self.args.force:
-            identity = self._makeObjectIdentity(type, id, workspace=workspace, idtype='name')
-            self.wsClient.delete_objects( [ identity ] )
-            return True
-
         return False
 
     ''' Wait for the specified job to finish. '''
@@ -480,6 +472,8 @@ class Workflow:
         print '  Waiting for job %s to end ...' %(job['id'])
         self._waitForJob(job['id'])
 
+#        self.fbaClient.reaction_sensitivity_analysis(reactionSensitivityParams)
+
         return
 
     ''' Run a delete_noncontributing_reactions job to delete unnecessary gapfill reactions as identified by
@@ -509,6 +503,29 @@ class Workflow:
         self.ujsClient = UserAndJobState(self.args.ujsurl, token=self.token)
 
     ''' Run the workflow. '''
+
+    def createWorkspace(self):
+        print "=== Creating workspace ==="
+
+        try:
+            wsMeta = self._checkIfWorkspaceExists(self.args.workspace)
+            print " [OK] Workspace %s already exists."
+        except CannotFindWorkspaceError:
+            # Workspace does not exist or we don't have permissions.
+            # Since we can't tell by the type of error lets try to create it.
+            # If we don't have permission we'll get an error again and this time it's for real.
+            createWorkspaceParams = dict()
+            createWorkspaceParams['workspace'] = self.args.workspace
+            createWorkspaceParams['globalread'] = 'n'
+            createWorkspaceParams['description'] = 'Automatically created by filling workflow at time: %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
+            try:
+                wsMeta = self.wsClient.create_workspace(createWorkspaceParams)
+            except:
+                raise CannotCreateWorkspaceError('Cannot create workspace specified. It is possible someone else owns that workspace and you do not have permission to view it.')
+
+        print "=== Done creating workspace ==="
+
+        return
 
     def runStandard(self):
         print '=== Started Network-based Gap Fill Workflow ==='
@@ -1065,9 +1082,6 @@ class Workflow:
     def runKnockouts(self):
         print "=== Started Knockout Workflow ==="
 
-        # We need to turn this setting off in a few places
-        oldforce = self.args.force
-
         step = 0
         print '+++ Step %d: Search for integrated gap fill models to integrate knockout data +++' %(step)
         integratedModelNames = [ "%s.model.std.int.minimal.int" %(self.args.genome),
@@ -1075,7 +1089,6 @@ class Workflow:
                                  "%s.model.std.iterative.int.minimal.int" %(self.args.genome),
                                  "%s.model.pa.iterative.int.minimal.int" %(self.args.genome) ]
 
-        self.args.force = False
         foundModels = []
         for model in integratedModelNames:
             if self._isObjectMissing("Model", model):
@@ -1089,7 +1102,6 @@ class Workflow:
             for model in foundModels:
                 print '  Found integrated gap fill model %s/%s' %(self.args.workspace, model)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
-        self.args.force = oldforce
 
         step += 1
         print '+++ Step %d: Find all media conditions in phenotype set +++' %(step)
@@ -1118,9 +1130,10 @@ class Workflow:
 
                 if obj is None or float(obj) < 1E-5:
                     substep += 1
+
                     print '+++ Step %d.%d: Determine type of gap fill for media %s +++' %(step, substep, media[0])
+
                     # First we need to see if the gapfill was a standard (std) or probanno (pa) gapfill.
-                    self.args.force = False
                     isProbanno = False
                     rxnprobs = None
                     if ".pa." in model:
@@ -1134,7 +1147,7 @@ class Workflow:
                         print '  Found RxnProbs object'
                     else:
                         print '  Type of gap fill is network-based'
-                    self.args.force = oldforce
+
                     print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
                      
                     substep += 1
@@ -1197,7 +1210,6 @@ class Workflow:
         print "=== Running Biolog workflow ==="
 
         # We need to turn this setting off in a few places
-        oldforce = self.args.force
 
         if self.args.positiveTransportersOnly:
             positive_transporters = 1
@@ -1213,7 +1225,6 @@ class Workflow:
                                  "%s.model.std.iterative.int.minimal.int" %(self.args.genome),
                                  "%s.model.pa.iterative.int.minimal.int" %(self.args.genome) ]
 
-        self.args.force = False
         foundModels = []
         for model in integratedModelNames:
             if self._isObjectMissing("Model", model):
@@ -1227,7 +1238,6 @@ class Workflow:
             for model in foundModels:
                 print '  Found integrated gap fill model %s/%s' %(self.args.workspace, model)
         print '  [OK] %s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
-        self.args.force = oldforce
 
         step += 1
         substep = 1
@@ -1259,8 +1269,10 @@ if __name__ == "__main__":
            --iterative:            Perform iterative network-based gap filling workflow
            --iterative-likelihood: Perform iterative likelihood-based gap filling workflow
 
-           The only required inputs are genome and --workspace. The genome is automatically loaded from the appropriate database (by defualt,
+           The only required inputs are genome and workspace. The genome is automatically loaded from the appropriate database (by defualt,
            this database is the PubSEED: http://pubseed.theseed.org) and then the chosen workflow (above) is run.
+
+           If the workspace does not exist, you will get an error unless you specify --createws to attempt to create it first.
 
            Phenotype data consistency is tested separately because it has to be done with extra external data. 
 
@@ -1289,18 +1301,14 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, prog='Workflow', description=description)
     parser.add_argument('genome', help='ID of genome that matches the source (e.g. 83333.1 for SEED, kb|g.0 for kbase)', action='store', default=None)
+    parser.add_argument('workspace', help='Workspace for storing objects', action='store', default=None)
+    parser.add_argument('--createws', help='Create workspace before running workflow. By default workspace is assumed to exist', action='store', dest='createws', default=False)
     parser.add_argument('--genome_source', help='Source for genome. Valid values include "kbase", "seed", "rast". (Default is seed)', action='store', dest='source', default='seed')
-    parser.add_argument('-w', '--workspace', help='workspace for storing objects', action='store', dest='workspace')
-    parser.add_argument('--force', help='Force rebuilding of all objects', action='store_true', dest='force', default=False)
     parser.add_argument('--network', help='Run network-based gap fill workflow', action='store_true', dest='standard', default=False)
     parser.add_argument('--likelihood', help='Run likelihood-based gap fill workflow', action='store_true', dest='prob', default=False)
     parser.add_argument('--iterative', help='Run network-based iterative gap fill workflow ', action='store_true', dest='iterative', default=False)
     parser.add_argument('--iterative-likelihood', help='Run likelihood-based iterative gap fill workflow ', action='store_true', dest='iterativeprob', default=False)
     parser.add_argument('--num-solutions', help='Number of solutions to find for gap fill (ignored for iterative gap filling)', action='store', dest='numsolutions', type=int, default=3)
-    parser.add_argument('--ws-url', help='URL for workspace service', action='store', dest='wsurl', default='http://kbase.us/services/ws')
-    parser.add_argument('--job-url', help='URL for old workspace service (needed for job support)', action='store', dest='joburl', default='http://kbase.us/services/workspace')
-    parser.add_argument('--fba-url', help='URL for fba model service', action='store', dest='fbaurl', default='http://kbase.us/services/fba_model_services')
-    parser.add_argument('--pa-url', help='URL for probabilistic annotation service', action='store', dest='paurl', default='http://kbase.us/services/probabilistic_annotation')
     parser.add_argument('--knockout', help='OPTIONAL. Provide a knockout data PhenotypeSet and we will create a new model gapfilled to each media in it.', action='store', dest='knockout', default=None)
     parser.add_argument('--knockoutws', help='OPTIONAL. Workspace for provided knockout data PhenotypeSet (default is the same as the current workspace)', action='store', dest='knockoutws', default=None)
     parser.add_argument('--biologdata', help='OPTIONAL. Biolog PhenotypeSet object', action='store', dest='biolog', default=None)
@@ -1309,6 +1317,10 @@ if __name__ == "__main__":
     parser.add_argument('--maxtime', 
                         help='OPTIONAL. Maximum amount of time to wait for a job to finish (by default the maximum is 2 hours for targeted gapfill jobs and 4 days for iterative gapfill)',
                         action='store', default=None)
+    parser.add_argument('--ws-url', help='URL for workspace service', action='store', dest='wsurl', default='http://kbase.us/services/ws')
+    parser.add_argument('--job-url', help='URL for old workspace service (needed for job support)', action='store', dest='joburl', default='http://kbase.us/services/workspace')
+    parser.add_argument('--fba-url', help='URL for fba model service', action='store', dest='fbaurl', default='http://kbase.us/services/fba_model_services')
+    parser.add_argument('--pa-url', help='URL for probabilistic annotation service', action='store', dest='paurl', default='http://kbase.us/services/probabilistic_annotation')
     parser.add_argument('--ujsurl', help='URL for user and job state service (needed to check probanno jobs)', action='store', dest='ujsurl', default='https://kbase.us/services/userandjobstate/')
     args = parser.parse_args()
 
@@ -1319,9 +1331,9 @@ if __name__ == "__main__":
         args.biologws = args.workspace
     
     try:
-        if args.force:
-            print '[WARNING] All objects will be rebuilt because --force option was specified.'
         workflow = Workflow(args)
+        if workflow.args.createws:
+            workflow.createWorkspace()
         if workflow.args.standard:
             oldmax = workflow.args.maxtime
             if workflow.args.maxtime is None:
