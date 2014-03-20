@@ -4,7 +4,7 @@ import argparse
 import sys
 import os
 import json
-from biokbase.probabilistic_annotation.Impl import ProbabilisticAnnotation
+from biokbase.probabilistic_annotation.Worker import ProbabilisticAnnotationWorker
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='pa-runjob')
@@ -15,9 +15,8 @@ if __name__ == "__main__":
     jobDataPath = os.path.join(args.jobDirectory, "jobdata.json")
     job = json.load(open(jobDataPath, 'r'))
     try:
-        job['config']['load_data_option'] = 'runjob'
-        impl_ProbabilisticAnnotation = ProbabilisticAnnotation(job['config'])
-        impl_ProbabilisticAnnotation.runAnnotate(job)
+        worker = ProbabilisticAnnotationWorker()
+        worker.runAnnotate(job)
     except Exception as e:
         # Mark the job as failed.
         tb = traceback.format_exc()

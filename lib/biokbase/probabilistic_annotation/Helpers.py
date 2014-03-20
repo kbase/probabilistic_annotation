@@ -72,7 +72,13 @@ def job_info_dict(infoTuple):
     info['results'] = infoTuple[13]
     return info
 
-''' Make an object identity. '''
+''' Make an object identity structure.
+
+    @param workspace Name or number of workspace containing object
+    @param object Name or number of object
+    @param ver Optional version number of object
+    @returns ObjectIdentity structure for workspace APIs
+'''
 
 def make_object_identity(workspace, object, ver=None):
 
@@ -88,3 +94,16 @@ def make_object_identity(workspace, object, ver=None):
     if ver is not None:
         objectIdentity['ver'] = ver
     return objectIdentity
+
+''' Make working directory for a job.
+
+    @param workDirectory Path to base working directory
+    @param jobID Job identifier
+    @returns Path to job directory
+'''
+
+def make_job_directory(workDirectory, jobID):
+    jobDirectory = os.path.join(workDirectory, jobID)
+    if not os.path.exists(jobDirectory):
+        os.makedirs(jobDirectory, 0775)
+    return jobDirectory
