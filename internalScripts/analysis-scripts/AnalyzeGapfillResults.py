@@ -150,6 +150,7 @@ for gapfill in gapfills:
     #    a table of results                            #
     ####################################################
     gapfill_solutions = gapfill_objects_fba[0]["solutions"]
+    totalNewGenes = 0
     ii = 0
     print "\t".join( [ "Sln_idx", "rxnid", "objective", "gapfill_ref", "rxn_likelihood", "is_reversibility_change", "probanno_based_GPR", "New_genes", "Number_of_new_genes", "Rxn_integrated_and_not_deleted" ] )
     for solution in gapfill_solutions:
@@ -206,10 +207,15 @@ for gapfill in gapfills:
                         pass
                     pass
             else:
-                gpr = ""
+                gpr = "N/A"
                 pass
-            nnew = str(len(newgenes))
-            newgenes = ";".join(newgenes)
+            numNewGenes = len(newgenes)
+            nnew = str(numNewGenes)
+            totalNewGenes += numNewGenes
+            if numNewGenes > 0:
+                newgenes = ";".join(newgenes)
+            else:
+                newgenes = "None"
 
             # This doesn't work for complete gapfilling. I just want to get a hack aroud it.
             try:
@@ -218,4 +224,6 @@ for gapfill in gapfills:
                 print "\t".join( [ str(ii), rxnid, str(None), gapfill_ref, p, revchange, gpr, newgenes, nnew, reactionInModel ] )
         
         ii += 1
+
+    print 'Total new genes: %d' %(totalNewGenes)
 
