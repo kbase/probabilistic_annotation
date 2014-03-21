@@ -44,6 +44,12 @@ class NotReadyError(Exception):
 #   1. Genome ID in KBase format (e.g. kb|g.0)
 #   2. Flag indicating if the genome is a prokaryote (1 means yes, 0 means no)
 
+''' Read data from the representative OTU genome ID file.
+
+    @param config Dictionary of configuration variables
+    @returns List of all OTU genome IDs, list of prokaryote OTU genome IDs
+'''
+
 def readOtuData(config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["otu_id_file"]), "r")
     otus = []
@@ -55,6 +61,14 @@ def readOtuData(config):
             prokotus.append(spl[0])
     fid.close()
     return otus, prokotus
+
+''' Write data to the representative OTU genome ID file.
+
+    @param otus List of all OTU genome IDs
+    @param prokouts List of prokaryote OTU genome IDs
+    @param config Dictionary of configuration variables
+    @returns Nothing
+'''
 
 def writeOtuData(otus, prokotus, config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["otu_id_file"]), "w")
@@ -73,6 +87,12 @@ def writeOtuData(otus, prokotus, config):
 # The subsystem feature ID file is a list of feature IDs from SEED subsystems.  Each line has
 # one field that is the feature ID in KBase format (e.g. kb|g.3.peg.541).
 
+''' Read data from the subsystem feature ID file.
+
+    @param config Dictionary of configuration variables
+    @returns List of feature IDs from SEED subystems
+'''
+
 def readSubsystemFids(config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["subsystem_fid_file"]), "r")
     sub_fids = []
@@ -81,6 +101,13 @@ def readSubsystemFids(config):
         sub_fids.append(spl)
     fid.close()
     return sub_fids
+
+''' Write data to the subsystem feature ID file.
+
+    @param sub_fids List of feature IDs from SEED subsystems
+    @param config Dictionary of configuration variables
+    @returns Nothing
+'''
 
 def writeSubsystemFids(sub_fids, config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["subsystem_fid_file"]), "w")
@@ -96,6 +123,12 @@ def writeSubsystemFids(sub_fids, config):
 # The direct literature-supported feature ID file is a list of feature IDs identified in the
 # literature.  Each line has one field that is the feature ID in KBase format (e.g. kb|g.428.peg.6254).
 
+''' Read data from the direct literature-supported feature ID file.
+
+    @param config Dictionary of configuration variables
+    @returns List of feature IDs from literature
+'''
+
 def readDlitFids(config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["dlit_fid_file"]), "r")
     otu_fids = []
@@ -104,6 +137,13 @@ def readDlitFids(config):
         otu_fids.append(spl)
     fid.close()
     return otu_fids
+
+''' Write data to the direct literature-supported feature ID file.
+
+    @param otu_fids List of feature IDs from literature
+    @param config Dictionary of configuration variables
+    @returns Nothing
+'''
 
 def writeDlitFids(otu_fids, config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["dlit_fid_file"]), "w")
@@ -122,6 +162,12 @@ def writeDlitFids(otu_fids, config):
 #   2. List of names of functional roles (e.g. Conserved ATP-binding protein YghS)
 #
 # Note that functional roles must be separated by a string that does not occur in any role.
+
+''' Read data from the concatenated feature ID to role file.
+
+    @param config Dictionary of configuration variables
+    @returns Dictionary mapping a feature ID to list of names of roles, dictionary mapping a role to feature ID
+'''
 
 def readAllFidRoles(config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["concatenated_fid_role_file"]), "r")
@@ -146,6 +192,13 @@ def readAllFidRoles(config):
 
     return all_fidsToRoles, all_rolesToFids
 
+''' Write data to the concatenated feature ID to role file.
+
+    @param otu_fidsToRoles Dictionary mapping a feature ID to list of names of roles
+    @param config Dictionary of configuration variables
+    @returns Nothing
+'''
+
 def writeAllFidRoles(otu_fidsToRoles, config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["concatenated_fid_role_file"]), "w")
     for f in otu_fidsToRoles:
@@ -163,6 +216,12 @@ def writeAllFidRoles(otu_fidsToRoles, config):
 #   2. List of names of functional roles (e.g. Conserved ATP-binding protein YghS)
 #
 # Note that functional roles must be separated by a string that does not occur in any role.
+
+''' Read data from the filtered feature ID to roles file.
+
+    @param config Dictionary of configuration variables
+    @returns Dictionary mapping a feature ID to list of names of roles, dictionary mapping a role to feature ID
+'''
 
 def readFilteredOtuRoles(config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["subsystem_otu_fid_roles_file"]), "r")
@@ -187,6 +246,13 @@ def readFilteredOtuRoles(config):
 
     return otu_fidsToRoles, otu_rolesToFids
 
+''' Write data to the filtered feature ID to roles file.
+
+    @param otu_fidsToRoles Dictionary mapping a feature ID to list of names of roles
+    @param config Dictionary of configuration variables
+    @returns Nothing
+'''
+
 def writeFilteredOtuRoles(otu_fidsToRoles, config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["subsystem_otu_fid_roles_file"]), "w")
     for f in otu_fidsToRoles:
@@ -201,10 +267,24 @@ def writeFilteredOtuRoles(otu_fidsToRoles, config):
 # The subsystem FASTA file contains the amino acid sequences for a set of feature IDs.  When the file
 # is written a BLAST database is automatically generated.
 
+''' Read data from the subsystem FASTA file.
+
+    @note This function does not return data (not sure it is really needed except for symmetry).
+    @param config Dictionary of configuration variables
+    @returns Nothing
+'''
+
 def readSubsystemFasta(config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["subsystem_otu_fasta_file"]), "r")
     fid.close()
     return
+
+''' Write data to the subsystem FASTA file and build BLAST database.
+
+    @param fidsToSeqs Dictionary mapping a feature ID to amino acid sequence
+    @param config Dictionary of configuration variables
+    @returns Nothing
+'''
 
 def writeSubsystemFasta(fidsToSeqs, config):
     filepath = os.path.join(config["data_folder_path"], DatabaseFiles["subsystem_otu_fasta_file"])
@@ -280,6 +360,12 @@ def writeSubsystemFasta(fidsToSeqs, config):
 #
 # Note that functional roles must be separated by a string that does not occur in any role.
 
+''' Read data from the complex to roles file.
+
+    @param config Dictionary of configuration variables
+    @returns Dictionary mapping a complex ID to list of names of functional roles
+'''
+
 def readComplexRoles(config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["complexes_roles_file"]), "r")
     complexToRequiredRoles = {}
@@ -294,6 +380,13 @@ def readComplexRoles(config):
             complexToRequiredRoles[complexes]  = roles
     fid.close()
     return complexToRequiredRoles
+
+''' Write data to the complex to roles file.
+
+    @param complexToRequiredRoles Dictionary mapping a complex ID to list of names of functional roles
+    @param config Dictionary of configuration variables
+    @returns Nothing
+'''
 
 def writeComplexRoles(complexToRequiredRoles, config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["complexes_roles_file"]), "w")
@@ -313,6 +406,12 @@ def writeComplexRoles(complexToRequiredRoles, config):
 #
 # Note that complex IDs must be separated by a string that does not occur in any complex ID.
 
+''' Read data from the reaction to complexes file.
+
+    @param config Dictionary of configuration variables
+    @returns Dictionary mapping a reaction ID to list of complex IDs
+'''
+
 def readReactionComplex(config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["reaction_complexes_file"]), "r")
     rxnToComplexes = {}
@@ -328,6 +427,13 @@ def readReactionComplex(config):
     fid.close()
     return rxnToComplexes
 
+''' Write data to reaction to complexes file.
+
+    @param rxnToComplexes Dictionary mapping a reaction ID to list of complex IDs
+    @param config Dictionary of configuration variables
+    @returns Nothing
+'''
+
 def writeReactionComplex(rxnToComplexes, config):
     fid = open(os.path.join(config["data_folder_path"], DatabaseFiles["reaction_complexes_file"]), "w")
     for rxn in rxnToComplexes:
@@ -335,10 +441,13 @@ def writeReactionComplex(rxnToComplexes, config):
     fid.close()
     return
 
-# Read in the BLAST results file and store the results in a convenient structure
-# Query ID --> [ (target ID, score) ]
-#
-# Score is the negative log-E value
+''' Read BLAST results file and store in a convenient structure.
+
+    @note Score is the negative log E-value
+    @param blast_result_file Path to BLAST results file
+    @returns Dictionary mapping query ID to tuple of target ID and score
+'''
+
 def parseBlastOutput(blast_result_file):
     idToTargetList = {}
     for line in open(blast_result_file, "r"):
@@ -353,8 +462,12 @@ def parseBlastOutput(blast_result_file):
             idToTargetList[queryid] = [ tup ]
     return idToTargetList
 
-# Read the roleset probability file and returns a dictionary
-# Query --> list of (rolelist, probability)
+''' Read the roleset probability file.
+
+    @param roleset_probability_file Path to roleset probability file
+    @returns Dictionary mapping query ID to list of tuples with list of roles and probability
+'''
+
 def readRolesetProbabilityFile(roleset_probability_file):
     queryToTuplist = {}
     for line in open(roleset_probability_file, "r"):
@@ -365,7 +478,17 @@ def readRolesetProbabilityFile(roleset_probability_file):
             queryToTuplist[spl[0]] = [ (spl[1], float(spl[2])) ]
     return queryToTuplist
 
-def readConfig(filename):
+''' Read a configuration file.
+
+    If filename is None, the default configuration file is read.  If the
+    probabilistic_annotation section is not present in the configuration
+    file, it is automatically added.
+
+    @param filename Path to configuration file.
+    @returns Config object
+'''
+
+def readConfig(filename=None):
     # Use default config file if one is not specified.
     if filename == None:
         filename = os.path.join(os.environ['KB_TOP'], 'deployment.cfg')
@@ -385,7 +508,15 @@ def readConfig(filename):
 
     return config
 
-def getConfig(filename):
+''' Get the probabilistic_annotation section from a configuration file.
+
+    If filename is None, the default configuration file is read.
+
+    @param filename Path to configuration file.
+    @returns Dictionary mapping configuration variables to values
+'''
+
+def getConfig(filename=None):
     # Read the config file.
     config = readConfig(filename)
 
@@ -401,8 +532,15 @@ def getConfig(filename):
 #   1. 'building' when the pa-gendata command is building the files
 #   2. 'running' when the server initialization is in progress
 #   3. 'ready' when the server initialization is complete or a build is complete
+#   4. 'failed' when there was an error building or loading the files
 #
 # The second line has the timestamp of when the status was last changed.
+
+''' Read the current status value from the status file.
+
+    @param config Dictionary of configuration variables
+    @returns Current status string
+'''
 
 def readStatusFile(config):
     fid = open(os.path.join(config["data_folder_path"], StatusFiles["status_file"]), "r")
@@ -410,16 +548,27 @@ def readStatusFile(config):
     fid.close()
     return statusLine.strip("\r\n")
 
+''' Write new status value to the status file.
+
+    @param config Dictionary of configuration variables
+    @param status New status value
+    @returns Nothing
+'''
+
 def writeStatusFile(config, status):
     fid = open(os.path.join(config["data_folder_path"], StatusFiles["status_file"]), "w")
     fid.write("%s\ncompleted at %s\n" %(status, time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime())))
     fid.close()
     return
 
+''' Check for existence of all of the database files.
+
+    @param data_folder_path Path to directory containing static database files
+    @raise NotReadyError: A database file does not exist
+    @returns Nothing
+'''
+
 def checkIfDatabaseFilesExist(data_folder_path):
-    '''
-    Check for existence of all of the database files (needed if we cannot connect to Shock - particularly for testing)
-    '''
     for key in DatabaseFiles:
         localPath = os.path.join(data_folder_path, DatabaseFiles[key])
         if not os.path.exists(localPath):
