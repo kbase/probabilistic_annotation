@@ -7,9 +7,13 @@ from biokbase.probabilistic_annotation.DataParser import getConfig, readConfig
 from biokbase.auth import kb_config
 from ConfigParser import ConfigParser
 
+# Default URL for production server
 DefaultURL = 'https://kbase.us/services/probabilistic_annotation/'
 
-''' Get the current URL for the service. '''
+''' Get the current URL for the service.
+
+    @returns Current URL string
+'''
 
 def get_url():
     # Just return the default URL when running in IRIS.
@@ -24,7 +28,11 @@ def get_url():
         currentURL = DefaultURL;
     return currentURL
 
-''' Set the current URL for the service and store in config file. '''
+''' Set the current URL for the service and store in config file.
+
+    @param newURL New value for URL
+    @returns New URL string
+'''
 
 def set_url(newURL):
     # Check for special value for the default URL.
@@ -42,17 +50,23 @@ def set_url(newURL):
         config.write(configfile)
     return newURL
 
-
 ''' Get a timestamp in the format required by user and job state service.
-    Add deltaSeconds to the current time to get a time in the future. '''
+
+    @param deltaSeconds Seconds added to the current time to get a time in the future
+    @returns Formatted timestamp string
+'''
 
 def timestamp(deltaSeconds):
-    # Just UTC timestamps to avoid timezone issues.
+    # Use UTC timestamps to avoid timezone issues.
     now = time.time() + deltaSeconds
     ts = time.gmtime(time.time() + deltaSeconds)
     return time.strftime('%Y-%m-%dT%H:%M:%S+0000', ts)
 
-''' Convert a job info tuple into a dictionary. '''
+''' Convert a job info tuple into a dictionary.
+
+    @param infoTuple Job info tuple returned by user and job state service functions
+    @returns Dictionary of job info data from tuple
+'''
 
 def job_info_dict(infoTuple):
     info = dict()
