@@ -5,8 +5,8 @@ import argparse
 import sys
 import traceback
 from biokbase.probabilistic_annotation.Client import _read_inifile
-from biokbase.workspaceService.Client import *
 from biokbase.fbaModelServices.Client import *
+from biokbase.workspace.client import *
 
 desc = '''
 Given a JSON object calculate the false positive, negative rates. Optionally omit everything that isn't
@@ -16,77 +16,61 @@ in the specified media.
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='AnalyzePhenotypeSimulationResults.py', description=desc)
     parser.add_argument('pheno', help='ID of PhenotypeSimulationSet object to analyze', action='store', default=None)
-    parser.add_argument('phenows', help='workspace containing PhenotypeSimulationSet object to analyze', action='store', default=None)
-    parser.add_argument('--media', help='limit analysis to only this media condition', action='store', dest='media', default=None)
+    parser.add_argument('phenows', help='Workspace containing PhenotypeSimulationSet object to analyze', action='store', default=None)
+    parser.add_argument('--media', help='Limit analysis to only this media', action='store', dest='media', default=None)
     parser.add_argument('--rxnprobs', help='ID of RxnProbs object with probabilities for reactions associated with false positive/negative genes', action='store', dest='rxnprobs', default=None)
     parser.add_argument('--rxnprobsws', help='workspace containing RxnProbs object (same as phenows if not specified)', action='store', dest='rxnprobsws', default=None)
-    parser.add_argument('--csv', help='generate output in csv format', action='store_true', dest='csv', default=False)
-    parser.add_argument('--split', help='split results by media', action='store_true', dest='split', default=False)
-    parser.add_argument('--fba-url', help='url for fba modeling service', action='store', dest='fbaurl', default='http://bio-data-1.mcs.anl.gov/services/fba')
-    parser.add_argument('--ws-url', help='url for workspace service', action='store', dest='wsurl', default='http://kbase.us/services/workspace/')
+    parser.add_argument('--csv', help='Generate output in csv format', action='store_true', dest='csv', default=False)
+    parser.add_argument('--split', help='Split results by media', action='store_true', dest='split', default=False)
+    parser.add_argument('--fba-url', help='url for fba modeling service', action='store', dest='fbaurl', default='https://kbase.us/services/KBaseFBAModeling')
+    parser.add_argument('--ws-url', help='url for workspace service', action='store', dest='wsurl', default='http://kbase.us/services/ws/')
     parser.add_argument('--cdmi-url', help='url for cdmi service', action='store', dest='cdmiurl', default='http://kbase.us/services/cdmi_api/')
     args = parser.parse_args()
 
     if args.rxnprobs is not None and args.rxnprobsws is None:
         args.rxnprobsws = args.phenows
 
-    # Get the authorization data from the config file.
-    authdata = _read_inifile()
-    token = authdata['token']
-
     # Get simulation data
-    wsClient = workspaceService(args.wsurl)
-    phenoobj = wsClient.get_object( { "workspace" : args.phenows,
-                                      "type" : "PhenotypeSimulationSet",
-                                      "id"   : args.pheno,
-                                      "auth" : token
-                                      })
+    wsClient = Workspace(args.wsurl)
+    phenoIdentity = { 'workspace': args.phenows, 'name': args.pheno }
+    object_list = wsClient.get_objects( [ phenoIdentity ] )
+    phenoobj = object_list[0]
 
+
+    # We need to get reaction IDs associated with each gene.
+    model_ref = phenoobj["data"]["fbamodel_ref"]
+    model_objectIdentity = { 'ref' : model_ref }
+    model_info = wsClient.get_object_info( [ model_objectIdentity ], 0 )
+    modelid = model_info[0][1]
+    modelws = model_info[0][7]
+
+    fbaClient = fbaModelServices(args.fbaurl)
+    models = fbaClient.get_models( { "models" : [ modelid ],
+                                     "workspaces" : [ modelws ]
+                                     })
+    model = models[0]
     modeldict = {}
-    wasgapfilled = {}
-    rxnprobdict = {}
+    for reaction in model["reactions"]:
+        features = reaction["features"]
+        for feature in features:
+            if feature in modeldict:
+                modeldict[feature].append( [ reaction["reaction"], reaction["gapfilled"] ] )
+            else:
+                modeldict[feature] = [ [ reaction["reaction"], reaction["gapfilled"] ] ]
 
     # Get the RxnProbs object and Model object if requested.
+    rxnprobdict = {}
+
     if args.rxnprobs is not None:
         # Get the RxnProbs object.
-        try:
-            rxnprobobj = wsClient.get_object( { "workspace" : args.rxnprobsws,
-                                                "type"      : "RxnProbs",
-                                                "id"        : args.rxnprobs,
-                                                "auth"      : token
-                                                })
-        except:
-            sys.stderr.write("Unable to get %s RxnProbs object from workspace %s" %(args.rxnprobs, args.rxnprobsws))
-            traceback.print_exc(file=sys.stderr)
-            exit(1)
-
-        # If we specified a RxnProbs object we need the Model object as well to use to grab the reaction IDs associated with each gene
-        modelid = phenoobj["data"]["model"]
-        modelws = phenoobj["data"]["model_workspace"]
-        try:
-            fbaClient = fbaModelServices(args.fbaurl)
-            models = fbaClient.get_models( { "models" : [ modelid ],
-                                             "workspaces" : [ modelws ],
-                                             "auth"   : token
-                                             })
-        except:
-            sys.stderr.write("Unable to get %s Model object from workspace %s - which is necessary to do rxnprobs-based analyses\n" %(modelid, modelws))
-            traceback.print_exc(file=sys.stderr)
-            exit(1)
-
-        # What we really need from these two objects are two dictionaries:
-        # MODEL: gene -> reaction(s), gapfilledornot
+        rxnprobsIdentity = { 'workspace' : args.rxnprobsws, 'name': args.rxnprobs }
+        object_list = wsClient.get_objects( [ rxnprobsIdentity ] )
+        rxnprobobj = object_list[0]
         # RXNPROBS: reaction -> rxnprob_array ( [ rxnid, probability, diagnostic, complexes, GPR ] )
-        model = models[0]
-        for reaction in model["reactions"]:
-            features = reaction["features"]
-            for feature in features:
-                if feature in modeldict:
-                    modeldict[feature].append( [ reaction["reaction"], reaction["gapfilled"] ] )
-                else:
-                    modeldict[feature] = [ [ reaction["reaction"], reaction["gapfilled"] ] ]
         for rxnprob in rxnprobobj["data"]["reaction_probabilities"]:
             rxnprobdict[rxnprob[0]] = rxnprob
+            pass
+        pass
 
     if not args.csv:
         if args.media is None:
@@ -94,28 +78,64 @@ if __name__ == "__main__":
         else:
             print "For phenotypedata %s and media %s: " %(args.pheno, args.media)
 
+    # Get the phenotype dataset object to which the phenotype simulation refers.
+    # We need this to tell what gene(s) were knocked out and what media was used to
+    # do the simulation.
+    phenotypeIdentity = { 'ref' : phenoobj["data"]["phenotypeset_ref"] }
+    object_list = wsClient.get_objects( [ phenotypeIdentity ] )
+    phenodata = object_list[0]
+    pheno_id_to_info = {}
+    for pheno in phenodata["data"]["phenotypes"]:
+        pheno_id_to_info[pheno["id"]] = ( pheno["media_ref"], pheno["geneko_refs"] )
+
     # Count the CP\CN\FP\FN
     # If a rxnprobs object is specified, print the rxnprobs data associated with each gene...
     mediaDict = dict()
     # need to track CP/CN/FP/FN by media
     for sim in phenoobj["data"]["phenotypeSimulations"]:
-        media = sim[0][1]
+
+        # Reach into phenotype data object to get media and gene KO info
+        spl = sim["phenotype_ref"].split("/")
+        phenoid = spl[-1]
+        if phenoid not in pheno_id_to_info:
+            raise IOError("Phenotype ID %s not found in the linked phenotype dataset" %(phenoid) )
+
+        media_ref  = pheno_id_to_info[phenoid][0]
+        media_ObjectIdentity = { 'ref' : media_ref }
+        media_info = wsClient.get_object_info( [ { 'ref' : media_ref } ], 0 ) 
+        media = media_info[0][1]
+
+        gene_ko_refs = pheno_id_to_info[phenoid][1]
+        genes = []
+        for ref in gene_ko_refs:
+            spl = ref.split("/")
+            genes.append(spl[-1])
+
+        # Some genes are not in the model
+        ok = 1
+        for gene in genes:
+            if gene not in modeldict:
+                ok = 0
+                break
+        if ok == 0:
+            sys.stderr.write("One of these genes not in model: %s\n" %("\t".join(genes)))
+            continue
+
+        # Initialize results for a specific media.
         if media not in mediaDict:
             mediaDict[media] = dict()
             mediaDict[media]['trueNeg'] = 0
             mediaDict[media]['truePos'] = 0
             mediaDict[media]['falseNeg'] = 0
             mediaDict[media]['falsePos'] = 0
-        sim_type = sim[3]
-        genes = sim[0][0]
+            mediaDict[media]['unknown'] = 0
+        sim_type = sim["phenoclass"]
         if args.media is not None:
             if args.media != media:
                 continue
+
         if len(rxnprobdict.keys()) > 0:
             for gene in genes:
-                # Some genes are not in the model
-                if gene not in modeldict:
-                    continue
                 for rxnpair in modeldict[gene]:
                     # Some reactions in the model have no probabilities associated (we give them 0)
                     rxn = rxnpair[0]
@@ -135,6 +155,9 @@ if __name__ == "__main__":
             mediaDict[media]['falseNeg'] += 1
         elif sim_type == "FP":
             mediaDict[media]['falsePos'] += 1
+        elif sim_type == "UN":
+            mediaDict[media]['unknown'] += 1
+            
 
     # Calculate sensitivity and specificity for each media.
     for media in mediaDict:
