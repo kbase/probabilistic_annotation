@@ -206,7 +206,6 @@ class Workflow:
         loadGenomeParams['genome'] = self.args.genome
         loadGenomeParams['workspace'] = self.args.workspace
         loadGenomeParams['source'] = self.args.source
-        loadGenomeParams['auth'] = self.token
         genomeMeta = self.fbaClient.genome_to_workspace(loadGenomeParams)
         return genomeMeta
 
@@ -218,7 +217,6 @@ class Workflow:
         draftModelParams['genome_workspace'] = self.args.workspace
         draftModelParams['model'] = draftModel
         draftModelParams['workspace'] = self.args.workspace
-        draftModelParams['auth'] = self.token
         draftModelMeta = self.fbaClient.genome_to_fbamodel(draftModelParams) 
         return draftModelMeta
 
@@ -286,7 +284,6 @@ class Workflow:
         gapfillParams['workspace'] = self.args.workspace
         gapfillParams['formulation'] = gapfillFormulation
         gapfillParams['solver'] = 'CPLEX'
-        gapfillParams['auth'] = self.token
 #        gapfillParams['totalTimeLimit'] = self.args.maxtime
 #        gapfillParams['timePerSolution'] = int(self.args.maxtime/self.args.numsolutions)
         if iterative:
@@ -308,7 +305,6 @@ class Workflow:
         getModelParams = dict()
         getModelParams['models'] = [ model ]
         getModelParams['workspaces'] = [ self.args.workspace ]
-        getModelParams['auth'] = self.token
         models = self.fbaClient.get_models(getModelParams)
         gapfillList = models[0]["unintegrated_gapfillings"]
         if len(gapfillList) < 1:
@@ -343,7 +339,6 @@ class Workflow:
         integrateSolutionParams['model_workspace'] = self.args.workspace
         integrateSolutionParams['out_model'] = integratedModel
         integrateSolutionParams['workspace'] = self.args.workspace
-        integrateSolutionParams['auth'] = self.token
         integrateSolutionParams['gapfillSolutions'] = solutions
         integrateSolutionParams['gapgenSolutions'] = [ ]
         if rxnprobs != None:
@@ -361,7 +356,6 @@ class Workflow:
         runFbaParams = dict()
         runFbaParams['model'] = model
         runFbaParams['workspace'] = self.args.workspace
-        runFbaParams['auth'] = self.token
         runFbaParams['fba'] = fba
         if media is not None:
             runFbaParams['formulation'] = {}
@@ -410,7 +404,6 @@ class Workflow:
         simulatePhenotypeParams['phenotypeSet_workspace'] = phenows
         simulatePhenotypeParams['phenotypeSimultationSet'] = simset
         simulatePhenotypeParams['workspace'] = self.args.workspace
-        simulatePhenotypeParams['auth'] = self.token
 
         simulatePhenotypeParams['positive_transporters'] = positive_transporters
         simulatePhenotypeParams['all_transporters'] = all_transporters
@@ -424,7 +417,6 @@ class Workflow:
         getModelParams = dict()
         getModelParams['models'] = [ model ]
         getModelParams['workspaces'] = [ self.args.workspace ]
-        getModelParams['auth'] = self.token
         models = self.fbaClient.get_models(getModelParams)
         gapfillList = models[0]["integrated_gapfillings"]
 
@@ -449,7 +441,6 @@ class Workflow:
         reactionSensitivityParams['model_ws'] = self.args.workspace
         reactionSensitivityParams['rxnsens_uid'] = rxnsensitivity
         reactionSensitivityParams['workspace'] = self.args.workspace
-        reactionSensitivityParams['auth'] = self.token
         reactionSensitivityParams['gapfill_solution_id'] = "%s.gfsol.1" %(gapfillUUID)
 
         if rxnprobs is not None:
@@ -484,7 +475,6 @@ class Workflow:
         deleteReactionsParams['workspace'] = self.args.workspace
         deleteReactionsParams['rxn_sensitivity'] = rxnsensitivity
         deleteReactionsParams['rxn_sensitivity_ws'] = self.args.workspace
-        deleteReactionsParams['auth'] = self.token
 
         objmeta = self.fbaClient.delete_noncontributing_reactions(deleteReactionsParams)
 
