@@ -118,7 +118,7 @@ if __name__ == "__main__":
                 ok = 0
                 break
         if ok == 0:
-            sys.stderr.write("One of these genes not in model: %s\n" %("\t".join(genes)))
+#            sys.stderr.write("One of these genes not in model: %s\n" %("\t".join(genes)))
             continue
 
         # Initialize results for a specific media.
@@ -145,7 +145,7 @@ if __name__ == "__main__":
                     else:
                         rxnprobobj = [ rxn, 0, "NOCOMPLEX", "", "" ]
                     # Gene, WasGapfilled, reaction, probability, diagnostics...
-                    print "\t".join( [ gene, isgapfilled ] + [ str(s) for s in rxnprobobj ] + [ sim_type ] )
+                    print "\t".join( [ args.pheno, gene, isgapfilled ] + [ str(s) for s in rxnprobobj ] + [ sim_type ] )
 
         if sim_type == "CN":
             mediaDict[media]['trueNeg'] += 1

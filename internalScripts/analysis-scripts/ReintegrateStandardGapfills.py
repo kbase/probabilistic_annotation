@@ -1,8 +1,7 @@
 #!/usr/bin/python
 
 from biokbase.fbaModelServices.Client import *
-from biokbase.workspaceService.Client import *
-from biokbase.probabilistic_annotation.Client import _read_inifile
+from biokbase.workspace.client import Workspace
 import optparse
 import os
 import sys
@@ -17,7 +16,7 @@ post-processing a network-based gap fill solution. Solution 0 is assumed to be t
 parser = optparse.OptionParser(usage=usage, description=description)
 parser.add_option("-m", "--modelid", help="Model ID", action="store", type="str", dest="modelid", default=None)
 parser.add_option("-w", "--ws", help="Workspace for model and for RxnProbs object if specified...", action="store", type="str", dest="ws", default=None)
-parser.add_option("-u", "--url", help="URL for FBA model services", action="store", type="str", dest="url", default="http://bio-data-1.mcs.anl.gov/services/fba")
+parser.add_option("-u", "--url", help="URL for FBA model services", action="store", type="str", dest="url", default="https://kbase.us/services/KBaseFBAModeling")
 parser.add_option("-r", "--rxnprobsid", help="Rxnprobs object ID", action="store", type="str", dest="rxnprobsid", default=None)
 (options, args) = parser.parse_args()
 
@@ -30,31 +29,31 @@ if options.ws is None:
 if options.rxnprobsid is None:
     raise IOError("Rxnprobsid is a required input")
 
-authdata = _read_inifile()
-token = authdata['token']
 fbaClient = fbaModelServices(options.url)
-wsClient = workspaceService("http://kbase.us/services/workspace/")
+wsClient = Workspace("https://kbase.us/services/ws")
 
-if wsClient.has_object( { "workspace": options.ws,
-                          "auth" : token,
-                          "id" : options.modelid + ".REINTEGRATED",
-                          "type" : "Model" } ):
-    print "Integrated model %s already exists" %(options.modelid + ".REINTEGRATED")
-    exit(2)
+# Create a valid ObjectIdentity object
+objectIdentity = dict()
+
+objectIdentity['workspace'] = options.ws
+objectIdentity['name'] = options.modelid + ".REINTEGRATED"
+try:
+    objinfo = wsClient.get_object_info( [ objectIdentity ], 0 )
+    raise IOError("Integrated model %s already exists" %(options.modelid + ".REINTEGRATED"))
+except:
+    pass
 
 ### Get the model object
 #
 models = fbaClient.get_models( { "models" : [ options.modelid ],
                                  "workspaces" : [ options.ws ],
-                                 "auth"   : token
                                  })
 
 gapfills = models[0]["integrated_gapfillings"]
 if len(gapfills) < 1:
     raise IOError("ERROR: No integrated gapfillings found. Are you sure you are using the integrated model?")
-print gapfills
 
-solutionString = ";".join( [ s[1] + ".solution.0" for s in gapfills ] )
+solutionString = ";".join( [ s[0] + ".gfsol.1" for s in gapfills ] )
 
 cmd = "kbfba-integratesolution -e -r %s -x %s -w %s -f \"%s\" -i %s %s" %(options.rxnprobsid, options.ws, options.ws, solutionString, options.modelid + ".REINTEGRATED", options.modelid)
 print cmd
