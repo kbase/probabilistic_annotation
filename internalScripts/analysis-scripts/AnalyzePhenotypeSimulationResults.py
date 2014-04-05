@@ -145,7 +145,7 @@ if __name__ == "__main__":
                     else:
                         rxnprobobj = [ rxn, 0, "NOCOMPLEX", "", "" ]
                     # Gene, WasGapfilled, reaction, probability, diagnostics...
-                    print "\t".join( [ args.pheno, gene, isgapfilled ] + [ str(s) for s in rxnprobobj ] + [ sim_type ] )
+                    print "\t".join( [ args.pheno, gene, media, isgapfilled ] + [ str(s) for s in rxnprobobj ] + [ sim_type ] )
 
         if sim_type == "CN":
             mediaDict[media]['trueNeg'] += 1

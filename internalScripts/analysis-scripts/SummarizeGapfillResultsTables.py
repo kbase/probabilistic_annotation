@@ -14,6 +14,7 @@ parser.add_option("-o", "--added_only", help="Set this flag to ONLY include adde
 parser.add_option("-f", "--final_only", help="Set this flag to only include reactions that are in the final models (e.g. those that were integrated into the model and not deleted by reaction sensitivity analysis) in the counts and average calcualtions. By default we include all reactions in a gapfill solution regardless of downstream analysis", action="store_true", dest="finalonly", default=False)
 parser.add_option("-d", "--deleted_only", help="The opposite of -f, set this flag to ONLY print information about gapfilled reactions that have been deleted from the model.", action="store_true", dest="deletedonly", default=False)
 parser.add_option("-g", "--print_genes", help="Print detailed gene information instead of summaries.", action="store_true", dest="printgenes", default=False)
+parser.add_option("-r", "--print_rxns", help="Print detailed reactions information instead of summaries.", action="store_true", dest="printrxns", default=False)
 (options, args) = parser.parse_args()
 
 if len(args) < 2:
@@ -90,6 +91,15 @@ def getUniqueGenes(results, solnum, reaction_list, addedReactionsOnly = False):
             unique_genes.add(gene)
     return unique_genes
 
+def getReactions(results, solnum, gene):
+    ''' Get the reaction(s) associated with a gene
+    '''
+    reactions = set()
+    for reaction in results[solnum]["rxninfo"].keys():
+        if gene in results[solnum]["rxninfo"][reaction]["newgenes"]:
+            reactions.add(reaction)
+    return reactions
+
 def safeAverage(numarray):
     try:
         avg = sum(numarray)/len(numarray)
@@ -100,8 +110,10 @@ def safeAverage(numarray):
 probanno_results = parse_result_table(args[0], addedReactionsOnly = options.addedonly, finalReactionsOnly = options.finalonly, deletedOnly = options.deletedonly )
 non_probanno_results = parse_result_table(args[1], addedReactionsOnly = options.addedonly, finalReactionsOnly = options.finalonly, deletedOnly = options.deletedonly )
 
-if options.printgenes:
+if options.printrxns:
     print "\t".join( [ "reaction", "likelihood", "whenfound", "solnum" ] )
+elif options.printgenes:
+    print "\t".join( [ "whenfound", "gene", "reactin" ] )
 else:
     print "\t".join( [ "probanno_filename", "non_probanno_filename", "solution_number_compared", 
                    "number_common", "number_probanno_only", "number_nonprobanno_only",
@@ -121,7 +133,7 @@ for sol in probanno_results.keys():
     unique_to_probanno      = probanno_reactions - non_probanno_reactions
     unique_to_non_probanno = non_probanno_reactions - probanno_reactions
 
-    if options.printgenes:
+    if options.printrxns:
         for reaction in common_reactions:
             if options.addedonly and probanno_results[sol]["rxninfo"][reaction]["revchange"] == "1":
                 continue
@@ -140,6 +152,21 @@ for sol in probanno_results.keys():
     common_newgenes                 = getUniqueGenes(probanno_results, sol, common_reactions, addedReactionsOnly = options.addedonly)
     unique_to_probanno_newgenes     = getUniqueGenes(probanno_results, sol, unique_to_probanno, addedReactionsOnly = options.addedonly) - common_newgenes
     unique_to_non_probanno_newgenes = getUniqueGenes(non_probanno_results, sol, unique_to_non_probanno, addedReactionsOnly = options.addedonly) - common_newgenes
+
+    if options.printgenes:
+        for gene in unique_to_probanno_newgenes:
+            rxns = getReactions(probanno_results, sol, gene)
+            for rxn in rxns:
+                print "%s\t%s\t%s" %("PROBANNO_ONLY", gene, rxn)
+        for gene in unique_to_non_probanno_newgenes:
+            rxns = getReactions(non_probanno_results, sol, gene)
+            for rxn in rxns:
+                print "%s\t%s\t%s" %("NON_PROBANNO_ONLY", gene, rxn)
+        for gene in common_newgenes:
+            rxns = getReactions(non_probanno_results, sol, gene)
+            for rxn in rxns:
+                print "%s\t%s\t%s" %("COMMON", gene, rxn)
+        continue
 
     n_common_newgenes = len(common_newgenes)
     n_unique_to_probanno_newgenes = len(unique_to_probanno_newgenes)
