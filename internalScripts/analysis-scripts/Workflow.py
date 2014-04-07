@@ -283,7 +283,6 @@ class Workflow:
         gapfillParams['out_model'] = model
         gapfillParams['workspace'] = self.args.workspace
         gapfillParams['formulation'] = gapfillFormulation
-        gapfillParams['solver'] = 'CPLEX'
 #        gapfillParams['totalTimeLimit'] = self.args.maxtime
 #        gapfillParams['timePerSolution'] = int(self.args.maxtime/self.args.numsolutions)
         if iterative:
