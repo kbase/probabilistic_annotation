@@ -28,13 +28,8 @@ class TestPythonClient(unittest.TestCase):
         # Create the test workspace.
         wsClient = Workspace(self._config["workspace_url"], token=self._token)
         try:
-            # When the workspace exists, make sure all of the objects are deleted so there is a clean slate for the test.
-            objectList = wsClient.list_objects( { 'workspaces': [ self._config['test_ws'] ] } )
-            deleteList = list()
-            for object in objectList:
-                deleteList.append( { 'wsid': object[6], 'objid': object[0], 'ver': object[4] })
-            if len(deleteList) > 0:
-                wsClient.delete_objects(deleteList)
+            # See if the workspace exists.
+            wsInfo = wsClient.get_workspace_info( { "workspace": self._config["test_ws"] } )
 
         except WorkspaceServerError as e:
             # Hopefully this means the workspace does not exist. (It could also mean someone messed up setting up the URLs)
@@ -43,49 +38,26 @@ class TestPythonClient(unittest.TestCase):
 
         # We also need to put in a mapping and a biochemistry object somewhere.
         # To do this, I just create a "dependency workspace" and pull them from there.
-        self._config["dependency_ws"]
         try:
-            # When the workspace exists, delete it so there is a clean slate for the test.
+            # See if the workspace exists.
             wsInfo = wsClient.get_workspace_info( { "workspace": self._config["dependency_ws"] } )
         except WorkspaceServerError as e:
             # Hopefully this means the workspace does not exist. (It could also mean someone messed up setting up the URLs)
 #            traceback.print_exc(file=sys.stderr)
             depWsInfo = wsClient.create_workspace( { "workspace": self._config["dependency_ws"] } )
 
-        # Load the mapping and biochemsitry objects
-        # (Note - this won't be allowed with the new version of the workspace but it agrees with what is in there now)
-        #mappingObject = json.load(open(self._config["test_mapping_object"], "r"))
-        #mappingObjectData = { 'type': 'Mapping', 'name': 'default', 'data': mappingObject }
-
-#         biochemistryObject = json.load(open(self._config["test_biochemistry_object"], "r"))
-#         biochemistryObjectData = { 'type': 'Biochemistry', 'name': 'default', 'data': biochemistryObject }
-#         
-#         objectList = list()
-        #objectList.append(mappingObjectData)
-#         objectList.append(biochemistryObjectData)
-#         wsClient.save_objects( { 'workspace': self._config["dependency_ws"], 'objects': objectList } )
-
-        # Load the test Genome object into the workspace.
-#         fbaClient = fbaModelServices(self._config["fbamodelservices_url"])
-#         testGenome = json.load(open(self._config["genome_file"], "r"))
-#         genomeMetadata = fbaClient.genome_object_to_workspace( { 
-#             "genomeobj": testGenome,
-#             "workspace": self._config["test_ws"],
-#             "auth": self._token
-#             "mapping_workspace": self._config["dependency_ws"]
-#             } )
+        # Load the mapping and biochemistry objects
         testContigSet = json.load(open(self._config['contigset_file'], 'r'))
         contigSetSaveData = dict()
         contigSetSaveData['type'] = 'KBaseGenomes.ContigSet'
         contigSetSaveData['name'] = self._config['contigsetid']
         contigSetSaveData['data'] = testContigSet        
-        wsClient.save_objects( { 'workspace': self._config['test_ws'], 'objects': [ contigSetSaveData ] } )
         testGenome = json.load(open(self._config["genome_file"], "r"))
         genomeSaveData = dict()
         genomeSaveData['type'] = 'KBaseGenomes.Genome'
         genomeSaveData['name'] = self._config['genomeid']
         genomeSaveData['data'] = testGenome
-        wsClient.save_objects( { 'workspace': self._config['test_ws'], 'objects': [ genomeSaveData ] } )
+        wsClient.save_objects( { 'workspace': self._config['test_ws'], 'objects': [ genomeSaveData, contigSetSaveData ] } )
         
     def test_annotate(self):
         ''' Run pa-annotate on a valid Genome object and verify that the job runs and returns a valid ProbAnno object in the expected time.'''
@@ -103,13 +75,18 @@ class TestPythonClient(unittest.TestCase):
         
         # Make sure the job has completed.
         ujsClient = UserAndJobState(self._config['ujs_url'], token=self._token)
-        jobList = ujsClient.list_jobs([ self._config['test_user'] ], 'C')
+        jobList = ujsClient.list_jobs([ self._config['test_user'] ], 'CE')
         jobCompleted = False
         for job in jobList:
             if jobid == job[0]:
                 jobCompleted = True
+                jobInfo = job
         self.assertTrue(jobCompleted, 'Job did not complete before timeout of %s seconds' %(self._config['runtime']))
         
+        # See if the job ended in error.
+        print type(jobInfo[11])
+        self.assertEqual(jobInfo[11], '0', 'Job ended in error: '+ujsClient.get_detailed_error(jobInfo[0]))
+
         # Look for the ProbAnno object in the test workspace.
         wsClient = Workspace(self._config["workspace_url"], token=self._token)
         try:
@@ -186,6 +163,6 @@ if __name__ == '__main__':
     suite.addTest(TestPythonClient('test_calculate'))
     suite.addTest(TestPythonClient('test_get_rxnprobs'))
     suite.addTest(TestPythonClient('test_get_probanno'))
-    suite.addTest(TestPythonClient('test_cleanup'))
+#    suite.addTest(TestPythonClient('test_cleanup'))
     unittest.TextTestRunner().run(suite)
     

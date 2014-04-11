@@ -1,22 +1,52 @@
 
-from biokbase.probabilistic_annotation.Helpers import make_object_identity, make_job_directory
-from biokbase.probabilistic_annotation.DataParser import checkIfDatabaseFilesExist
+from biokbase.probabilistic_annotation.Helpers import make_object_identity, make_job_directory, timestamp, ProbAnnoType
+from biokbase.probabilistic_annotation.DataParser import checkIfDatabaseFilesExist, DatabaseFiles, readFilteredOtuRoles, parseBlastOutput, readFilteredOtuRoles
 from biokbase.userandjobstate.client import UserAndJobState
 from biokbase.workspace.client import Workspace
+from biokbase import log
+from urllib2 import HTTPError
 import subprocess
 import sys
+import os
 import shutil
 import traceback
+
+# Exception thrown when no features are found in Genome object
+class NoFeaturesError(Exception):
+    pass
+
+# Exception thrown when blast command failed
+class BlastError(Exception):
+    pass
+
+# Exception thrown when there are no gene IDs in Genome object
+class NoGeneIdsError(Exception):
+    pass
+
+''' Worker for long running probabilistic annotation jobs. '''
 
 class ProbabilisticAnnotationWorker:
 
     def runAnnotate(self, job):
-        '''Run an annotate job.
 
-        job is a workspace job object.
+        ''' Run an annotate job to create a ProbAnno typed object.
+
+            A ProbAnno typed object is created in four steps: (1) extract amino acid
+            sequences from a Genome typed object to a fasta file, (2) run a BLAST search
+            using the amino acid sequences against the subsystem BLAST database,
+            (3) calculate annotation likelihood scores for each roleset implied by the
+            functions of proteins in subsystems, and (4) save the likelihood scores
+            to a ProbAnno typed object.
+
+            The Job dictionary contains three main sections: (1) input parameters to
+            the annotate() function, (2) context of server instance running the
+            annotate() function, and (3) config variables of server.
+
+            @param job Job dictionary created by server's annotate() function
+            @return Nothing (although job is marked as complete)
         '''
 
-        # The input parameters and user context for annotate() were stored in the jobdata for the job.
+        # The input parameters and user context for annotate() were stored in the job data for the job.
         input = job["input"]
         self.ctx = job["context"]
         self.config = job['config']
@@ -62,7 +92,7 @@ class ProbabilisticAnnotationWorker:
                 ujsClient.update_job_progress(job['id'], self.ctx['token'], 'calculating roleset probabilities', 1, timestamp(300))
             except:
                 pass
-            rolestringTuples = self._rolesetProbabilitiesMarble(input, input["genome"], blastResultFile, workFolder)
+            rolestringTuples = self._rolesetProbabilitiesMarble(input, blastResultFile, workFolder)
             
             # Build ProbAnno object and store in the specified workspace.
             try:
@@ -75,31 +105,37 @@ class ProbabilisticAnnotationWorker:
             status = "done"
             tb = None
 
-            # Remove the temporary directory only if our job succeeds. If it does that means there were no errors so we don't need it.
-            if not self.config["debug"] or self.config["debug"] == "0":
-                try:
-                    shutil.rmtree(workFolder)
-                except OSError:
-                    # For some reason deleting the directory was failing in production. Rather than have all jobs look like they failed
-                    # I catch and log the exception here (since the user still gets the same result if the directory remains intact)
-                    sys.stderr.write("WARNING: Unable to delete temporary directory %s\n" %(workFolder))
         except:
             tb = traceback.format_exc()
-            sys.stderr.write(tb)
+            sys.stderr.write('\n'+tb)
             status = "failed"
         
+        # Mark the job as complete with the given status.
         ujsClient.complete_job(job['id'], self.ctx['token'], status, tb, { })
+
+        # Remove the temporary work directory.
+        if not self.config["debug"] or self.config["debug"] == "0":
+            try:
+                shutil.rmtree(workFolder)
+            except OSError:
+                # For some reason deleting the directory was failing in production. Rather than have all jobs look like they failed
+                # I catch and log the exception here (since the user still gets the same result if the directory remains intact)
+                msg = 'Unable to delete temporary directory %s\n' %(workFolder)
+                sys.stderr.write('WARNING: '+msg)
+                self._log(log.WARN, msg)
 
         return
         
     def _genomeToFasta(self, input, genomeObject, workFolder):
-        '''Convert a Genome object into an amino-acid FASTA file (for BLAST purposes).
 
-        input is a dictionary of input options
-        genomeObject is a genome object
-        workFolder is a directory in which to temporarily dump the fasta file.
+        ''' Convert a Genome object into an amino-acid FASTA file (for BLAST purposes).
+
+            @param input Dictionary of input parameters to annotate() function
+            @param genomeObject Genome typed object from workspace
+            @param workFolder Path to directory in which to store temporary files
+            @return Path to fasta file with query proteins
         '''
-        
+
         # Make sure the Genome object has features.
         if "features" not in genomeObject["data"]:
             raise NoFeaturesError("The input Genome object %s/%s has no features. Did you forget to run annotate_genome?\n" %(input["genome_workspace"], input["genome"]))
@@ -126,25 +162,26 @@ class ProbabilisticAnnotationWorker:
         return fastaFile
         
     def _runBlast(self, input, queryFile, workFolder):
-        '''A simplistic wrapper to BLAST the query proteins against the subsystem proteins.
 
-        input is a dictionary of input options.
-        queryFile is the name of a BLASTP database.
-        workFolder is a directory in which to save the results. 
+        ''' A simplistic wrapper to BLAST the query proteins against the subsystem proteins.
 
-        Returns the name of the output file from BLAST in tab-delimited format (outfmt 6).
+            @param input Dictionary of input parameters to annotate() function
+            @param queryFile Path to fasta file with query proteins
+            @param workFolder Path to directory in which to store temporary files
+            @return Path to output file from BLAST
         '''
-        
+
+        # Generate path to output file.  Output format 6 is tab-delimited format.
         blastResultFile = os.path.join(workFolder, "%s.blastout" %(input["genome"]))
-        cmd = "blastp -query \"%s\" -db %s -outfmt 6 -evalue 1E-5 -num_threads %s -out \"%s\"" \
-            %(queryFile, os.path.join(self.config["data_folder_path"], DatabaseFiles["subsystem_otu_fasta_file"]), self.config["blast_threads"], blastResultFile)
+
+        args = [ "blastp", "-query", queryFile, 
+                 "-db", os.path.join(self.config["data_folder_path"], DatabaseFiles["subsystem_otu_fasta_file"]),
+                 "-outfmt", "6", "-evalue", "1E-5",
+                 "-num_threads", self.config["blast_threads"],
+                 "-out", blastResultFile ]
+        cmd = ' '.join(args)
         sys.stderr.write("Started BLAST with command: %s\n" %(cmd))
-        status = subprocess.call(["blastp", "-query", queryFile, 
-                                  "-db", os.path.join(self.config["data_folder_path"], DatabaseFiles["subsystem_otu_fasta_file"]),
-                                  "-outfmt", "6", "-evalue", "1E-5",
-                                  "-num_threads", self.config["blast_threads"],
-                                  "-out", blastResultFile
-                                  ])
+        status = subprocess.call(args)
         sys.stderr.write("Ended BLAST with command: %s\n" %(cmd))
         if os.WIFEXITED(status):
             if os.WEXITSTATUS(status) != 0:
@@ -153,18 +190,23 @@ class ProbabilisticAnnotationWorker:
             raise BlastError("'%s' ended by signal %d\n" %(cmd, os.WTERMSIG(status)))
         return blastResultFile
     
-    def _rolesetProbabilitiesMarble(self, input, genome, blastResultFile, workFolder):
-        '''Calculate the probabilities of rolesets (i.e. each possible combination of roles implied by the functions of the proteins in subsystems) from the BLAST results.
+    def _rolesetProbabilitiesMarble(self, input, blastResultFile, workFolder):
 
-        input is a dictionary of input options
-        genome is a genome object
-        blastResultFile is the name of a file containing tab-delimited BLAST results for that genome against some blast database
-        workFolder is a directory in which to save the results.
+        ''' Calculate the probabilities of rolesets from the BLAST results.
+
+            A roleset is each possible combination of roles implied by the functions
+            of the proteins in subsystems.  The output is a dictionary keyed by
+            query gene of lists of tuples where each tuple contains (1) roleset
+            string, and (2) likelihood value.  The roleset string is a concatenation
+            of all of the roles of a protein with a single function (order does
+            not matter).
     
-        Returns a file with three columns(query, roleset_string, probability)  
-        roleset_string = "\\\" separating all roles of a protein with a single function (order does not matter)
+            @param input Dictionary of input parameters to annotate() function
+            @param blastResultFile Path to output file from BLAST
+            @param workFolder Path to directory in which to store temporary files
+            @return Dictionary keyed by query gene of list of tuples with roleset and likelihood
         '''
-    
+
         sys.stderr.write("Performing marble-picking on rolesets for genome %s..." %(input["genome"]))
     
         # Read in the target roles (this function returns the roles as lists!)
@@ -172,36 +214,40 @@ class ProbabilisticAnnotationWorker:
     
         # Convert the lists of roles into "rolestrings" (sort the list so that order doesn't matter)
         # in order to deal with the case where some of the hits are multi-functional and others only have
-        # a single function...
-        targetIdToRoleString = {}
+        # a single function.
+        targetIdToRoleString = dict()
         for target in targetIdToRole:
             stri = self.config["separator"].join(sorted(targetIdToRole[target]))
             targetIdToRoleString[target] = stri
-    
-        # Query --> [ (target1, score 1), (target 2, score 2), ... ]
+
+        # Parse the output from BLAST which returns a dictionary keyed by query gene of a list
+        # of tuples with target gene and score.
+        # query --> [ (target1, score 1), (target 2, score 2), ... ]
         idToTargetList = parseBlastOutput(blastResultFile)
     
-        # This is a holder for all of our results
-        # It is a dictionary query -> [ (roleset1, probability_1), (roleset2, probability_2), ...]
-        rolestringTuples = {}
-        # For each query gene we calcualte the likelihood of each possible rolestring.
+        # This is a holder for all of our results which is a dictionary keyed by query gene
+        # of a list of tuples with roleset and likelihood.
+        # query -> [ (roleset1, likelihood_1), (roleset2, likelihood_2), ...]
+        rolestringTuples = dict()
+
+        # For each query gene we calculate the likelihood of each possible rolestring.
+        # See equation N in the paper.
         for query in idToTargetList:
-            # First we need to know the maximum score
-            # I have no idea why but I'm pretty sure Python is silently turning the second element of these tuples
-            # into strings.
-            #
-            # That's why I turn them back...
+            # First we need to know the maximum score for this gene.
+            # I have no idea why but I'm pretty sure Python is silently turning the second
+            # element of these tuples into strings.  That's why I turn them back to floats.
             maxscore = 0
             for tup in idToTargetList[query]:
                 if float(tup[1]) > maxscore:
                     maxscore = float(tup[1])
     
-            # Now we calculate the cumulative squared scores
-            # for each possible rolestring. This along with PC*maxscore is equivalent
-            # to multiplying all scores by themselves and then dividing by the max score.
+            # Now we calculate the cumulative squared scores for each possible rolestring.
+            # This along with pseudocount*maxscore is equivalent to multiplying all scores
+            # by themselves and then dividing by the max score.
             # This is done to avoid some pathological cases and give more weight to higher-scoring hits
             # and not let much lower-scoring hits \ noise drown them out.
-            rolestringToScore = {}
+            # Build a dictionary keyed by rolestring of the sum of squares of the log-scores.
+            rolestringToScore = dict()
             for tup in idToTargetList[query]:
                 try:
                     rolestring = targetIdToRoleString[tup[0]]
@@ -211,18 +257,19 @@ class ProbabilisticAnnotationWorker:
                 if rolestring in rolestringToScore:
                     rolestringToScore[rolestring] += (float(tup[1]) ** 2)
                 else:
-                    rolestringToScore[rolestring] = (float(tup[1])**2)
+                    rolestringToScore[rolestring] = (float(tup[1]) ** 2)
     
-            # Now lets iterate over all of them and calculate the probability
-            # Probability = sum(S(X)^2)/(sum(S(X)^2 + PC*maxscore))
-            # Lets get the denominator first
+            # Calculate the likelihood that this gene has the given functional annotation.
+            # Start with the denominator which is the sum of squares of the log-scores for
+            # all possible rolestrings.
             denom = float(self.config["pseudo_count"]) * maxscore
             for stri in rolestringToScore:
                 denom += rolestringToScore[stri]
-    
-            # Now the numerators, which are different for every rolestring
+
+            # The numerators are the sum of squares for each rolestring.
+            # Calculate the likelihood for each rolestring and store in the output dictionary.
             for stri in rolestringToScore:
-                p = rolestringToScore[stri]/denom
+                p = rolestringToScore[stri] / denom
                 if query in rolestringTuples:
                     rolestringTuples[query].append( (stri, p) )
                 else:
@@ -230,7 +277,7 @@ class ProbabilisticAnnotationWorker:
     
         # Save the generated data when debug is turned on.
         if self.config["debug"]:
-            rolesetProbabilityFile = os.path.join(workFolder, "%s.rolesetprobs" %(genome))
+            rolesetProbabilityFile = os.path.join(workFolder, "%s.rolesetprobs" %(input['genome']))
             fid = open(rolesetProbabilityFile, "w")
             for query in rolestringTuples:
                 for tup in rolestringTuples[query]:
@@ -241,23 +288,30 @@ class ProbabilisticAnnotationWorker:
         return rolestringTuples
             
     def _buildProbAnnoObject(self, input, genomeObject, blastResultFile, queryToRolesetProbs, workFolder, wsClient):
-        '''Create a "probabilistic annotation" object file from a Genome object file. 
 
-        input: A list of input options
-        genomeObject: A genome object
-        blastResultFile: The name of a file containing BLAST results in tab-delimited format
-        queryToRolesetProbs: A dictionary querygene-> [ (roleset, probability), ... ]
-        workFolder: A directory in which to save the results
-        wsClient: A workspace client object
+        ''' Create a ProbAnno typed object and save it to a workspace.
 
-        The probabilistic annotation object adds fields for the probability of each role being linked to each gene.'''
+            The queryToRolesetProbs dictionary has this format: querygene -> [ (roleset, likelihood), ... ]
+            The probabilistic annotation object adds fields for the probability of each role being linked to each gene.
+
+            @param input Dictionary of input parameters to annotate() function
+            @param genomeObject Genome typed object from workspace
+            @param blastResultFile Path to output file from BLAST in tab-delimited format
+            @param queryToRolesetProbs: Dictionary keyed by query protein of list of tuples with roleset and likelihood
+            @param workFolder Path to directory in which to store temporary files
+            @param wsClient Workspace client object
+            @return metadata
+        '''
     
         sys.stderr.write("Building ProbAnno object %s/%s for genome %s..." %(input["probanno_workspace"], input["probanno"], input["genome"]))
+
+        # Read in the target roles (this function returns the roles as lists!)
         targetToRoles, rolesToTargets = readFilteredOtuRoles(self.config)
-        targetToRoleSet = {}
+        targetToRoleSet = dict()
         for target in targetToRoles:
             stri = self.config["separator"].join(sorted(targetToRoles[target]))
             targetToRoleSet[target] = stri
+
         # This is a dictionary from query ID to (target, -log E-value) pairs.
         # We just use it to identify whether or not we actually hit anything in the db
         # when searching for the query gene.
@@ -305,7 +359,38 @@ class ProbabilisticAnnotationWorker:
         objectSaveData['data'] = objectData
         objectSaveData['meta'] = objectMetaData
         objectSaveData['provenance'] = [ objectProvData ]
-        metadata = wsClient.save_objects( { 'workspace': input["probanno_workspace"], 'objects': [ objectSaveData ] } )
+        retryCount = 3
+        while retryCount > 0:
+            try:
+                objectInfo = wsClient.save_objects( { 'workspace': input["probanno_workspace"], 'objects': [ objectSaveData ] } )
+                sys.stderr.write("done\n")
+                return objectInfo[0]
+            except HTTPError as e:
+                # Hopefully this is just a temporary glitch, try again since we worked so hard to build the object.
+                retryCount -= 1
+                self._log(log.WARN, 'HTTP error %s when saving %s to workspace %s' %(e.reason, input['probanno'], input['probanno_workspace']))
         
-        sys.stderr.write("done\n")
-        return metadata
+        # Saving the object failed so raise the last exception that was caught.
+        raise e
+
+    ''' Log a message to the system log.
+
+        @param level Message level (INFO, WARNING, etc.)
+        @param message Message text
+        @return Nothing
+    '''
+
+    def _log(self, level, message):
+        # Create a logger if this is the first time the method has been called.
+        if self.logger is None:
+            submod = os.environ.get('KB_SERVICE_NAME', 'ProbabilisticAnnotation')
+            self.logger = log.log(submod, ip_address=True, authuser=True, module=True, method=True,
+                call_id=True, config=os.getenv('KB_DEPLOYMENT_CONFIG'))
+
+        # Log the message.
+        self.logger.log_message(level, message, self.context['client_ip'], self.context['user_id'], self.context['module'],
+                                self.context['method'], self.context['call_id'])
+        return
+
+    def __init__(self):
+        self.logger = None
