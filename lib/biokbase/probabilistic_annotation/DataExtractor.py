@@ -30,12 +30,12 @@ except ImportError:
     import simplejson as json
 
 def getFieldFromEntity(seedEntity, fieldName):
-    ''' Get field "fieldName" from the entity seedEntity, the result of a 
-    get_entity_xxx or an all_entities_xxx call to the CDM. The function returns
-    a list of entries in field fieldName.
+    ''' Get a field from a entity returned by a get_entity_XXX() or all_entities_XXX() function.
 
-    The entities are dictionaries from ID to a dictionary of key-value pairs
-    where keys are whatever you tell it you want. '''
+        @param seedEntity Dictionary keyed by ID to a dictionary of key-value pairs
+        @param fieldName Name of key in dictionary of key-value pairs
+        @return List of values for the specified field (key) in all of the entities.
+    '''
 
     if seedEntity is None:
         sys.stderr.write("INTERNAL ERROR: Provided seedEntity was None - usually this means you were searching for something that doesnt exist in the database\n")
@@ -54,23 +54,22 @@ def getFieldFromEntity(seedEntity, fieldName):
 
 
 def getFieldFromRelationship(seedRelationship, fieldName, objtype):
-    '''
-    INPUTS:
-    seedRelationship: The result of one of the get_relationship_xxx functions
-    fieldName: The field you want to extract from the object.
-    objtype: "TO", "REL", or "FROM"
+    ''' Get a field from an object returned by a get_relationship_XXX() function.
 
-    OUTPUTS:
-    A list (in the same order as the list from the get_relationship function)
-    of the values with the specified field name.
+        The get_relationship_XXX() functions return lists of lists.
+        The first list is a list of all the links
+        The second list has three dictionaries in it: the TO dictionary, the REL dictionary
+        and the FROM dictionary describing properties on either end of the link and of the link itself.
 
-    The get_relationship_xxx functions return lists of lists.
-    The first list is a list of all the links
-    The second list has three dictionaries in it: the TO dictionary, the REL dictionary and the FROM dictionary
-    describing properties on either end of the link and of the link itself...
+        If you want to  maintain duplicate relationships (many-to-one, one-to-many, many-to-many),
+        this function should be called at least twice (once on each end of the relationship, or once
+        on an end and once in the middle).
 
-    If you want to  maintain duplicicate relationships (many-to-one, one-to-many, many-to-many), this function should be called at
-    least twice (once on each end of the relationship, or once on an end and once in the middle)..
+        @param seedRelationship Output from a get_relationship_XXX() function.
+        @param fieldName Field to extract from the object
+        @param objtype Type of object, "TO", "REL", or "FROM"
+        @return List (in the same order as the list from the get_relationship function)
+            of the values with the specified field name
     '''
 
     if seedRelationship is None:
@@ -102,7 +101,12 @@ def getFieldFromRelationship(seedRelationship, fieldName, objtype):
     return f
 
 def subsystemFids(count, config):
-    '''Query the CDMI for a list of FIDs in the subsystems'''
+    ''' Query the CDMI for a list of feature IDs in the subsystems.
+
+        @param count Number of entities to retrieve in each function call
+        @param config Dictionary of configuration variables
+        @return List of subsystem feature IDs
+    '''
 
     cdmi = CDMI_API(config["cdmi_url"])
     cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
@@ -156,7 +160,12 @@ def subsystemFids(count, config):
     return list(set(ssfids))
 
 def getDlitFids(count, config):
-    '''Get a list of FIDs with direct literature evidence (dlits) from the CDM'''
+    ''' Query the CDMI for a list of feature IDs with direct literature evidence (dlits).
+
+        @param count Number of entities to retrieve in each function call
+        @param config Dictionary of configuration variables
+        @return List of literature feature IDs
+    '''
 
     cdmi = CDMI_API(config["cdmi_url"])
     cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
@@ -294,18 +303,18 @@ def filterFidsByOtusBetter(fidsToRoles, rolesToFids, oturepsToMembers, config):
     return keptFidsToRoles, keptRolesToFids, missingRoles
 
 def filterFidsByOtusOptimized(featureIdList, rolesToFids, otuRepsToMembers, config):
-    '''Attempt to do a more intelligent filtering of FIDs by OTU.
+    ''' Filter feature IDs by OTU (optimized version).
 
-    Given all FIDs attached to a role in the unfiltered set we do the following:
+        To minimize the amount of redundancy in the list of target proteins, filter
+        the feature IDs so there is at most one protein from each OTU for each
+        functional role.
 
-    Initialize KEEP
-    For each OTU and each role:
-       If role is found in the representative, add to KEEP and continue;
-       Otherwise, iterate over other genomes.
-           If role is found in one other genome, add to KEEP and continue;
-
-    This process should make our calculation less sensitive to the choice of OTUs...
-
+        @param featureIdList List of unfiltered feature IDs
+        @param rolesToFids Dictionary keyed by role of list of feature IDs
+        @param otuRepsToMembers Dictionary keyed by OTU representative to list of OTU members
+        @param config Dictionary of configuration variables
+        @return Dictionary keyed by feature ID of list of roles, dictionary keyed by role
+            of list of feature IDs
     '''
 
     cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
@@ -403,7 +412,12 @@ def filterFidsByOtusOptimized(featureIdList, rolesToFids, otuRepsToMembers, conf
     return keptFidsToRoles, keptRolesToFids
 
 def getOtuGenomeDictionary(count, config):
-    '''Obtain a dictionary from OTU representatives to all genomes in the OTU'''
+    ''' Obtain a dictionary from OTU representatives to all genomes in the OTU.
+
+        @param count Number of entities to retrieve in each function call
+        @param config Dictionary of configuration variables
+        @return Dictionary keyed by OTU representative of list of OTU members
+    '''
     cdmi = CDMI_API(config["cdmi_url"])
     # Get list of OTUs
     otulist = getOtuGenomeIds(count, config)
@@ -411,8 +425,14 @@ def getOtuGenomeDictionary(count, config):
     return otudict
 
 def fidsToRoles(fidlist, config):
-    '''Given a list of FIDs return a dictionary from FID to the list of roles the encoding gene
-    performs and a dictionary from roles to the FIDs performing them'''
+    ''' Given a list of feature IDs return a dictionary from FID to the list of roles the encoding gene
+        performs and a dictionary from roles to the FIDs performing them.
+
+        @param fidlist List of feature IDs
+        @param config Dictionary of configuration variables
+        @return Dictionary keyed by feature ID of list of roles encoding gene performs, dictionary
+            keyed by role of list of feature IDs performing the role
+    '''
 
     cdmi = CDMI_API(config["cdmi_url"])
     cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
@@ -463,8 +483,14 @@ def fidsToRoles(fidlist, config):
     return fidsToRoles, rolesToFids
 
 def fidsToSequences(fidlist, config):
-    '''Given a list of FIDs, returns a dictionary from FID to its amino acid sequence.
-    Features with no amino acid sequence are discarded.'''
+    ''' Given a list of feature IDs, returns a dictionary from FID to its amino acid sequence.
+
+        @note Features with no amino acid sequence are discarded.
+        @param List of feature IDs
+        @param config Dictionary of configuration variables
+        @return Dictionary keyed by feature ID of amino acid sequence for feature
+    '''
+
     cdmi = CDMI_API(config["cdmi_url"])
     fidlist = list(set(fidlist))
     start = 0
@@ -493,7 +519,12 @@ def fidsToSequences(fidlist, config):
     return seqs
 
 def genomesToPegs(genomes, config):
-    '''Given a list of genome IDs, returns a list of FIDs for protein-encoding genes in the specified genomes'''
+    ''' Given a list of genome IDs, returns a list of feature IDs for protein-encoding genes in the specified genomes.
+
+        @param genomes List of genome IDs
+        @param config Dictionary of configuration variables
+        @return List of feature IDs for protein-encoding genes in specified genomes
+    '''
 
     cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
     fiddict = cdmi_entity.get_relationship_IsOwnerOf(genomes, [], [], ["id", "feature_type"])
@@ -508,8 +539,12 @@ def genomesToPegs(genomes, config):
     return pegs
 
 def getOtuGenomeIds(count, config):
-    '''Query the CDMI for a list of OTU genomes (returns a list of OTUs and a list of only
-    prokaryote OTUs)'''
+    ''' Query the CDMI for a list of OTU genome IDs.
+
+        @param count Number of entities to retrieve in each function call
+        @param config Dictionary of configuration variables
+        @return List of all OTU genome IDs, list of only prokaryote OTUs
+    '''
 
     # Get the complete list of OTUs.
     cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
@@ -583,13 +618,16 @@ def getGenomeNeighborhoodsAndRoles(genomes, config):
     return tuplist, fidToRoles
 
 def complexRoleLinks(count, config):
+    ''' Query the CDM for a list of links from complexes to roles.
+
+        Only roles listed as "required" are included in the links.
+
+        @note OBSOLETE - will be replaced by Chris's roles_to_reactions() function
+        @param count Number of entities to retrieve in each function call
+        @param config Dictionary of configuration variables
+        @return Dictionary keyed by role of a list of complex IDs, dictionary keyed by
+            complex ID to a list of roles.
     '''
-    OBSOLETE - will be replaced by Chris's roles_to_reactions() function
-
-    Query the CDM for a list of links from complexes to roles. Returns a dictionary from
-    role to a list of complexes and a dictionary from complexes to a list of roles.
-
-    Only roles listed as "required" are included in the links.'''
 
     # Get a list of complexes
     cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
@@ -627,12 +665,13 @@ def complexRoleLinks(count, config):
     return complexToRequiredRoles, requiredRolesToComplex
 
 def reactionComplexLinks(count, config):
-    '''
-    OBSOLETE - will be replaced by Chris's roles_to_reactions() function
-    
-    Query the CDM for a list of links from reactions to complexes. Returns a dictionary
-    from reactions to lists of complexes performing them and from complexes to lists of reactions
-    they perform.
+    ''' Query the CDM for a list of links from reactions to complexes.
+
+        @note OBSOLETE - will be replaced by Chris's roles_to_reactions() function
+        @param count Number of entities to retrieve in each function call
+        @param config Dictionary of configuration variables
+        @return Dictionary keyed by reaction ID to lists of complexes performing them,
+            dictionary keyed by complex ID to list of reactions they perform.
     '''
 
     cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
@@ -669,4 +708,6 @@ def reactionComplexLinks(count, config):
     return rxnToComplex, complexToRxn
 
 def timestamp():
+    ''' Get the current time as a printable string. '''
+
     return '%s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))

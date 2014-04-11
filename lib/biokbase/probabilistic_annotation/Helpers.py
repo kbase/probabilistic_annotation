@@ -10,6 +10,13 @@ from ConfigParser import ConfigParser
 # Default URL for production server
 DefaultURL = 'https://kbase.us/services/probabilistic_annotation/'
 
+# Current version number of ProbAnno object
+ProbAnnoType = 'ProbabilisticAnnotation.ProbAnno-1.0'
+
+# Current version number of RxnProbs object
+RxnProbsType = 'ProbabilisticAnnotation.RxnProbs-1.0'
+
+
 ''' Get the current URL for the service.
 
     @returns Current URL string

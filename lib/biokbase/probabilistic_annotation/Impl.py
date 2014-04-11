@@ -7,7 +7,7 @@ import time
 from biokbase.probabilistic_annotation.DataExtractor import *
 from biokbase.probabilistic_annotation.DataParser import *
 from biokbase.probabilistic_annotation.Shock import Client as ShockClient
-from biokbase.probabilistic_annotation.Helpers import timestamp, make_object_identity, make_job_dir
+from biokbase.probabilistic_annotation.Helpers import timestamp, make_object_identity, make_job_directory, ProbAnnoType, RxnProbsType
 from biokbase.workspace.client import Workspace
 from biokbase.fbaModelServices.Client import *
 from biokbase.cdmi.client import CDMI_EntityAPI
@@ -17,26 +17,8 @@ from biokbase import log
 # Current version of service.
 VERSION = '1.1.0'
 
-# Current version number of ProbAnno object
-ProbAnnoType = 'ProbabilisticAnnotation.ProbAnno-1.0'
-
-# Current version number of RxnProbs object
-RxnProbsType = 'ProbabilisticAnnotation.RxnProbs-1.0'
-
 # Exception thrown when static database file is missing from Shock.
 class MissingFileError(Exception):
-    pass
-
-# Exception thrown when no features are found in Genome object
-class NoFeaturesError(Exception):
-    pass
-
-# Exception thrown when blast command failed
-class BlastError(Exception):
-    pass
-
-# Exception thrown when there are no gene IDs in Genome object
-class NoGeneIdsError(Exception):
     pass
 
 # Exception thrown when role not found in roleToTotalProb dictionary
@@ -650,16 +632,17 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         #BEGIN annotate
         ''' Compute probabilistic annotations from the specified genome object.
 
-        input is a dictionary that must contain the following keys:
-        genome: Name of genome object
-        genome_workspace: Workspace from which to grab the genome object
-        probanno: Name of probanno object to output
-        probanno_workspace: Workspace to which to save the probanno object
+            The input dictionary must contain the following keys:
+            genome: Name of genome object
+            genome_workspace: Workspace from which to grab the Genome object
+            probanno: Name of probanno object to output
+            probanno_workspace: Workspace to which to save the ProbAnno object
 
-        The following fields are optional:
-        verbose: Print lots of messages on the progress of the algorithm
+            The following keys are optional:
+            verbose: Print lots of messages on the progress of the algorithm
 
-        The function returns a job ID for the probanno calculation job.
+            @param input Dictionary with input parameters for function
+            @return Job ID of job started to compute annotation likelihoods
         '''
 
         input = self._checkInputArguments(input, 
@@ -687,7 +670,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         # Run the job on the local machine.
         if self.config["job_queue"] == "local":
             # Create working directory for job and build file names.
-            jobDirectory = self._makeJobDirectory(jobid, True)
+            jobDirectory = make_job_directory(self.config['work_folder_path'], jobid)
             jobDataFilename = os.path.join(jobDirectory, 'jobdata.json')
             outputFilename = os.path.join(jobDirectory, 'stdout.log')
             errorFilename = os.path.join(jobDirectory, 'stderr.log')
@@ -717,14 +700,19 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         #BEGIN calculate
         ''' Compute reaction probabilities from a probabilistic annotation.
 
-        input is a dictionary that must contain the following keys:
-        probanno: Name of probanno object to input
-        probanno_workspace: Workspace from which to grab the probanno object
-        rxnprobs: Name of reaction probability object
-        rxnprobs_workspace: Workspace to which to save the rxnprobs object
+            The input dictionary must contain the following keys:
+            probanno: Name of ProbAnno object to input
+            probanno_workspace: Workspace from which to grab the ProbAnno object
+            rxnprobs: Name of RxnProbs object
+            rxnprobs_workspace: Workspace to which to save the RxnProbs object
 
-        The following fields are optional:
-        verbose: Print lots of messages on the progress of the algorithm
+            The following keys are optional:
+            verbose: Print lots of messages on the progress of the algorithm
+            template_model: Name of TemplateModel object
+            template_model_workspace: Workspace from which to grab TemplateModel object
+
+            @param input Dictionary with input parameters for function
+            @return Object info for RxnProbs object
         '''
 
         # Sanity check on input arguments
@@ -843,6 +831,11 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         # self.ctx is set by the wsgi application class
         # return variables are: output
         #BEGIN get_rxnprobs
+        ''' Convert a reaction probability object into a human-readable table.
+
+            @param input Dictionary with input parameters for function
+            @return List of reaction_probability tuples
+        '''
 
         # Sanity check on input arguments
         input = self._checkInputArguments(input, 
@@ -871,6 +864,12 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         # self.ctx is set by the wsgi application class
         # return variables are: output
         #BEGIN get_probanno
+        ''' Convert a probabilistic annotation object into a human-readbable table.
+
+            @param input Dictionary with input parameters for function
+            @return Dictionary keyed by gene to a list of tuples with roleset and likelihood
+        '''
+
         input = self._checkInputArguments(input,
                                           ['probanno', 'probanno_workspace'],
                                           {}
