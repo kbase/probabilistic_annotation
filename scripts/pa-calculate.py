@@ -3,7 +3,7 @@ import traceback
 import sys
 from biokbase.probabilistic_annotation.Helpers import get_url
 from biokbase.probabilistic_annotation.Client import ProbabilisticAnnotation
-from biokbase.workspace.ScriptHelpers import user_workspace
+from biokbase.workspace.ScriptHelpers import user_workspace, printObjectInfo
 
 desc1 = '''
 NAME
@@ -81,10 +81,11 @@ if __name__ == "__main__":
         args.url = get_url()
     paClient = ProbabilisticAnnotation(url=args.url)
 
-    # Submit a job to annotate the specified genome.
+    # Calculate reaction probabilities from probabilistic annotation.
     try:
-        jobid = paClient.calculate(input)
-        # python version of print object info
+        objectInfo = paClient.calculate(input)
+        print 'RxnProbs successfully generated in workspace:'
+        printObjectInfo(objectInfo)
     except Exception as e:
         print 'Error calculating reaction probabilities: %s' %(e.message)
         if args.showError:
