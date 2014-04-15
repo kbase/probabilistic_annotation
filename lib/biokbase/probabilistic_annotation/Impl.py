@@ -64,12 +64,13 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
     def _checkInputArguments(self, input, requiredArgs, defaultArgDict):
         ''' Check that required input arguments are present and set defaults for non-required arguments.
         
-        input is a dictionary from option to value
-        requiredArgs is a list of required options in the input dict
-        defaultArgDict is a dictionary of default options.
+            If a key in defaultArgDict is not found in the input it is added with the
+            specified default value.
 
-        If a key in defaultArgDict is not found in the input it is added with the
-        specified default value.
+            @param input Dictionary keyed by argument name of argument values
+            @param requiredArgs List of required arguments in the input dictionary
+            @param defaultArgDict Dictionary keyed by argument name of default argument values
+            @return Dictionary keyed by argument name of argument values (including default arguments)
         '''
         if requiredArgs is not None:
             for arg in requiredArgs:
@@ -85,33 +86,37 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         return input
 
     def _rolesetProbabilitiesToRoleProbabilities(self, input, genome, queryToTuplist, workFolder):
-        '''Compute probability of each role from the rolesets for each query protein.
+        ''' Compute probability of each role from the rolesets for each query protein.
 
-        input: A list of input options
-        genome: A Genome object
-        queryToTuplist: A dictionary querygene -> [ (roleset, probability), ... ]
-        workFolder: A directory in which to save the results
+            At the moment the strategy is to take any set of rolestrings containing
+            the same roles and add their probabilities.  So if we have hits to both
+            a bifunctional enzyme with R1 and R2, and hits to a monofunctional enzyme
+            with only R1, R1 ends up with a greater probability than R2.
 
-        At the moment the strategy is to take any set of rolestrings containing the same roles
-        and add their probabilities.
-        So if we have hits to both a bifunctional enzyme with R1 and R2, and
-        hits to a monofunctional enzyme with only R1, R1 ends up with a greater
-        probability than R2.
-    
-        I had tried to normalize to the previous sum but I need to be more careful than that
-        (I'll put it on my TODO list) because if you have e.g.
-        one hit to R1R2 and one hit to R3 then the probability of R1 and R2 will be unfairly
-        brought down due to the normalization scheme...
-    
-        Returns a list of (querygene, role, probability) tuples'''
+            I had tried to normalize to the previous sum but I need to be more careful
+            than that (I'll put it on my TODO list) because if you have e.g. one hit
+            to R1R2 and one hit to R3 then the probability of R1 and R2 will be unfairly
+            brought down due to the normalization scheme.
+
+            @param input Dictionary of input parameters to calculate() function
+            @param genome Genome ID string
+            @param queryToTuplist Dictionary keyed by query gene of list of tuples with roleset and likelihood
+            @param workFolder Path to directory in which to store temporary files
+            @return List of tuples with query gene, role, and likelihood
+        '''
     
         if input["verbose"]:
             sys.stderr.write("%s: Started computing role probabilities from roleset probabilities\n" %(genome))
-    
-        roleProbs = []    
+
+        # Start with an empty list.
+        roleProbs = list()
+
+        # Iterate over all of the query genes in the dictionary.
+        # querygene -> [ (roleset1, likelihood_1), (roleset2, likelihood_2), ...]
         for query in queryToTuplist:
-            # This section actually does the conversion of probabilities.
-            queryRolesToProbs = {}
+            # This section actually does the conversion of likelihoods.
+            # See equation 3 in the paper.
+            queryRolesToProbs = dict()
             for tup in queryToTuplist[query]:
                 rolelist = tup[0].split(self.config["separator"])
                 # Add up all the instances of each particular role on the list.
@@ -138,34 +143,33 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             
         return roleProbs
     
-    # For now to get the probability I just assign this as the MAXIMUM for each role
-    # to avoid diluting out by noise.
-    #
-    # The gene assignments are all genes within DILUTION_PERCENT of the maximum...
-    #
     def _totalRoleProbabilities(self, input, genome, roleProbs, workFolder):
-        '''Given the probability that each gene has each role, estimate the probability that the entire ORGANISM has that role.
+        ''' Given the likelihood that each gene has each role, estimate the likelihood
+            that the entire ORGANISM has that role.
 
-        input: A list of input options
-        genome: A Genome object
-        roleProbs: A list of (gene, role, probability) tuples
-        
-        
-        To avoid exploding the probabilities with noise, I just take the maximum probability
-        of any query gene having a function and use that as the probability that the function
-        exists in the cell.
-    
-        Returns a file with three columns: each role, its probability, and the estimated set of genes
-        that perform that role. A gene is assigned to a role if it is within DILUTION_PERCENT
-        of the maximum probability. DILUTION_PERCENT can be adjusted in the config file.
+            To avoid exploding the likelihoods with noise, I just take the maximum
+            likelihood of any query gene having a function and use that as the
+            likelihood that the function exists in the cell.
+
+            A gene is assigned to a role if it is within DILUTION_PERCENT of the maximum
+            probability. DILUTION_PERCENT can be adjusted in the config file. For each
+            role the maximum likelihood and the estimated set of genes that perform that
+            role are linked with an OR relationship to form a Boolean Gene-Function
+            relationship.
+
+            @param input Dictionary of input parameters to calculate() function
+            @param genome Genome ID string
+            @param roleProbs List of tuples with query gene, role, and likelihood
+            @param workFolder Path to directory in which to store temporary files
+            @return List of tuples with role, likelihood, and estimated set of genes that perform the role
         '''
     
         if input["verbose"]:
             sys.stderr.write("%s: Started generating whole-cell role probability file\n" %(genome))        
     
-        # Compute maximum probability among all query genes for each role.
-        # This is assumed to be the probability of that role occuring in the organism as a whole.
-        roleToTotalProb = {}
+        # Find maximum likelihood among all query genes for each role.
+        # This is assumed to be the likelihood of that role occurring in the organism as a whole.
+        roleToTotalProb = dict()
         for tuple in roleProbs:
             if tuple[1] in roleToTotalProb:
                 if float(tuple[2]) > roleToTotalProb[tuple[1]]:
@@ -174,10 +178,11 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 roleToTotalProb[tuple[1]] = float(tuple[2])
     
         # Get the genes within DILUTION_PERCENT percent of the maximum
-        # probability and assert that these are the most likely genes responsible for that role.
+        # likelihood and assert that these are the most likely genes responsible for that role.
         # (note - DILUTION_PERCENT is defined in the config file)
         # This produces a dictionary from role to a list of genes
-        roleToGeneList = {}
+        # See equation 4 in the paper.
+        roleToGeneList = dict()
         for tuple in roleProbs:
             if tuple[1] not in roleToTotalProb:
                 raise RoleNotFoundError("Role %s not placed properly in roleToTotalProb dictionary?" %(tuple[1]))
@@ -188,7 +193,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                     roleToGeneList[tuple[1]] = [ tuple[0] ]
         
         # Build the array of total role probabilities.     
-        totalRoleProbs = []
+        totalRoleProbs = list()
         for role in roleToTotalProb:
             gpr = " or ".join(list(set(roleToGeneList[role])))
             # We only need to group these if there is more than one of them (avoids extra parenthesis when computing complexes)
@@ -210,27 +215,40 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         return totalRoleProbs
     
     def _complexProbabilities(self, input, genome, totalRoleProbs, workFolder, complexesToRequiredRoles = None):
-        '''Compute the probability of each complex from the probability of each role.
+        ''' Compute the likelihood of each protein complex from the likelihood of each role.
 
-        input is a dictionary of input parameters
-        genome is a genome object
-        totalRoleProbs is a list of (gene, role, probability) tuples
-        workFolder is a folder in which to save the results
-        complexesToRequiredRoles is a dictionary from complex to the roles involved in forming that complex. If it is None
-                                    we read it from the CDMI files we downloaded, otherwise we use the provided dictionary.
-                                    This is included for template model support in the future.
-    
-        The complex probability is computed as the minimum probability of roles within that complex (ignoring roles not represented in the subsystems).
+            A protein complex represents a set functional roles that must all be present
+            for a complex to exist.  The likelihood of the existence of a complex is
+            computed as the minimum likelihood of the roles within that complex (ignorning
+            roles not represented in the subsystems).
+
+            For each protein complex, the likelihood, type, list of roles not in the
+            organism, and list of roles not in subsystems is returned.  The type is a
+            string with one of the following values:
         
-        The output to this is a list of tuples with the following five fields (a file is printed with the same format if "debug" is specified as an input):
-        Complex   |   Probability   | Type   |  Roles_not_in_organism  |  Roles_not_in_subsystems
-        
-        Type is a string with one of the following values: 
-    
-        CPLX_FULL (all roles found and utilized in the complex)
-        CPLX_PARTIAL (only some roles found - only those roles that were found were utilized; does not distinguish between not there and no reps for those not found)
-        CPLX_NOTTHERE (Probability of 0 because the genes aren't there for any of the subunits)
-        CPLX_NOREPS (Probability of 0 because there are no representative genes in the subsystems for any of the subunits)
+            CPLX_FULL - All roles found in organism and utilized in the complex
+            CPLX_PARTIAL - Only some roles found in organism and only those roles that
+                were found were utilized. Note this does not distinguish between not
+                 there and not represented for roles that were not found
+            CPLX_NOTTHERE - Likelihood is 0 because the genes aren't there for any of
+                the subunits
+            CPLX_NOREPS - Likelihood is 0 because there are no representative genes in
+                the subsystems for any of the subunits
+            CPLX_NOREPS_AND_NOTTHERE - Likelihood is 0 because some genes aren't there
+                for any of the subunits and some genes have no representatives
+
+            @param input Dictionary of input parameters to calculate() function
+            @param genome Genome ID string
+            @param totalRoleProbs List of tuples with role, likelihood, and estimated set
+                of genes that perform the role
+            @param workFolder Path to directory in which to store temporary files
+            @param complexesToRequiredRoles Dictionary keyed by complex ID to the roles
+                involved in forming that complex. If it is None we read it from the CDMI
+                files we downloaded, otherwise we use the provided dictionary. This is
+                included for template model support in the future
+            @return List of tuples with complex ID, likelihood, type, list of roles not in
+                organism, list of roles not in subsystems, and boolean Gene-Protein
+                relationship
         '''
     
         if input["verbose"]:
@@ -247,23 +265,25 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             for role in otu_fidsToRoles[fid]:
                 allroles.add(role)
     
-        # 2: Read the total role --> probability file
-        rolesToProbabilities = {}
-        rolesToGeneList = {}
+        # Build two dictionaries, both keyed by role, one mapping the role to its
+        # likelihood and one mapping to the gene list.
+        rolesToProbabilities = dict()
+        rolesToGeneList = dict()
         for tuple in totalRoleProbs:
             rolesToProbabilities[tuple[0]] = float(tuple[1]) # can skip the float()?
             rolesToGeneList[tuple[0]] = tuple[2]
     
         # Iterate over complexes and compute complex probabilities from role probabilities.
-        # Separate out cases where no genes seem to exist in the organism for the reaction from cases
-        # where there is a database deficiency.
+        # Separate out cases where no genes seem to exist in the organism for the reaction
+        # from cases where there is a database deficiency.
+        # See equation 5 in the paper.
         SEPARATOR = self.config["separator"]
-        complexProbs = []
+        complexProbs = list()
         for cplx in complexesToRequiredRoles:
             allCplxRoles = complexesToRequiredRoles[cplx]
-            availRoles = [] # Roles that may have representatives in the query organism
-            unavailRoles = [] # Roles that have representatives but that are not apparently in the query organism
-            noexistRoles = [] # Roles with no representatives in the subsystems
+            availRoles = list() # Roles that may have representatives in the query organism
+            unavailRoles = list() # Roles that have representatives but that are not apparently in the query organism
+            noexistRoles = list() # Roles with no representatives in the subsystems
             for role in complexesToRequiredRoles[cplx]:
                 if role not in allroles:
                     noexistRoles.append(role)
@@ -292,6 +312,8 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             elif len(availRoles) < len(allCplxRoles):
                 TYPE = "CPLX_PARTIAL_%d_of_%d" %(len(availRoles), len(allCplxRoles))
 
+            # Link individual functions in complex with an AND relationship to form a
+            # Boolean Gene-Protein relationship.
 #            partialGprList = [ "(" + s + ")" for s in [ rolesToGeneList[f] for f in availRoles ] ]
             partialGprList = [ rolesToGeneList[f] for f in availRoles ]
             GPR = " and ".join( list(set(partialGprList)) )
@@ -299,14 +321,15 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             if GPR != "" and len(list(set(partialGprList))) > 1:
                 GPR = "(" + GPR + ")"
 
-            # Find the minimum probability of the different available roles (ignoring ones that are apparently missing)
-            # and call that the complex probability
+            # Find the minimum probability of the different available roles (ignoring ones
+            # that are apparently missing) and call that the complex likelihood.
             minp = 1000
             for role in availRoles:
                 if rolesToProbabilities[role] < minp:
                     minp = rolesToProbabilities[role]
             complexProbs.append( (cplx, minp, TYPE, self.config["separator"].join(unavailRoles), self.config["separator"].join(noexistRoles), GPR) )
-    
+
+        # Save the generated data when debug is turned on.
         if self.config["debug"]:
             complex_probability_file = os.path.join(workFolder, "%s.complexprob" %(genome))
             fid = open(complex_probability_file, "w")
@@ -319,42 +342,49 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         return complexProbs
     
     def _reactionProbabilities(self, input, genome, complexProbs, workFolder, rxnsToComplexes = None):
-        '''From the probability of complexes estimate the probability of reactions.
-    
-        The reaction probability is computed as the maximum probability of complexes that perform
-        that reaction.
-    
-        The output to this function is a list of tuples containing the following elements:
-        Reaction   |  Probability  |  RxnType  |  ComplexInfo | GPR
+        ''' Estimate the likelihood of reactions from the likelihood of complexes.
 
-        If the "debug" flag is set we also produce a file with these columns in the workFolder.
-    
-        If the reaction has no complexes it won't even be in this file becuase of the way
-        I set up the call... I could probably change this so that I get a list of ALL reactions
-        and make it easier to catch issues with reaction --> complex links in the database.
-        Some of the infrastructure is already there (with the TYPE).
-    
-        ComplexProbs is information about the complex IDs, their probabilities, and their TYPE
-        (see ComplexProbabilities)
+            The reaction likelihood is computed as the maximum likelihood of complexes
+            that perform that reaction.
 
-        rxnsToComplexes - this is None unless it is provided by Chris's function. Otherwise it is a
-        dictionary from reaction to a list of catalyzing complexes.
+            If the reaction has no complexes it won't even be in this file becuase of the way
+            I set up the call... I could probably change this so that I get a list of ALL reactions
+            and make it easier to catch issues with reaction --> complex links in the database.
+            Some of the infrastructure is already there (with the TYPE).
+
+            @param input Dictionary of input parameters to calculate() function
+            @param genome Genome ID string
+            @param complexProbs List of tuples with complex ID, likelihood, type, list of
+                roles not in organism, list of roles not in subsystems, and boolean
+                Gene-Protein relationship
+            @param workFolder Path to directory in which to store temporary files
+            @param rxnsToComplexes Dictionary keyed by reaction ID to a list of catalyzing
+                complexes. If it is None we read it from the CDMI files we downloaded,
+                otherwise we use the provided dictionary. This is included for template
+                model support in the future
+            @return List of tuples with reaction ID, likelihood, reaction type, complex info,
+                and gene-protein-reaction relationship
         '''
     
         if input["verbose"]:
             sys.stderr.write("%s: Started computing reaction probabilities\n" %(genome))
         
-        # Cplx --> {Probability, type, GPR}
-        cplxToTuple = {}
+        # Build a dictionary keyed by complex ID of tuples with likelihood, type, and GPR.
+        # Note we don't need to use the list of roles not in organism and list of roles
+        # not in subsystems.
+        # cplx --> {likelihood, type, GPR}
+        cplxToTuple = dict()
         for tuple in complexProbs:
             cplxToTuple[tuple[0]] = ( tuple[1], tuple[2], tuple[5] )
         
+        # Get the mapping from reactions to complexes if it isn't already provided.
         if rxnsToComplexes is None:
             rxnsToComplexes = readReactionComplex(self.config)
 
-        # Take the MAXIMUM probability of complexes catalyzing a particular reaction
-        # and call that the complex probability.
-        reactionProbs = []
+        # Take the MAXIMUM likelihood of complexes catalyzing a particular reaction
+        # and call that the reaction likelihood.
+        # See equation 6 in the paper.
+        reactionProbs = list()
         for rxn in rxnsToComplexes:
             TYPE = "NOCOMPLEXES"
             rxnComplexes = rxnsToComplexes[rxn]
@@ -370,8 +400,11 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                         maxp = cplxToTuple[cplx][0]
                         pass
                     pass
-            # Iterate separately to get a GPR. We want to apply a cutoff here too to avoid a complex with 80% probability being linked by OR to another with a 5% probability, for example...
-            # For now I've implemented using the same cutoff as we used for which genes go with a role.
+
+            # Iterate separately to get a GPR. We want to apply a cutoff here too to avoid
+            # a complex with 80% probability being linked by OR to another with a 5%
+            # probability.  For now I've implemented using the same cutoff as we used for
+            # which genes go with a role.
             cplxGprs = []
             for cplx in rxnComplexes:
                 if cplx in cplxToTuple:
@@ -381,9 +414,10 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             if len(cplxGprs) > 0:
                 GPR = " or ".join( list(set(cplxGprs)) )
 
-            # List so that we can modify the reaction IDs if needed to translate to ModelSEED IDs
+            # Use a list so that we can modify the reaction IDs if needed to translate to ModelSEED IDs
             reactionProbs.append( [rxn, maxp, TYPE, complexinfo, GPR] )
     
+        # Save the generated data when debug is turned on.
         if self.config["debug"]:
             reaction_probability_file = os.path.join(workFolder, "%s.rxnprobs" %(genome))
             fid = open(reaction_probability_file, "w")
@@ -516,7 +550,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 raise MissingFileError("Database file %s is not available from %s\n" %(DatabaseFiles[key], self.config["shock_url"]))
             node = nodelist[0]
             
-            # Downlaod the file if the checksum does not match or the file is not available on this system.
+            # Download the file if the checksum does not match or the file is not available on this system.
             localPath = os.path.join(self.config["data_folder_path"], DatabaseFiles[key])
             download = False
             if key in fileCache:
@@ -541,10 +575,10 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
     # be found
     def __init__(self, config):
         #BEGIN_CONSTRUCTOR
-        '''Constructor for ProbabilisticAnnotation object.
+        ''' Constructor for ProbabilisticAnnotation object.
 
-        config: Contents of a config file in a hash. The config file should look like the deploy.cfg file
-        but be in the location pointed to by KB_DEPLOYMENT_CONFIG
+            @param config Dictionary of configuration variables
+            @return Nothing
         '''
         if config == None:
             # There needs to be a config for the server to work.
