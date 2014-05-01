@@ -30,7 +30,6 @@ class TestPythonClient(unittest.TestCase):
         try:
             # See if the workspace exists.
             wsInfo = wsClient.get_workspace_info( { "workspace": self._config["test_ws"] } )
-
         except WorkspaceServerError as e:
             # Hopefully this means the workspace does not exist. (It could also mean someone messed up setting up the URLs)
             traceback.print_exc(file=sys.stderr)
@@ -84,8 +83,10 @@ class TestPythonClient(unittest.TestCase):
         self.assertTrue(jobCompleted, 'Job did not complete before timeout of %s seconds' %(self._config['runtime']))
         
         # See if the job ended in error.
-        print type(jobInfo[11])
-        self.assertEqual(jobInfo[11], '0', 'Job ended in error: '+ujsClient.get_detailed_error(jobInfo[0]))
+        details = ''
+        if jobInfo[11] == 1:
+            details = ujsClient.get_detailed_error(jobInfo[0])
+        self.assertEqual(jobInfo[11], 0, 'Job ended in error: %s' %(details))
 
         # Look for the ProbAnno object in the test workspace.
         wsClient = Workspace(self._config["workspace_url"], token=self._token)
