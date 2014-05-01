@@ -19,6 +19,7 @@ DatabaseFiles = {
     "subsystem_otu_index_file": "SUBSYSTEM_FASTA.pin",
     "subsystem_otu_sequence_file": "SUBSYSTEM_FASTA.psq",
     "subsystem_otu_header_file": "SUBSYSTEM_FASTA.phr",
+    "subsystem_udb_file": "SUBSYSTEM.udb",
     "complexes_roles_file": "COMPLEXES_ROLES",
     "reaction_complexes_file": "REACTIONS_COMPLEXES"
 }
@@ -294,17 +295,26 @@ def writeSubsystemFasta(fidsToSeqs, config):
     for fids in sorted(fidsToSeqs.keys()):
         fid.write(">%s\n%s\n" %(fids, fidsToSeqs[fids]))
     fid.close()
-    # Compile the BLAST database for the fasta file
-    args = ["/usr/bin/makeblastdb", "-in", filepath, "-dbtype", "prot"]
+
+    # Build the command based on the configured search program.
+    if config['search_program'] == 'usearch':
+        args = [ config['search_program_path'], '-makeudb_ublast', filepath, '-output', os.path.join(config['data_folder_path'], DatabaseFiles['subsystem_udb_file']) ]
+    else:
+        args = [ "/usr/bin/makeblastdb", "-in", filepath, "-dbtype", "prot" ]
+
+    # Run the command to compile the database from the subsystem fasta file.
     try:
-        retcode = subprocess.call(args)
-        if retcode < 0:
+        proc = subprocess.Popen(args, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        (stdout, stderr) = proc.communicate()
+        if proc.returncode < 0:
             cmd = ' '.join(args)
-            raise MakeblastdbError("'%s' was terminated by signal %d" %(cmd, -retcode))
+            raise MakeblastdbError("'%s' was terminated by signal %d" %(cmd, -proc.returncode))
         else:
-            if retcode > 0:
+            if proc.returncode > 0:
                 cmd = ' '.join(args)
-                raise MakeblastdbError("'%s' failed with status %d" %(cmd, retcode))
+                details = "'%s' failed with return code %d:\nCommand: '%s'\nStdout: '%s'\nStderr: '%s'" \
+                    %(args[0], proc.returncode, cmd, stdout, stderr)
+                raise MakeblastdbError(details)
     except OSError as e:
         cmd = ' '.join(args)
         raise MakeblastdbError("Failed to run '%s': %s" %(cmd, e.strerror))

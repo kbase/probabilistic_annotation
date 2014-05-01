@@ -10,6 +10,8 @@ import sys
 import os
 import shutil
 import traceback
+import time
+import math
 
 # Exception thrown when no features are found in Genome object
 class NoFeaturesError(Exception):
@@ -122,7 +124,7 @@ class ProbabilisticAnnotationWorker:
                 # I catch and log the exception here (since the user still gets the same result if the directory remains intact)
                 msg = 'Unable to delete temporary directory %s\n' %(workFolder)
                 sys.stderr.write('WARNING: '+msg)
-                self._log(log.WARN, msg)
+                self._log(log.WARNING, msg)
 
         return
         
@@ -174,20 +176,38 @@ class ProbabilisticAnnotationWorker:
         # Generate path to output file.  Output format 6 is tab-delimited format.
         blastResultFile = os.path.join(workFolder, "%s.blastout" %(input["genome"]))
 
-        args = [ "blastp", "-query", queryFile, 
-                 "-db", os.path.join(self.config["data_folder_path"], DatabaseFiles["subsystem_otu_fasta_file"]),
-                 "-outfmt", "6", "-evalue", "1E-5",
-                 "-num_threads", self.config["blast_threads"],
-                 "-out", blastResultFile ]
+        # Build the command based on the configured search program.
+        if self.config['search_program'] == 'usearch':
+            args = [ self.config['search_program_path'], '-ublast', queryFile,
+                     '-db', os.path.join(self.config["data_folder_path"], DatabaseFiles['subsystem_udb_file']),
+                     '-evalue', '1e-5',
+                     '-accel', '1.0',
+                     '-threads', self.config['blast_threads'],
+                     '-blast6out', blastResultFile ]
+        else:
+            args = [ self.config['search_program_path'], "-query", queryFile,
+                     "-db", os.path.join(self.config["data_folder_path"], DatabaseFiles["subsystem_otu_fasta_file"]),
+                     "-outfmt", "6", "-evalue", "1E-5",
+                     "-num_threads", self.config["blast_threads"],
+                     "-out", blastResultFile ]
+
+        # Run the command to search for proteins against subsystem proteins.
         cmd = ' '.join(args)
-        sys.stderr.write("Started BLAST with command: %s\n" %(cmd))
-        status = subprocess.call(args)
-        sys.stderr.write("Ended BLAST with command: %s\n" %(cmd))
-        if os.WIFEXITED(status):
-            if os.WEXITSTATUS(status) != 0:
-                raise BlastError("'%s' failed with status %d\n" %(cmd, os.WEXITSTATUS(status)))
-        if os.WIFSIGNALED(status):
-            raise BlastError("'%s' ended by signal %d\n" %(cmd, os.WTERMSIG(status)))
+        sys.stderr.write("Started search with command: %s\n" %(cmd))
+        try:
+            proc = subprocess.Popen(args, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+            (stdout, stderr) = proc.communicate()
+            if proc.returncode < 0:
+                raise BlastError("'%s' was terminated by signal %d" %(args[0], -proc.returncode))
+            else:
+                if proc.returncode > 0:
+                    details = "'%s' failed with return code %d\nCommand: '%s'\nStdout: '%s'\nStderr: '%s'" \
+                        %(args[0], proc.returncode, cmd, stdout, stderr)
+                    raise BlastError(details)
+        except OSError as e:
+            raise BlastError("Failed to run '%s': %s" %(args[0], e.strerror))
+        sys.stderr.write("Ended search with command: %s\n" %(cmd))
+
         return blastResultFile
     
     def _rolesetProbabilitiesMarble(self, input, blastResultFile, workFolder):
@@ -265,11 +285,16 @@ class ProbabilisticAnnotationWorker:
             denom = float(self.config["pseudo_count"]) * maxscore
             for stri in rolestringToScore:
                 denom += rolestringToScore[stri]
+            if math.isnan(denom):
+                print 'denom for %s is NaN' %(query)
 
             # The numerators are the sum of squares for each rolestring.
             # Calculate the likelihood for each rolestring and store in the output dictionary.
             for stri in rolestringToScore:
                 p = rolestringToScore[stri] / denom
+                if math.isnan(p):
+                    print 'likelihood for "%s" in gene "%s" is NaN %f' %(stri, query, rolestringToScore[stri])
+                    print rolestringToScore
                 if query in rolestringTuples:
                     rolestringTuples[query].append( (stri, p) )
                 else:
@@ -366,9 +391,10 @@ class ProbabilisticAnnotationWorker:
                 sys.stderr.write("done\n")
                 return objectInfo[0]
             except HTTPError as e:
-                # Hopefully this is just a temporary glitch, try again since we worked so hard to build the object.
+                # Hopefully this is just a temporary glitch, try again in a few seconds since we worked so hard to build the object.
                 retryCount -= 1
-                self._log(log.WARN, 'HTTP error %s when saving %s to workspace %s' %(e.reason, input['probanno'], input['probanno_workspace']))
+                self._log(log.WARNING, 'HTTP error %s when saving %s to workspace %s' %(e.reason, input['probanno'], input['probanno_workspace']))
+                time.sleep(15)
         
         # Saving the object failed so raise the last exception that was caught.
         raise e
@@ -388,8 +414,8 @@ class ProbabilisticAnnotationWorker:
                 call_id=True, config=os.getenv('KB_DEPLOYMENT_CONFIG'))
 
         # Log the message.
-        self.logger.log_message(level, message, self.context['client_ip'], self.context['user_id'], self.context['module'],
-                                self.context['method'], self.context['call_id'])
+        self.logger.log_message(level, message, self.ctx['client_ip'], self.ctx['user_id'], self.ctx['module'],
+                                self.ctx['method'], self.ctx['call_id'])
         return
 
     def __init__(self):
