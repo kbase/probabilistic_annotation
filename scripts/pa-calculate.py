@@ -68,7 +68,7 @@ if __name__ == "__main__":
     if args.probannows is None:
         input['probanno_workspace'] = user_workspace()
     else:
-        input['probanno_workpace'] = args.probannows
+        input['probanno_workspace'] = args.probannows
     if args.rxnprobsws is None:
         input['rxnprobs_workspace'] = user_workspace()
     else:
