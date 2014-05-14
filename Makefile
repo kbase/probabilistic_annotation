@@ -14,6 +14,8 @@ SERVICE_NAME=probabilistic_annotation
 SERV_SERVER_SPEC 	= ProbabilisticAnnotation.spec
 SERV_SERVER_MODULE 	= ${SERVICE_NAME}
 SERV_SERVICE 		= ${SERVICE_NAME}
+# this is the default url used by the client to contact the service
+DEFAULT_URL = http://kbase.us/services/probabilistic_annotation
 # the lib/ prefix is added automatically to this.
 SERV_PSGI_PATH 		= ${SERVICE_NAME}.psgi
 SERV_SERVICE_PORT 	= 7073
@@ -21,7 +23,8 @@ SERV_SERVICE_DIR = $(TARGET)/services/$(SERV_SERVICE)
 SERV_TPAGE = $(KB_RUNTIME)/bin/perl $(KB_RUNTIME)/bin/tpage
 # but the lib/ is NOT added automatically here.
 SERV_TPAGE_ARGS = --define kb_top=$(TARGET) --define kb_runtime=$(KB_RUNTIME) --define kb_service_name=$(SERV_SERVICE) \
-	--define kb_service_port=$(SERV_SERVICE_PORT) --define kb_service_psgi=lib/$(SERV_PSGI_PATH)
+	--define kb_service_port=$(SERV_SERVICE_PORT) --define kb_service_psgi=lib/$(SERV_PSGI_PATH) \
+	--define default_url=$(DEFAULT_URL)
 
 # This stuff is needed to properly implement the all target
 SRC_PYTHON = $(wildcard scripts/*.py)
@@ -30,7 +33,10 @@ BIN_PYTHON = $(addprefix $(BIN_DIR)/,$(basename $(notdir $(SRC_PYTHON))))
 SRC_PERL = $(wildcard scripts/*.pl)
 BIN_PERL = $(addprefix $(BIN_DIR)/,$(basename $(notdir $(SRC_PERL))))
 
-all: compile-typespec bin
+all: compile-typespec bin build-libs
+
+build-libs:
+	$(TPAGE) $(SERV_TPAGE_ARGS) lib/Bio/KBase/probabilistic_annotation/Constants.tt > lib/Bio/KBase/probabilistic_annotation/Constants.pm
 
 # Binaries (used when doing 'all')
 bin: $(BIN_PYTHON) $(BIN_PERL)
