@@ -251,10 +251,10 @@ class Workflow:
 
         # From looking at 4 organisms, you get the best accuracy by using a fairly high directionality penalty (8 or 12 as opposed to 4)
         # and a low to moderate transporter penalty (15 or 25). I use these since they also give good consistency with B subtilis knockout tests.
-        gapfillFormulation['directionpen'] = 12
-        gapfillFormulation['singletranspen'] = 25
-        gapfillFormulation['biomasstranspen'] = 25
-        gapfillFormulation['transpen'] = 25
+        gapfillFormulation['directionpen'] = self.args.directionPenalty
+        gapfillFormulation['singletranspen'] = self.args.transporterPenalty
+        gapfillFormulation['biomasstranspen'] = self.args.transporterPenalty
+        gapfillFormulation['transpen'] = self.args.transporterPenalty
 
         gapfillFormulation['allowedcmps'] = [ 'c', 'e', 'p' ]
         gapfillFormulation['nobiomasshyp'] = 1
@@ -1258,7 +1258,7 @@ if __name__ == "__main__":
            --iterative:            Perform iterative network-based gap filling workflow
            --iterative-likelihood: Perform iterative likelihood-based gap filling workflow
 
-           The only required inputs are genome and workspace. The genome is automatically loaded from the appropriate database (by defualt,
+           The only required inputs are genome and workspace. The genome is automatically loaded from the appropriate database (by default,
            this database is the PubSEED: http://pubseed.theseed.org) and then the chosen workflow (above) is run.
 
            If the workspace does not exist, you will get an error unless you specify --createws to attempt to create it first.
@@ -1276,7 +1276,7 @@ if __name__ == "__main__":
                --biologdata (name of PhenotypeSet object)
                --biologdataws (Optional: Name of workspace in which PhenotypeSet object is found)
 
-           By defualt when simulating Biolog data we try to add transporters for every media condition present in the 
+           By default when simulating Biolog data we try to add transporters for every media condition present in the
            biolog dataset. If you want to try to add transporters for ONLY positive-growth conditions (a form of data fitting),
            use --positiveTransportersOnly.
 
@@ -1311,6 +1311,8 @@ if __name__ == "__main__":
     parser.add_argument('--fba-url', help='URL for fba model service', action='store', dest='fbaurl', default='http://kbase.us/services/fba_model_services')
     parser.add_argument('--pa-url', help='URL for probabilistic annotation service', action='store', dest='paurl', default='http://kbase.us/services/probabilistic_annotation')
     parser.add_argument('--ujsurl', help='URL for user and job state service (needed to check probanno jobs)', action='store', dest='ujsurl', default='https://kbase.us/services/userandjobstate/')
+    parser.add_argument('--transporter-penalty', help='Penalty for all transport reactions', action='store', dest='transporterPenalty', type=int, default=25)
+    parser.add_argument('--direction-penalty', help='Penalty for reactions operating in wrong direction', action='store', dest='directionPenalty', type=int, default=12)
     args = parser.parse_args()
 
     if args.knockoutws is None:
