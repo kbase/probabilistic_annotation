@@ -388,18 +388,21 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         for rxn in rxnsToComplexes:
             TYPE = "NOCOMPLEXES"
             rxnComplexes = rxnsToComplexes[rxn]
-            complexinfo = ""
-            maxp = 0
+            maxProb = 0
             GPR = ""
+            complexList = list()
             for cplx in rxnComplexes:
                 if cplx in cplxToTuple:
                     # Complex1 (P1; TYPE1) ///Complex2 (P2; TYPE2) ...
-                    complexinfo = "%s%s%s (%1.4f; %s) " %(complexinfo, self.config["separator"], cplx, cplxToTuple[cplx][0], cplxToTuple[cplx][1])
-                    TYPE = "HASCOMPLEXES"
-                    if cplxToTuple[cplx][0] > maxp:
-                        maxp = cplxToTuple[cplx][0]
-                        pass
-                    pass
+                    complexList.append( [ cplx, cplxToTuple[cplx][0], cplxToTuple[cplx][1] ])
+                    TYPE = 'HASCOMPLEXES'
+            complexString = ''
+            if len(complexList) > 0:
+                complexList.sort(key=lambda tup: tup[1], reverse=True)
+                maxProb = complexList[0][1]
+                for complex in complexList:
+                    complexString += '%s (%1.4f; %s)%s' %(complex[0], complex[1], complex[2], self.config['separator'])
+                complexString = complexString[:-len(self.config['separator'])] # Remove the final separator
 
             # Iterate separately to get a GPR. We want to apply a cutoff here too to avoid
             # a complex with 80% probability being linked by OR to another with a 5%
@@ -408,14 +411,14 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             cplxGprs = []
             for cplx in rxnComplexes:
                 if cplx in cplxToTuple:
-                    if cplxToTuple[cplx][0] < maxp * float(self.config["dilution_percent"])/100.0:
+                    if cplxToTuple[cplx][0] < maxProb * float(self.config["dilution_percent"])/100.0:
                         continue
                     cplxGprs.append(cplxToTuple[cplx][2])
             if len(cplxGprs) > 0:
                 GPR = " or ".join( list(set(cplxGprs)) )
 
             # Use a list so that we can modify the reaction IDs if needed to translate to ModelSEED IDs
-            reactionProbs.append( [rxn, maxp, TYPE, complexinfo, GPR] )
+            reactionProbs.append( [rxn, maxProb, TYPE, complexString, GPR] )
     
         # Save the generated data when debug is turned on.
         if self.config["debug"]:
