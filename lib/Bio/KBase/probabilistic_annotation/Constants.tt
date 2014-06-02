@@ -1,0 +1,12 @@
+package Bio::KBase::probabilistic_annotation::Constants;
+
+use constant        defaultURL   => '[% default_url %]';
+
+
+use Exporter qw(import);
+our @EXPORT_OK = qw(defaultURL);
+our %EXPORT_TAGS = ( urls => [ 'defaultURL', ] );
+
+
+1;
+
