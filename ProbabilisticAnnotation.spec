@@ -195,17 +195,20 @@ module ProbabilisticAnnotation
 
     /*
         Inputs for get_rxnprobs function.
-	rxnprobs_id rxnprobs- ID for RxnProbs object in the workspace
-	workspace_id rxnprobs_workspace - ID for workspace in which RxnProbs object is held.
+
+		rxnprobs_id rxnprobs- ID for RxnProbs object in the workspace
+		workspace_id rxnprobs_workspace - ID for workspace in which RxnProbs object is held
+		int rxnprobs_version - Version number of RxnProbs object
     */
     typedef structure {
-	rxnprobs_id rxnprobs;
-	workspace_id rxnprobs_workspace;
+		rxnprobs_id rxnprobs;
+		workspace_id rxnprobs_workspace;
+		int rxnprobs_version;
     } GetRxnprobsParams;
 
     /*
         Output for get_rxnprobs function.
-	It is a list of tuples convenient for output as a table.
+		It is a list of tuples convenient for output as a table.
     */
     typedef list<reaction_probability> reaction_probability_list;
 
@@ -216,18 +219,21 @@ module ProbabilisticAnnotation
 
     /*
         Inputs for get_probanno function.
-	probanno_id probanno - ID for probanno object
-	workspace_id probanno_workspace - ID for workspace in which ProbAnno object is held.
+
+		probanno_id probanno - ID for ProbAnno object
+		workspace_id probanno_workspace - ID for workspace in which ProbAnno object is held
+		int probanno_version - Version number of ProbAnno object
     */
     typedef structure {
-	probanno_id probanno;
-	workspace_id probanno_workspace;
+		probanno_id probanno;
+		workspace_id probanno_workspace;
+		int probanno_version;
     } GetProbannoParams;
 
     /* 
         Output for get_probanno function.
-	It is a mapping from a feature (gene) ID to a list of (annotation, likelihood) tuples.
-	Annotations are roles separated by a "///" delimiter
+		It is a mapping from a feature (gene) ID to a list of (annotation, likelihood) tuples.
+		Annotations are roles separated by a "///" delimiter
     */
     typedef mapping<feature_id, list<function_probability>> roleset_probabilities;
     

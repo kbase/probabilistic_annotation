@@ -573,6 +573,8 @@ def writeStatusFile(config, status):
 
 ''' Check for existence of all of the database files.
 
+    @note I need to figure out a way to check for database files optionally based on which config values are set.
+
     @param data_folder_path Path to directory containing static database files
     @raise NotReadyError: A database file does not exist
     @returns Nothing

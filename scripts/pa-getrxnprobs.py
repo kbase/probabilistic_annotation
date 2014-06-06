@@ -22,6 +22,9 @@ DESCRIPTION
       RxnProbs object is stored.  By default, the user's current workspace as
       set by the ws-workspace command is used to find the object.
 
+      The --version optional argument specifies the version number of the
+      RxnProbs object.  By default, the latest version is used.
+
       The --url optional argument specifies an alternate URL for the service
       endpoint.
 
@@ -47,6 +50,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, prog='pa-getrxnprobs', epilog=desc3)
     parser.add_argument('rxnprobs', help='ID of RxnProbs object', action='store', default=None)
     parser.add_argument('-w', '--workspace', help='workspace where RxnProbs object is saved', action='store', dest='rxnprobsws', default=None)
+    parser.add_argument('-v', '--version', help='version number of RxnProbs object', action='store', dest='rxnprobsver', type=int, default=None)
     parser.add_argument('-u', '--url', help='url for service', action='store', dest='url', default=None)
     parser.add_argument('-e', '--show-error', help='show detailed information for an exception', action='store_true', dest='showError', default=False)
     usage = parser.format_usage()
@@ -61,6 +65,7 @@ if __name__ == "__main__":
         input['rxnprobs_workspace'] = user_workspace()
     else:
         input['rxnprobs_workspace'] = args.rxnprobsws
+    input['rxnprobs_version'] = args.rxnprobsver
                 
     # Create a probabilistic annotation client.
     if args.url is None:

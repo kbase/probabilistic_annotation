@@ -22,6 +22,9 @@ DESCRIPTION
       ProbAnno object is stored.  By default, the user's current workspace as
       set by the ws-workspace command is used to find the object.
 
+      The --version optional argument specifies the version number of the
+      ProbAnno object.  By default, the latest version is used.
+
       The --roles optional argument gets gene-role pairs instead where the
       probability of the role is computed as the sum of the probabilities of
       annotations containing it.
@@ -54,6 +57,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, prog='pa-getprobanno', epilog=desc3)
     parser.add_argument('probanno', help='ID of ProbAnno object', action='store', default=None)
     parser.add_argument('-w', '--workspace', help='workspace where ProbAnno object is saved', action='store', dest='probannows', default=None)
+    parser.add_argument('-v', '--version', help='version number of ProbAnno object', action='store', dest='probannover', type=int, default=None)
     parser.add_argument('-r', '--roles', help='Print role likelihoods instead of annotation likelihoods', action='store_true', dest='roles', default=False)
     parser.add_argument('-u', '--url', help='url for service', action='store', dest='url', default=None)
     parser.add_argument('-e', '--show-error', help='show detailed information for an exception', action='store_true', dest='showError', default=False)
@@ -69,6 +73,7 @@ if __name__ == "__main__":
         input['probanno_workspace'] = user_workspace()
     else:
         input['probanno_workspace'] = args.probannows
+    input['probanno_version'] = args.probannover
                 
     # Create a probabilistic annotation client.
     if args.url is None:
