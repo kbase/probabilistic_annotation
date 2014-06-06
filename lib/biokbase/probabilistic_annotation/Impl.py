@@ -4,6 +4,7 @@ import tempfile
 import os
 import traceback
 import time
+import re
 from biokbase.probabilistic_annotation.DataExtractor import *
 from biokbase.probabilistic_annotation.DataParser import *
 from biokbase.probabilistic_annotation.Shock import Client as ShockClient
@@ -12,6 +13,7 @@ from biokbase.workspace.client import Workspace
 from biokbase.fbaModelServices.Client import *
 from biokbase.cdmi.client import CDMI_EntityAPI
 from biokbase.userandjobstate.client import UserAndJobState
+from biokbase.fbaModelServices.Client import fbaModelServices
 from biokbase import log
 
 # Current version of service.
@@ -219,7 +221,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
 
             A protein complex represents a set functional roles that must all be present
             for a complex to exist.  The likelihood of the existence of a complex is
-            computed as the minimum likelihood of the roles within that complex (ignorning
+            computed as the minimum likelihood of the roles within that complex (ignoring
             roles not represented in the subsystems).
 
             For each protein complex, the likelihood, type, list of roles not in the
@@ -229,7 +231,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             CPLX_FULL - All roles found in organism and utilized in the complex
             CPLX_PARTIAL - Only some roles found in organism and only those roles that
                 were found were utilized. Note this does not distinguish between not
-                 there and not represented for roles that were not found
+                there and not represented for roles that were not found
             CPLX_NOTTHERE - Likelihood is 0 because the genes aren't there for any of
                 the subunits
             CPLX_NOREPS - Likelihood is 0 because there are no representative genes in
@@ -347,7 +349,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             The reaction likelihood is computed as the maximum likelihood of complexes
             that perform that reaction.
 
-            If the reaction has no complexes it won't even be in this file becuase of the way
+            If the reaction has no complexes it won't even be in this file because of the way
             I set up the call... I could probably change this so that I get a list of ALL reactions
             and make it easier to catch issues with reaction --> complex links in the database.
             Some of the infrastructure is already there (with the TYPE).
@@ -746,7 +748,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             The following keys are optional:
             verbose: Print lots of messages on the progress of the algorithm
             template_model: Name of TemplateModel object
-            template_model_workspace: Workspace from which to grab TemplateModel object
+            template_workspace: Workspace from which to grab TemplateModel object
 
             @param input Dictionary with input parameters for function
             @return Object info for RxnProbs object
@@ -757,9 +759,9 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                                           ["probanno", "probanno_workspace", "rxnprobs", "rxnprobs_workspace"], 
                                           { "verbose" : False ,
                                             "template_model" : None,
-                                            "template_model_workspace" : None
-                                            }
-                                          )
+                                            "template_workspace" : None
+                                          }
+                                         )
 
         # Make sure the static database files are ready.
         self._checkDatabaseFiles()
@@ -782,46 +784,75 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         else:
             workFolder = None
 
-        # TODO - When Chris's template model functions are ready, the function call and subsequent data manipulation to get the dictionaries
-        # we need will go here
-        if input["template_model"] is not None or input["template_model_workspace"] is not None:
-            if not(input["template_model"] is not None and input["template_model_workspace"] is not None) :
-                raise IOError("Template model workspace is required if template model ID is provided")
-            else:
-                raise NotImplementedError("Template model support is not yet implemented")
-        
+        # When a template model is specified, use it to build dictionaries for roles,
+        # complexes, and reactions instead of retrieving from static database files.
+        complexesToRoles = None
+        reactionsToComplexes = None
+        if input["template_model"] is not None or input["template_workspace"] is not None:
+            if not(input["template_model"] is not None and input["template_workspace"] is not None) :
+                raise ValueError("Template model workspace is required if template model ID is provided")
+
+            # Create a dictionary to map a complex to a list of roles and a dictionary
+            # to map a reaction to a list of complexes.  The dictionaries are specific to
+            # the specified template model instead of covering everything in the central
+            # data model.
+            complexesToRoles = dict()
+            reactionsToComplexes = dict()
+
+            # Get the list of RoleComplexReactions for the template model from the
+            # fba modeling service.  The RoleComplexReactions structure has a list
+            # of ComplexReactions structures for the given role.  And each ComplexReactions
+            # structure has a list of reactions for the given complex.
+            fbaClient = fbaModelServices(self.config['fbamodeling_url'], token=self.ctx['token'])
+            roleComplexReactionsList = fbaClient.role_to_reactions( { 'templateModel': input['template_model'], 'workspace': input['template_workspace'] } )
+
+            # Build the two dictionaries from the returned list.
+            for rcr in roleComplexReactionsList:
+                for complex in rcr['complexes']:
+                    complexId = re.sub(r'cpx0*(\d+)', r'kb|cpx.\1', complex['name']) # Convert ModelSEED format to KBase format
+                    if complexId in complexesToRoles:
+                        complexesToRoles[complexId].append(rcr['name'])
+                    else:
+                        complexesToRoles[complexId] = [ rcr['name'] ]
+                    for reaction in complex['reactions']:
+                        reactionId = reaction['reaction']
+                        if reactionId in reactionsToComplexes:
+                            reactionsToComplexes[reactionId].append(complexId)
+                        else:
+                            reactionsToComplexes[reactionId] = [ complexId ]
+
         # Calculate per-gene role probabilities.
         roleProbs = self._rolesetProbabilitiesToRoleProbabilities(input, genome, probannoObject["data"]["roleset_probabilities"], workFolder)
-    
+
         # Calculate whole cell role probabilities.
         # Note - eventually workFolder will be replaced with a rolesToReactions call
         totalRoleProbs = self._totalRoleProbabilities(input, genome, roleProbs, workFolder)
-        
-        # Calculate complex probabilities.
-        # NOTE - when we have a roles_to_reactions function (or a reactions_to_roles would probably be better...) we need to
-        # make a dictionary from complexes to their roles, and then call this function with a non-None value in
-        # complexesToRequiredRoles
-        complexProbs = self._complexProbabilities(input, genome, totalRoleProbs, workFolder, complexesToRequiredRoles = None)
-        
-        # Calculate reaction probabilities.
-        # NOTE - when we have a roles_to_reactions function (or a reactions_to_roles would probably be better...) we need to
-        # make a dictionary from reactions to their complexes, and then call this function with a non-None value in
-        # rxnsToComplexes.
-        reactionProbs = self._reactionProbabilities(input, genome, complexProbs, workFolder, rxnsToComplexes = None)
 
+        # Calculate complex probabilities.
+        complexProbs = self._complexProbabilities(input, genome, totalRoleProbs, workFolder, complexesToRequiredRoles = complexesToRoles)
+
+        # Calculate reaction probabilities.
+        reactionProbs = self._reactionProbabilities(input, genome, complexProbs, workFolder, rxnsToComplexes = reactionsToComplexes)
+
+        # If the reaction probabilities were not calculated using the data from the fba modeling service
+        # via the template model, we need to convert from the KBase ID format to the ModelSEED format.
         if input["template_model"] is None:
-            # Convert kb| IDs to modelSEED IDs
+            reactionList = list()
+            for index in range(len(reactionProbs)):
+                reactionList.append(reactionProbs[index][0])
             EntityAPI = CDMI_EntityAPI(self.config["cdmi_url"])
-            for ii in range(len(reactionProbs)):
-                rxnid = reactionProbs[ii][0]
-                done = False
-                while not done:
-                    try:
-                        rxndata = EntityAPI.get_entity_Reaction( [ rxnid ], [ "source_id" ] )
-                        done = True
-                    except HTTPError as e:
-                        pass
-                reactionProbs[ii][0] = rxndata[rxnid]["source_id"]
+            numAttempts = 4
+            while numAttempts > 0:
+                try:
+                    numAttempts -= 1
+                    reactionData = EntityAPI.get_entity_Reaction( reactionList, [ "source_id" ] )
+                    if len(reactionList) == len(reactionData):
+                        numAttempts = 0
+                except HTTPError as e:
+                    pass
+            for index in range(len(reactionProbs)):
+                rxnId = reactionProbs[index][0]
+                reactionProbs[index][0] = reactionData[rxnId]['source_id']
  
         # Create a reaction probability object
         objectData = dict()
@@ -831,10 +862,10 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             objectData['template_model'] = 'None'
         else:
             objectData["template_model"] = input["template_model"]
-        if input["template_model_workspace"] is None:
+        if input["template_workspace"] is None:
             objectData['template_workspace'] = 'None'
         else:
-            objectData["template_workspace"] = input["template_model_workspace"]
+            objectData["template_workspace"] = input["template_workspace"]
         objectData["probanno"] = input['probanno']
         objectData['probanno_workspace'] = input['probanno_workspace']
         objectData["id"] = input["rxnprobs"]
@@ -877,11 +908,11 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         # Sanity check on input arguments
         input = self._checkInputArguments(input, 
                                           [ "rxnprobs", "rxnprobs_workspace" ], 
-                                          {}
+                                          { 'rxnprobs_version': None }
                                           )
 
         wsClient = Workspace(self.config["workspace_url"], token=self.ctx['token'])
-        rxnProbsObjectId = make_object_identity(input["rxnprobs_workspace"], input["rxnprobs"])
+        rxnProbsObjectId = make_object_identity(input["rxnprobs_workspace"], input["rxnprobs"], input['rxnprobs_version'])
         objectList = wsClient.get_objects( [ rxnProbsObjectId ] )
         rxnProbsObject = objectList[0]
         if rxnProbsObject['info'][2] != RxnProbsType:
@@ -909,11 +940,11 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
 
         input = self._checkInputArguments(input,
                                           ['probanno', 'probanno_workspace'],
-                                          {}
+                                          { 'probanno_version': None }
                                           )
 
         wsClient = Workspace(self.config["workspace_url"], token=self.ctx['token'])
-        probAnnoObjectId = make_object_identity(input["probanno_workspace"], input["probanno"])
+        probAnnoObjectId = make_object_identity(input["probanno_workspace"], input["probanno"], input['probanno_version'])
         objectList = wsClient.get_objects( [ probAnnoObjectId ] )
         probAnnoObject = objectList[0]
         if probAnnoObject['info'][2] != ProbAnnoType:
