@@ -24,22 +24,22 @@ class TestCalculateScript(unittest.TestCase):
     def test_badOption(self):
         '''Run pa-calculate with a bad option and verify that the error message is returned.'''
         
-        args = [ self.cmd, "kb|g.8622", "--chia" ]
+        args = [ self.cmd, "kb|g.8622.probanno", "kb|g.8622.rxnprobs", "--chia" ]
         proc = subprocess.Popen(args, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         (so, se) = proc.communicate()
         self.assertNotEqual(proc.returncode, 0)
         self.assertEqual(so, '')
-        self.assertNotEqual(se.find("Unknown option:"), -1)
+        self.assertNotEqual(se.find("unrecognized arguments:"), -1)
 
     def test_missingOptionValue(self):
         '''Run pa-calculate with a missing option value and verify that the error message is returned.'''
         
-        args = [ self.cmd, "kb|g.8622", "--probannows" ]
+        args = [ self.cmd, "kb|g.8622.probanno", "kb|g.8622.rxnprobs", "--probannows" ]
         proc = subprocess.Popen(args, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         (so, se) = proc.communicate()
         self.assertNotEqual(proc.returncode, 0)
         self.assertEqual(so, '')
-        self.assertNotEqual(se.find("Option probannows requires an argument"), -1)
+        self.assertNotEqual(se.find("expected one argument"), -1)
 
     def test_missingArg(self):
         '''Run pa-calculate with a missing argument and verify that the error message is returned.'''
@@ -47,9 +47,9 @@ class TestCalculateScript(unittest.TestCase):
         args = [ self.cmd, "--probannows", "ProbAnnoTest" ]
         proc = subprocess.Popen(args, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         (so, se) = proc.communicate()
-        self.assertEqual(proc.returncode, 1)
+        self.assertEqual(proc.returncode, 2)
         self.assertEqual(so, '')
-        self.assertNotEqual(se.find("Required arguments are missing"), -1)
+        self.assertNotEqual(se.find("too few arguments"), -1)
 
 if __name__ == '__main__':
     unittest.main()

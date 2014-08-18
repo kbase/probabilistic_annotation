@@ -16,7 +16,7 @@ class TestUrlScript(unittest.TestCase):
         proc = subprocess.Popen(args, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         (so, se) = proc.communicate()
         self.assertEqual(proc.returncode, 0)
-        self.assertNotEqual(so.find("http://"), -1)
+        self.assertNotEqual(so.find("Current URL:"), -1)
         self.assertEqual(se, '')
         lines = so.split("\n")
         self.url = lines[1]
@@ -41,7 +41,7 @@ class TestUrlScript(unittest.TestCase):
         proc = subprocess.Popen(args, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         (so, se) = proc.communicate()
         self.assertEqual(proc.returncode, 0)
-        self.assertNotEqual(so.find("http://kbase.us/services/probabilistic_annotation/"), -1)
+        self.assertNotEqual(so.find("https://kbase.us/services/probabilistic_annotation/"), -1)
         self.assertEqual(se, '')
         
     def test_seturl(self):
@@ -51,8 +51,7 @@ class TestUrlScript(unittest.TestCase):
         proc = subprocess.Popen(args, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         (so, se) = proc.communicate()
         self.assertEqual(proc.returncode, 0)
-        lines = so.split("\n")
-        self.assertEqual(lines[1], self.config["probanno_url"])
+        self.assertNotEqual(so.find(self.config["probanno_url"]), -1)
         self.assertEqual(se, '')
         
     def test_badarg(self):
@@ -63,7 +62,7 @@ class TestUrlScript(unittest.TestCase):
         (so, se) = proc.communicate()
         self.assertNotEqual(proc.returncode, 0)
         self.assertEqual(so, '')
-        self.assertNotEqual(se.find("Unknown option:"), -1)
+        self.assertNotEqual(se.find("unrecognized arguments:"), -1)
 
 if __name__ == '__main__':
     unittest.main()

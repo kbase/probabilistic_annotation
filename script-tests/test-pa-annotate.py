@@ -33,7 +33,7 @@ class TestAnnotateScript(unittest.TestCase):
         (so, se) = proc.communicate()
         self.assertNotEqual(proc.returncode, 0)
         self.assertEqual(so, '')
-        self.assertNotEqual(se.find("Unknown option:"), -1)
+        self.assertNotEqual(se.find("unrecognized arguments:"), -1)
         
     def test_missingOptionValue(self):
         '''Run pa-annotate with a missing option value and verify that the error message is returned.'''
@@ -43,7 +43,7 @@ class TestAnnotateScript(unittest.TestCase):
         (so, se) = proc.communicate()
         self.assertNotEqual(proc.returncode, 0)
         self.assertEqual(so, '')
-        self.assertNotEqual(se.find("Option genomews requires an argument"), -1)
+        self.assertNotEqual(se.find("expected one argument"), -1)
         
     def test_missingArg(self):
         '''Run pa-annotate with a missing argument and verify that the error message is returned.'''
@@ -51,9 +51,9 @@ class TestAnnotateScript(unittest.TestCase):
         args = [ self.cmd, "kb|g.8622", "--genomews", "ProbAnnoTest" ]
         proc = subprocess.Popen(args, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         (so, se) = proc.communicate()
-        self.assertEqual(proc.returncode, 1)
+        self.assertEqual(proc.returncode, 2)
         self.assertEqual(so, '')
-        self.assertNotEqual(se.find("Required arguments are missing"), -1)
+        self.assertNotEqual(se.find("too few arguments"), -1)
 
 if __name__ == '__main__':
     # Since I can't get this from python I think...
