@@ -145,6 +145,11 @@ module ProbabilisticAnnotation
 	/* All functions require authentication. */
 	authentication required;
 
+	/*
+		Return the name and version number of the probabilistic annotation service.
+	*/
+	funcdef version() returns(tuple<string name, string ver>);
+
     /* Input parameters for the "annotate" function.
 
        genome_id genome - ID of Genome object
