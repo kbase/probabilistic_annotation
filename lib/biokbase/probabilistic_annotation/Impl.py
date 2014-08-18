@@ -17,7 +17,7 @@ from biokbase.fbaModelServices.Client import fbaModelServices
 from biokbase import log
 
 # Current version of service.
-VERSION = '1.1.0'
+SERVICE_VERSION = '1.1.0'
 
 # Exception thrown when static database file is missing from Shock.
 class MissingFileError(Exception):
@@ -610,7 +610,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         submod = os.environ.get('KB_SERVICE_NAME', 'probabilistic_annotation')
         mylog = log.log(submod, ip_address=True, authuser=True, module=True, method=True,
             call_id=True, config=os.getenv('KB_DEPLOYMENT_CONFIG'))
-        mylog.log_message(log.INFO, 'Server started, version is '+VERSION)
+        mylog.log_message(log.INFO, 'Server started, version is '+SERVICE_VERSION)
         configValues = 'shock_url='+self.config['shock_url']
         configValues += ', userandjobstate_url='+self.config['userandjobstate_url']
         configValues += ', workspace_url='+self.config['workspace_url']
@@ -664,6 +664,20 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             self.config['job_queue'] = 'local'
         #END_CONSTRUCTOR
         pass
+
+    def version(self):
+        # self.ctx is set by the wsgi application class
+        # return variables are: returnVal
+        #BEGIN version
+        returnVal = [ os.environ.get('KB_SERVICE_NAME'), SERVICE_VERSION ]
+        #END version
+
+        #At some point might do deeper type checking...
+        if not isinstance(returnVal, list):
+            raise ValueError('Method version return value ' +
+                             'returnVal is not type list as required.')
+        # return the results
+        return [returnVal]
 
     def annotate(self, input):
         # self.ctx is set by the wsgi application class
