@@ -7,7 +7,6 @@ import time
 import re
 from biokbase.probabilistic_annotation.DataExtractor import *
 from biokbase.probabilistic_annotation.DataParser import *
-from biokbase.probabilistic_annotation.Shock import Client as ShockClient
 from biokbase.probabilistic_annotation.Helpers import timestamp, make_object_identity, make_job_directory, ProbAnnoType, RxnProbsType
 from biokbase.workspace.client import Workspace
 from biokbase.fbaModelServices.Client import *
@@ -15,6 +14,7 @@ from biokbase.cdmi.client import CDMI_EntityAPI
 from biokbase.userandjobstate.client import UserAndJobState
 from biokbase.fbaModelServices.Client import fbaModelServices
 from biokbase import log
+from shock import Client as ShockClient
 
 # Current version of service.
 SERVICE_VERSION = '1.1.0'
@@ -567,11 +567,10 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         # See if the static database files on this system are up-to-date with files stored in Shock.
         for key in DatabaseFiles:
             # Get info about the file stored in Shock.
-            query = "lookupname=ProbAnnoData/"+DatabaseFiles[key]
-            nodelist = shockClient.query(query)
+            nodelist = shockClient.query_node( { 'lookupname': 'ProbAnnoData/'+DatabaseFiles[key] } )
             if len(nodelist) == 0:
                 message = "Database file %s is not available from %s\n" %(DatabaseFiles[key], self.config["shock_url"])
-                self.ctx.log_err(message)
+                self.mylog.log_message(log.ERR, message)
                 raise MissingFileError(message)
             node = nodelist[0]
             
@@ -589,7 +588,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 sys.stderr.write("Downloading %s to %s\n" %(key, localPath))
                 shockClient.download_to_path(node["id"], localPath)
                 fileCache[key] = node
-                self.ctx.log_info('Downloaded %s to %s' %(key, localPath))
+                self.mylog.log_message(log.INFO, 'Downloaded %s to %s' %(key, localPath))
                 
         # Save the updated cache file.
         json.dump(fileCache, open(cacheFilename, "w"), indent=4)
@@ -626,9 +625,9 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 self.config["debug"] = False
             
         submod = os.environ.get('KB_SERVICE_NAME', 'probabilistic_annotation')
-        mylog = log.log(submod, ip_address=True, authuser=True, module=True, method=True,
+        self.mylog = log.log(submod, ip_address=True, authuser=True, module=True, method=True,
             call_id=True, config=os.getenv('KB_DEPLOYMENT_CONFIG'))
-        mylog.log_message(log.INFO, 'Server started, version is '+SERVICE_VERSION)
+        self.mylog.log_message(log.INFO, 'Server started, version is '+SERVICE_VERSION)
         configValues = 'shock_url='+self.config['shock_url']
         configValues += ', userandjobstate_url='+self.config['userandjobstate_url']
         configValues += ', workspace_url='+self.config['workspace_url']
@@ -641,7 +640,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         configValues += ', pseudo_count='+self.config['pseudo_count']
         configValues += ', job_queue='+self.config['job_queue']
         configValues += ', blast_threads='+self.config['blast_threads']
-        mylog.log_message(log.INFO, configValues)
+        self.mylog.log_message(log.INFO, configValues)
 
         # Create the data folder if it does not exist.
         if not os.path.exists(self.config["data_folder_path"]):
@@ -655,10 +654,10 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 self._loadDatabaseFiles()
                 status = "ready"
                 sys.stderr.write("All static database files loaded from Shock.\n")
-                mylog.log_message(log.INFO, 'All static database files loaded from Shock')
+                self.mylog.log_message(log.INFO, 'All static database files loaded from Shock')
             except:
                 sys.stderr.write("WARNING: Failed to load static database files from Shock. Checking current files but they might not be the latest!\n")
-                mylog.log_message(log.NOTICE, 'Failed to load static database files from Shock. Checking current files...')
+                self.mylog.log_message(log.NOTICE, 'Failed to load static database files from Shock. Checking current files...')
                 traceback.print_exc(file=sys.stderr)
                 self.config["load_data_option"] = "preload"
         if self.config["load_data_option"] == "preload":
@@ -666,19 +665,19 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 checkIfDatabaseFilesExist(self.config['data_folder_path'])
                 status = "ready"
                 sys.stderr.write("All static database files are available.\n")
-                mylog.log_message(log.INFO, 'All static database files are available')
+                self.mylog.log_message(log.INFO, 'All static database files are available')
             except:
                 status = "ready"
                 self.config['data_folder_path'] = os.path.join(os.environ['KB_SERVICE_DIR'], 'testdata')
                 sys.stderr.write("WARNING: Static database files are missing.  Switched to test database files.\n")
-                mylog.log_message(log.NOTICE, 'Static database files are missing.  Switched to test database files')
+                self.mylog.log_message(log.NOTICE, 'Static database files are missing.  Switched to test database files')
                 traceback.print_exc(file=sys.stderr)
         writeStatusFile(self.config, status)
 
         # Validate the value of the job_queue variable.  Currently the only supported value is 'local'.
         # Force it to a valid value to avoid an error trying to submit a job later.
         if self.config['job_queue'] != 'local':
-            mylog.log_message(log.NOTICE, 'Configuration variable job_queue='+self.config['job_queue']+' switched to local')
+            self.mylog.log_message(log.NOTICE, 'Configuration variable job_queue='+self.config['job_queue']+' switched to local')
             self.config['job_queue'] = 'local'
         #END_CONSTRUCTOR
         pass
