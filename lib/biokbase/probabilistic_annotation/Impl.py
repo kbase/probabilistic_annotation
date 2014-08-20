@@ -73,11 +73,14 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             @param requiredArgs List of required arguments in the input dictionary
             @param defaultArgDict Dictionary keyed by argument name of default argument values
             @return Dictionary keyed by argument name of argument values (including default arguments)
+            @raise ValueError when required argument is not found
         '''
         if requiredArgs is not None:
             for arg in requiredArgs:
                 if arg not in input:
-                    raise IOError("Required argument %s not found" %(arg) )
+                    message = "Required argument %s not found" %(arg)
+                    self.ctx.log_err(message)
+                    raise ValueError(message)
         if defaultArgDict is not None:
             for arg in defaultArgDict:
                 if arg in input:
@@ -164,6 +167,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             @param roleProbs List of tuples with query gene, role, and likelihood
             @param workFolder Path to directory in which to store temporary files
             @return List of tuples with role, likelihood, and estimated set of genes that perform the role
+            @raise RoleNotFoundError when role is not placed properly in roleToTotalProb dictionary
         '''
     
         if input["verbose"]:
@@ -187,7 +191,9 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         roleToGeneList = dict()
         for tuple in roleProbs:
             if tuple[1] not in roleToTotalProb:
-                raise RoleNotFoundError("Role %s not placed properly in roleToTotalProb dictionary?" %(tuple[1]))
+                message = "Role %s not placed properly in roleToTotalProb dictionary?" %(tuple[1])
+                self.ctx.log_err(message)
+                raise RoleNotFoundError(message)
             if float(tuple[2]) >= float(self.config["dilution_percent"])/100.0 * roleToTotalProb[tuple[1]]:
                 if tuple[1] in roleToGeneList:
                     roleToGeneList[tuple[1]].append(tuple[0])
@@ -518,22 +524,34 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         return True
     
     def _checkDatabaseFiles(self):
-        '''Check the status of the static database files.
+        ''' Check the status of the static database files.
 
-        Raises NotReadyError if the database has not been loaded correctly.
+            @return Nothing
+            @raise NotReadyError if the database has not been loaded correctly.
         '''
         try:
             status = readStatusFile(self.config)
             if status != "ready":
-                raise NotReadyError("Static database files are not ready.  Current status is '%s'." %(status))
+                message = "Static database files are not ready.  Current status is '%s'." %(status)
+                self.ctx.log_err(message)
+                raise NotReadyError(message)
         except IOError:
             statusFilePath = os.path.join(self.config["data_folder_path"], StatusFiles["status_file"])
-            raise NotReadyError("Static database files are not ready.  Failed to open status file '%s'." %(statusFilePath))
+            message = "Static database files are not ready.  Failed to open status file '%s'." %(statusFilePath)
+            self.ctx.log_err(message)
+            raise NotReadyError(message)
+        return
 
     def _loadDatabaseFiles(self):
-        '''Load the static database files from Shock.
+        ''' Load the static database files from Shock.
 
-        Reads the location of the static files from the deployment config file.
+            The static database files are stored in the directory specified by the
+            data_folder_path configuration variable.  A file is only downloaded if
+            the file is not available on this system or the file has been updated
+            in Shock.
+
+            @return Nothing
+            @raise MissingFileError when database file is not found in Shock
         '''
         
         # Get the current info about the static database files from the cache file.
@@ -552,7 +570,9 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             query = "lookupname=ProbAnnoData/"+DatabaseFiles[key]
             nodelist = shockClient.query(query)
             if len(nodelist) == 0:
-                raise MissingFileError("Database file %s is not available from %s\n" %(DatabaseFiles[key], self.config["shock_url"]))
+                message = "Database file %s is not available from %s\n" %(DatabaseFiles[key], self.config["shock_url"])
+                self.ctx.log_err(message)
+                raise MissingFileError(message)
             node = nodelist[0]
             
             # Download the file if the checksum does not match or the file is not available on this system.
@@ -569,6 +589,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 sys.stderr.write("Downloading %s to %s\n" %(key, localPath))
                 shockClient.download_to_path(node["id"], localPath)
                 fileCache[key] = node
+                self.ctx.log_info('Downloaded %s to %s' %(key, localPath))
                 
         # Save the updated cache file.
         json.dump(fileCache, open(cacheFilename, "w"), indent=4)
@@ -584,6 +605,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
 
             @param config Dictionary of configuration variables
             @return Nothing
+            @raise ValueError when a valid configuration was not provided
         '''
         if config == None:
             # There needs to be a config for the server to work.
@@ -591,10 +613,6 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         else:
             self.config = config
         
-        # Just return when instantiated to run a job.
-        if self.config["load_data_option"] == "runjob":
-            return
-
         # Convert flag to boolean value (a number greater than zero or the string 'True' turns the flag on).
         if self.config["debug"].isdigit():
             if int(self.config["debug"]) > 0:
@@ -669,6 +687,11 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         # self.ctx is set by the wsgi application class
         # return variables are: returnVal
         #BEGIN version
+        ''' Return the name and version number of the service.
+
+            @return List with service name string and version number string
+        '''
+
         returnVal = [ os.environ.get('KB_SERVICE_NAME'), SERVICE_VERSION ]
         #END version
 
@@ -766,6 +789,8 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
 
             @param input Dictionary with input parameters for function
             @return Object info for RxnProbs object
+            @raise WrongVersionError when ProbAnno object version number is invalid
+            @raise ValueError when template_workspace input argument is not specified
         '''
 
         # Sanity check on input arguments
@@ -788,8 +813,9 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         objectList = wsClient.get_objects( [ probannoObjectId ] )
         probannoObject = objectList[0]
         if probannoObject['info'][2] != ProbAnnoType:
-             raise WrongVersionError("ProbAnno object type %s is not %s for object %s"
-                                     %(probannoObject['info'][2], ProbAnnoType, probannoObject['info'][1]))
+            message = "ProbAnno object type %s is not %s for object %s" %(probannoObject['info'][2], ProbAnnoType, probannoObject['info'][1])
+            self.ctx.log_err(message)
+            raise WrongVersionError(message)
         genome = probannoObject["data"]["genome"]
         
         # Create a temporary directory for storing intermediate files. Only used when debug flag is on.
@@ -804,7 +830,9 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         reactionsToComplexes = None
         if input["template_model"] is not None or input["template_workspace"] is not None:
             if not(input["template_model"] is not None and input["template_workspace"] is not None) :
-                raise ValueError("Template model workspace is required if template model ID is provided")
+                message = "Template model workspace is required if template model ID is provided"
+                self.ctx.log_err(message)
+                raise ValueError(message)
 
             # Create a dictionary to map a complex to a list of roles and a dictionary
             # to map a reaction to a list of complexes.  The dictionaries are specific to
@@ -917,6 +945,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
 
             @param input Dictionary with input parameters for function
             @return List of reaction_probability tuples
+            @raise WrongVersionError when RxnProbs object version number is invalid
         '''
 
         # Sanity check on input arguments
@@ -930,8 +959,9 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         objectList = wsClient.get_objects( [ rxnProbsObjectId ] )
         rxnProbsObject = objectList[0]
         if rxnProbsObject['info'][2] != RxnProbsType:
-            raise WrongVersionError('RxnProbs object type %s is not %s for object %s'
-                                    %(rxnProbsObject['info'][2], RxnProbsType, rxnProbsObject['info'][1]))
+            message = 'RxnProbs object type %s is not %s for object %s' %(rxnProbsObject['info'][2], RxnProbsType, rxnProbsObject['info'][1])
+            self.ctx.log_err(message)
+            raise WrongVersionError(message)
         output = rxnProbsObject["data"]["reaction_probabilities"]
         #END get_rxnprobs
 
@@ -950,6 +980,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
 
             @param input Dictionary with input parameters for function
             @return Dictionary keyed by gene to a list of tuples with roleset and likelihood
+            @raise WrongVersionError when ProbAnno object version number is invalid
         '''
 
         input = self._checkInputArguments(input,
@@ -962,8 +993,9 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         objectList = wsClient.get_objects( [ probAnnoObjectId ] )
         probAnnoObject = objectList[0]
         if probAnnoObject['info'][2] != ProbAnnoType:
-            raise WrongVersionError('ProbAnno object type %s is not %s for object %s'
-                                    %(probAnnoObject['info'][2], ProbAnnoType, probAnnoObject['info'][1]))            
+            message = 'ProbAnno object type %s is not %s for object %s' %(probAnnoObject['info'][2], ProbAnnoType, probAnnoObject['info'][1])
+            self.ctx.log_err(message)
+            raise WrongVersionError(message)
         output = probAnnoObject["data"]["roleset_probabilities"]
 
         #END get_probanno
