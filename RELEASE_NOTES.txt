@@ -16,6 +16,13 @@ UPDATED FEATURES / MAJOR BUG FIXES:
   to specify the version of the object to retrieve
 - Enabled support for template models in calculate() method
 - Improved performance of calculate() method when a template model is not specified
+- Changed complex string in RxnProbs object to be sorted by probability
+- Updated pa-url command to check version of endpoint
+- Updated pa-gendata command with faster OTU filtering and better messages
+- Converted all command scripts to Python
+- Added support for different protein search programs
+- Internal restructuring for using other job queues
+- Added logging to server
 
 ANTICIPATED FUTURE DEVELOPMENTS:
 - None
