@@ -5,8 +5,7 @@ import os
 import traceback
 import time
 import re
-from biokbase.probabilistic_annotation.DataExtractor import *
-from biokbase.probabilistic_annotation.DataParser import *
+from biokbase.probabilistic_annotation.DataParser import DataParser, NotReadyError
 from biokbase.probabilistic_annotation.Helpers import timestamp, make_object_identity, make_job_directory, ProbAnnoType, RxnProbsType
 from biokbase.workspace.client import Workspace
 from biokbase.fbaModelServices.Client import *
@@ -14,7 +13,6 @@ from biokbase.cdmi.client import CDMI_EntityAPI
 from biokbase.userandjobstate.client import UserAndJobState
 from biokbase.fbaModelServices.Client import fbaModelServices
 from biokbase import log
-from shock import Client as ShockClient
 
 # Current version of service.
 SERVICE_VERSION = '1.1.0'
@@ -264,10 +262,10 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
     
         # Get the mapping from complexes to roles if it isn't already provided.
         if complexesToRequiredRoles is None:
-            complexesToRequiredRoles = readComplexRoles(self.config)
+            complexesToRequiredRoles = self.dataParser.readComplexRoles()
         
         # Get the subsystem roles (used to distinguish between NOTTHERE and NOREPS).
-        otu_fidsToRoles, otu_rolesToFids  = readFilteredOtuRoles(self.config)
+        otu_fidsToRoles, otu_rolesToFids = self.dataParser.readFilteredOtuRoles()
         allroles = set()
         for fid in otu_fidsToRoles:
             for role in otu_fidsToRoles[fid]:
@@ -387,7 +385,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         
         # Get the mapping from reactions to complexes if it isn't already provided.
         if rxnsToComplexes is None:
-            rxnsToComplexes = readReactionComplex(self.config)
+            rxnsToComplexes = self.dataParser.readReactionComplex()
 
         # Take the MAXIMUM likelihood of complexes catalyzing a particular reaction
         # and call that the reaction likelihood.
@@ -530,70 +528,17 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             @raise NotReadyError if the database has not been loaded correctly.
         '''
         try:
-            status = readStatusFile(self.config)
+            status = self.dataParser.readStatusFile()
             if status != "ready":
                 message = "Static database files are not ready.  Current status is '%s'." %(status)
                 self.ctx.log_err(message)
                 raise NotReadyError(message)
         except IOError:
-            statusFilePath = os.path.join(self.config["data_folder_path"], StatusFiles["status_file"])
-            message = "Static database files are not ready.  Failed to open status file '%s'." %(statusFilePath)
+            message = "Static database files are not ready.  Failed to open status file '%s'." %(self.dataParser.StatusFiles['status_file'])
             self.ctx.log_err(message)
             raise NotReadyError(message)
         return
 
-    def _loadDatabaseFiles(self):
-        ''' Load the static database files from Shock.
-
-            The static database files are stored in the directory specified by the
-            data_folder_path configuration variable.  A file is only downloaded if
-            the file is not available on this system or the file has been updated
-            in Shock.
-
-            @return Nothing
-            @raise MissingFileError when database file is not found in Shock
-        '''
-        
-        # Get the current info about the static database files from the cache file.
-        cacheFilename = os.path.join(self.config["data_folder_path"], StatusFiles["cache_file"])
-        if os.path.exists(cacheFilename):
-            fileCache = json.load(open(cacheFilename, "r"))
-        else:
-            fileCache = { }
-        
-        # Create a shock client.
-        shockClient = ShockClient(self.config["shock_url"])
-
-        # See if the static database files on this system are up-to-date with files stored in Shock.
-        for key in DatabaseFiles:
-            # Get info about the file stored in Shock.
-            nodelist = shockClient.query_node( { 'lookupname': 'ProbAnnoData/'+DatabaseFiles[key] } )
-            if len(nodelist) == 0:
-                message = "Database file %s is not available from %s\n" %(DatabaseFiles[key], self.config["shock_url"])
-                self.mylog.log_message(log.ERR, message)
-                raise MissingFileError(message)
-            node = nodelist[0]
-            
-            # Download the file if the checksum does not match or the file is not available on this system.
-            localPath = os.path.join(self.config["data_folder_path"], DatabaseFiles[key])
-            download = False
-            if key in fileCache:
-                if node["file"]["checksum"]["sha1"] != fileCache[key]["file"]["checksum"]["sha1"]:
-                    download = True
-            else:
-                download = True
-            if os.path.exists(localPath) == False:
-                download = True
-            if download:
-                sys.stderr.write("Downloading %s to %s\n" %(key, localPath))
-                shockClient.download_to_path(node["id"], localPath)
-                fileCache[key] = node
-                self.mylog.log_message(log.INFO, 'Downloaded %s to %s' %(key, localPath))
-                
-        # Save the updated cache file.
-        json.dump(fileCache, open(cacheFilename, "w"), indent=4)
-        return
-     
     #END_CLASS_HEADER
 
     # config contains contents of config file in a hash or None if it couldn't
@@ -646,12 +591,15 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         if not os.path.exists(self.config["data_folder_path"]):
             os.makedirs(self.config["data_folder_path"], 0775)
 
+        # Create a DataParser object for working with the static database files.
+        self.dataParser = DataParser(self.config)
+
         # See if the static database files are available.
-        writeStatusFile(self.config, "running")
+        self.dataParser.writeStatusFile('running')
         status = 'failed'
         if self.config["load_data_option"] == "shock":
             try:
-                self._loadDatabaseFiles()
+                self.dataParser.loadDatabaseFiles(self.config['shock_url'], self.mylog)
                 status = "ready"
                 sys.stderr.write("All static database files loaded from Shock.\n")
                 self.mylog.log_message(log.INFO, 'All static database files loaded from Shock')
@@ -662,7 +610,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 self.config["load_data_option"] = "preload"
         if self.config["load_data_option"] == "preload":
             try:
-                checkIfDatabaseFilesExist(self.config['data_folder_path'])
+                self.dataParser.checkIfDatabaseFilesExist()
                 status = "ready"
                 sys.stderr.write("All static database files are available.\n")
                 self.mylog.log_message(log.INFO, 'All static database files are available')
@@ -672,7 +620,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 sys.stderr.write("WARNING: Static database files are missing.  Switched to test database files.\n")
                 self.mylog.log_message(log.NOTICE, 'Static database files are missing.  Switched to test database files')
                 traceback.print_exc(file=sys.stderr)
-        writeStatusFile(self.config, status)
+        self.dataParser.writeStatusFile(status)
 
         # Validate the value of the job_queue variable.  Currently the only supported value is 'local'.
         # Force it to a valid value to avoid an error trying to submit a job later.
@@ -819,7 +767,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         
         # Create a temporary directory for storing intermediate files. Only used when debug flag is on.
         if self.config["debug"]:
-            workFolder = tempfile.mkdtemp("", "%s-" %(genome), self.config["work_folder_path"])
+            workFolder = tempfile.mkdtemp("", "calculate-%s-" %(genome), self.config["work_folder_path"])
         else:
             workFolder = None
 
