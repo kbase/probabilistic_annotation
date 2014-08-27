@@ -10,13 +10,13 @@ from biokbase.workspace.client import ServerError as WorkspaceServerError
 from biokbase.fbaModelServices.Client import fbaModelServices
 from biokbase.userandjobstate.client import UserAndJobState, ServerError as JobStateServerError
 from biokbase.probabilistic_annotation.Client import ProbabilisticAnnotation
-from biokbase.probabilistic_annotation.DataParser import getConfig
+from biokbase.probabilistic_annotation.Helpers import get_config
 
 class TestPythonClient(unittest.TestCase):    
 
     def setUp(self):
         # Set configuration variables.
-        self._config = getConfig(os.environ["KB_TEST_CONFIG"])
+        self._config = get_config(os.environ["KB_TEST_CONFIG"])
 
         # Get an authorization token for the test user.
         wsClient = Workspace(self._config["workspace_url"], user_id=self._config["test_user"], password=self._config["test_pwd"])

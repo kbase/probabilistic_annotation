@@ -1,6 +1,6 @@
 
 from biokbase.probabilistic_annotation.Helpers import make_object_identity, make_job_directory, timestamp, ProbAnnoType
-from biokbase.probabilistic_annotation.DataParser import checkIfDatabaseFilesExist, DatabaseFiles, readFilteredOtuRoles, parseBlastOutput, readFilteredOtuRoles
+from biokbase.probabilistic_annotation.DataParser import DataParser
 from biokbase.userandjobstate.client import UserAndJobState
 from biokbase.workspace.client import Workspace
 from biokbase import log
@@ -53,11 +53,14 @@ class ProbabilisticAnnotationWorker:
         self.ctx = job["context"]
         self.config = job['config']
 
+        # Create a DataParser object for working with the static database files.
+        self.dataParser = DataParser(self.config)
+
         status = None
 
         try:
             # Make sure the database files are available.
-            checkIfDatabaseFilesExist(self.config['data_folder_path'])
+            self.dataParser.checkIfDatabaseFilesExist()
 
             # Make sure the job directory exists.
             workFolder = make_job_directory(self.config['work_folder_path'], job['id'])
@@ -116,7 +119,7 @@ class ProbabilisticAnnotationWorker:
         ujsClient.complete_job(job['id'], self.ctx['token'], status, tb, { })
 
         # Remove the temporary work directory.
-        if not self.config["debug"] or self.config["debug"] == "0":
+        if not self.config["debug"] or self.config["debug"] == "0" and status == 'done':
             try:
                 shutil.rmtree(workFolder)
             except OSError:
@@ -179,14 +182,14 @@ class ProbabilisticAnnotationWorker:
         # Build the command based on the configured search program.
         if self.config['search_program'] == 'usearch':
             args = [ self.config['search_program_path'], '-ublast', queryFile,
-                     '-db', os.path.join(self.config["data_folder_path"], DatabaseFiles['subsystem_udb_file']),
+                     '-db', self.dataParser.SearchFiles['subsystem_udb_file'],
                      '-evalue', '1e-5',
-                     '-accel', '1.0',
+                     '-accel', '0.8',
                      '-threads', self.config['blast_threads'],
                      '-blast6out', blastResultFile ]
         else:
             args = [ self.config['search_program_path'], "-query", queryFile,
-                     "-db", os.path.join(self.config["data_folder_path"], DatabaseFiles["subsystem_otu_fasta_file"]),
+                     "-db", self.dataParser.DataFiles["subsystem_otu_fasta_file"],
                      "-outfmt", "6", "-evalue", "1E-5",
                      "-num_threads", self.config["blast_threads"],
                      "-out", blastResultFile ]
@@ -230,7 +233,7 @@ class ProbabilisticAnnotationWorker:
         sys.stderr.write("Performing marble-picking on rolesets for genome %s..." %(input["genome"]))
     
         # Read in the target roles (this function returns the roles as lists!)
-        targetIdToRole, targetRoleToId = readFilteredOtuRoles(self.config)
+        targetIdToRole, targetRoleToId = self.dataParser.readFilteredOtuRoles()
     
         # Convert the lists of roles into "rolestrings" (sort the list so that order doesn't matter)
         # in order to deal with the case where some of the hits are multi-functional and others only have
@@ -243,7 +246,7 @@ class ProbabilisticAnnotationWorker:
         # Parse the output from BLAST which returns a dictionary keyed by query gene of a list
         # of tuples with target gene and score.
         # query --> [ (target1, score 1), (target 2, score 2), ... ]
-        idToTargetList = parseBlastOutput(blastResultFile)
+        idToTargetList = self.dataParser.parseBlastOutput(blastResultFile)
     
         # This is a holder for all of our results which is a dictionary keyed by query gene
         # of a list of tuples with roleset and likelihood.
@@ -331,7 +334,7 @@ class ProbabilisticAnnotationWorker:
         sys.stderr.write("Building ProbAnno object %s/%s for genome %s..." %(input["probanno_workspace"], input["probanno"], input["genome"]))
 
         # Read in the target roles (this function returns the roles as lists!)
-        targetToRoles, rolesToTargets = readFilteredOtuRoles(self.config)
+        targetToRoles, rolesToTargets = self.dataParser.readFilteredOtuRoles()
         targetToRoleSet = dict()
         for target in targetToRoles:
             stri = self.config["separator"].join(sorted(targetToRoles[target]))
@@ -340,7 +343,7 @@ class ProbabilisticAnnotationWorker:
         # This is a dictionary from query ID to (target, -log E-value) pairs.
         # We just use it to identify whether or not we actually hit anything in the db
         # when searching for the query gene.
-        queryToTargetEvals = parseBlastOutput(blastResultFile)
+        queryToTargetEvals = self.dataParser.parseBlastOutput(blastResultFile)
         
         # For each query ID:
         # 1. Identify their rolestring probabilities (these are the first and second elements of the tuple)

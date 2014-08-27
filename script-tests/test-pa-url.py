@@ -2,13 +2,13 @@ import sys
 import unittest
 import subprocess
 import os
-from biokbase.probabilistic_annotation.DataParser import getConfig
+from biokbase.probabilistic_annotation.Helpers import get_config
 
 class TestUrlScript(unittest.TestCase):
     
     def setUp(self):
         self.cmd = os.path.join(os.environ["KB_TOP"], "bin/pa-url")
-        self.config = getConfig(os.environ["KB_TEST_CONFIG"])
+        self.config = get_config(os.environ["KB_TEST_CONFIG"])
         
     def test_current(self):
         '''Run pa-url and verify that the current url is returned.'''

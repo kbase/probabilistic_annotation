@@ -16,13 +16,11 @@
 # The CDMI_API is for "well-trodden paths" functions
 # CDMI_EntityAPI is for ER functions (all_entities_..., get_Relationship_....)
 from biokbase.cdmi.client import CDMI_API, CDMI_EntityAPI
+from biokbase.probabilistic_annotation.Helpers import now
 from urllib2 import URLError, HTTPError
 import urllib
 import sys
 import operator #for itemgetter
-
-import time
-
 try:
     import json
 except ImportError:
@@ -365,7 +363,7 @@ def filterFidsByOtusOptimized(featureIdList, rolesToFids, otuRepsToMembers, conf
         # to track progress.
         otuCounter += 1
         if otuCounter % 10 == 0:
-            sys.stderr.write('Processed %d OTUs at %s\n' %(otuCounter, timestamp()))
+            sys.stderr.write('Processed %d OTUs at %s\n' %(otuCounter, now()))
 
         # Check every functional role.
         for role in rolesToFids:
@@ -706,8 +704,3 @@ def reactionComplexLinks(count, config):
             complexToRxn[cplxlist[ii]] = [ rxnlist[ii] ]
 
     return rxnToComplex, complexToRxn
-
-def timestamp():
-    ''' Get the current time as a printable string. '''
-
-    return '%s' %(time.strftime("%a %b %d %Y %H:%M:%S %Z", time.localtime()))
