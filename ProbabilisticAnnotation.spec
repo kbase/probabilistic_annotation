@@ -204,11 +204,13 @@ module ProbabilisticAnnotation
 		rxnprobs_id rxnprobs- ID for RxnProbs object in the workspace
 		workspace_id rxnprobs_workspace - ID for workspace in which RxnProbs object is held
 		int rxnprobs_version - Version number of RxnProbs object
+		string sort_field - Output is sorted using this field as the key
     */
     typedef structure {
 		rxnprobs_id rxnprobs;
 		workspace_id rxnprobs_workspace;
 		int rxnprobs_version;
+		string sort_field;
     } GetRxnprobsParams;
 
     /*

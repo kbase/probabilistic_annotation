@@ -898,7 +898,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         # Sanity check on input arguments
         input = self._checkInputArguments(input, 
                                           [ "rxnprobs", "rxnprobs_workspace" ], 
-                                          { 'rxnprobs_version': None }
+                                          { 'rxnprobs_version': None, 'sort_field': 'rxnid' }
                                           )
 
         wsClient = Workspace(self.config["workspace_url"], token=self.ctx['token'])
@@ -910,6 +910,10 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             self.ctx.log_err(message)
             raise WrongVersionError(message)
         output = rxnProbsObject["data"]["reaction_probabilities"]
+        if input['sort_field'] == 'rxnid':
+            output.sort(key=lambda tup: tup[0])
+        elif input['sort_field'] == 'probability':
+            output.sort(key=lambda tup: tup[1], reverse=True)
         #END get_rxnprobs
 
         #At some point might do deeper type checking...

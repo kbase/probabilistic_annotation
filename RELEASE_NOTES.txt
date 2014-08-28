@@ -17,6 +17,8 @@ UPDATED FEATURES / MAJOR BUG FIXES:
 - Enabled support for template models in calculate() method
 - Improved performance of calculate() method when a template model is not specified
 - Changed complex string in RxnProbs object to be sorted by probability
+- Added --sort optional argument to pa-getrxnprobs and corresponding input argument
+  to get_rxnprobs() method to sort output table with specified key
 - Updated pa-url command to check version of endpoint
 - Updated pa-gendata command with faster OTU filtering and better messages
 - Converted all command scripts to Python
