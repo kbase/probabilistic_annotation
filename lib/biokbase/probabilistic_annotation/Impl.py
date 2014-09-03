@@ -584,6 +584,8 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         configValues += ', dilution_percent='+self.config['dilution_percent']
         configValues += ', pseudo_count='+self.config['pseudo_count']
         configValues += ', job_queue='+self.config['job_queue']
+        configValues += ', search_program='+self.config['search_program']
+        configValues += ', search_program_path='+self.config['search_program_path']
         configValues += ', blast_threads='+self.config['blast_threads']
         self.mylog.log_message(log.INFO, configValues)
 
