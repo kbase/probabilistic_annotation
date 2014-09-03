@@ -21,6 +21,14 @@ class NoFeaturesError(Exception):
 class BlastError(Exception):
     pass
 
+# Exception thrown when there is an invalid number calculating likelihoods
+class BadLikelihoodError(Exception):
+    pass
+
+# Exception thrown when a target id is not found in rolestring dictionary
+class NoTargetIdError(Exception):
+    pass
+
 # Exception thrown when there are no gene IDs in Genome object
 class NoGeneIdsError(Exception):
     pass
@@ -148,22 +156,20 @@ class ProbabilisticAnnotationWorker:
         # Open the fasta file.
         fastaFile = os.path.join(workFolder, "%s.faa" %(input["genome"]))
         fid = open(fastaFile, "w")
+        sys.stderr.write('Creating fasta file %s...' %(fastaFile))
         
         # Run the list of features to build the fasta file.
+        numProteins = 0
         features = genomeObject["data"]["features"]
         for feature in features:
             # Not a protein-encoding gene
             if "protein_translation" not in feature:
                 continue
-            myid = feature["id"]
-            if "function" in feature:
-                function = feature["function"]
-            else:
-                function = ""
-            seq = feature["protein_translation"]
-            fid.write(">%s %s\n%s\n" %(myid, function, seq))
+            fid.write('>%s\n%s\n' %(feature['id'], feature['protein_translation']))
+            numProteins += 1
         
-        fid.close()    
+        fid.close()
+        sys.stderr.write('wrote %d protein sequences\n' %(numProteins))
         return fastaFile
         
     def _runBlast(self, input, queryFile, workFolder):
@@ -174,6 +180,7 @@ class ProbabilisticAnnotationWorker:
             @param queryFile Path to fasta file with query proteins
             @param workFolder Path to directory in which to store temporary files
             @return Path to output file from BLAST
+            @raise BlastError
         '''
 
         # Generate path to output file.  Output format 6 is tab-delimited format.
@@ -184,7 +191,7 @@ class ProbabilisticAnnotationWorker:
             args = [ self.config['search_program_path'], '-ublast', queryFile,
                      '-db', self.dataParser.SearchFiles['subsystem_udb_file'],
                      '-evalue', '1e-5',
-                     '-accel', '0.8',
+                     '-accel', '0.33',
                      '-threads', self.config['blast_threads'],
                      '-blast6out', blastResultFile ]
         else:
@@ -196,7 +203,7 @@ class ProbabilisticAnnotationWorker:
 
         # Run the command to search for proteins against subsystem proteins.
         cmd = ' '.join(args)
-        sys.stderr.write("Started search with command: %s\n" %(cmd))
+        sys.stderr.write("Started search with command: %s..." %(cmd))
         try:
             proc = subprocess.Popen(args, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
             (stdout, stderr) = proc.communicate()
@@ -209,7 +216,7 @@ class ProbabilisticAnnotationWorker:
                     raise BlastError(details)
         except OSError as e:
             raise BlastError("Failed to run '%s': %s" %(args[0], e.strerror))
-        sys.stderr.write("Ended search with command: %s\n" %(cmd))
+        sys.stderr.write('done\n')
 
         return blastResultFile
     
@@ -228,6 +235,7 @@ class ProbabilisticAnnotationWorker:
             @param blastResultFile Path to output file from BLAST
             @param workFolder Path to directory in which to store temporary files
             @return Dictionary keyed by query gene of list of tuples with roleset and likelihood
+            @raise BadLikelihoodError, NoTargetIdError
         '''
 
         sys.stderr.write("Performing marble-picking on rolesets for genome %s..." %(input["genome"]))
@@ -275,8 +283,9 @@ class ProbabilisticAnnotationWorker:
                 try:
                     rolestring = targetIdToRoleString[tup[0]]
                 except KeyError:
-    #                sys.stderr.write("ERROR: Target ID %s from the BLAST file had no roles in the rolestring dictionary??\n" %(tup[0]))
-                    continue
+                    message = 'Target id %s from search results file had no roles in rolestring dictionary' %(tup[0])
+                    sys.stderr.write(message+'\n')
+                    raise NoTargetIdError(message)
                 if rolestring in rolestringToScore:
                     rolestringToScore[rolestring] += (float(tup[1]) ** 2)
                 else:
@@ -289,15 +298,18 @@ class ProbabilisticAnnotationWorker:
             for stri in rolestringToScore:
                 denom += rolestringToScore[stri]
             if math.isnan(denom):
-                print 'denom for %s is NaN' %(query)
+                message = 'Denominator in likelihood calculation for gene %s is NaN %f' %(query, denom)
+                sys.stderr.write(message+'\n')
+                raise BadLikelihoodError(message)
 
             # The numerators are the sum of squares for each rolestring.
             # Calculate the likelihood for each rolestring and store in the output dictionary.
             for stri in rolestringToScore:
                 p = rolestringToScore[stri] / denom
                 if math.isnan(p):
-                    print 'likelihood for "%s" in gene "%s" is NaN %f' %(stri, query, rolestringToScore[stri])
-                    print rolestringToScore
+                    message = 'Likelihood for rolestring %s in gene %s is NaN based on score %f' %(stri, query, rolestringToScore[stri])
+                    sys.stderr.write(message+'\n')
+                    raise BadLikelihoodError(message)
                 if query in rolestringTuples:
                     rolestringTuples[query].append( (stri, p) )
                 else:
@@ -329,6 +341,7 @@ class ProbabilisticAnnotationWorker:
             @param workFolder Path to directory in which to store temporary files
             @param wsClient Workspace client object
             @return metadata
+            @raise NoGeneIdsError
         '''
     
         sys.stderr.write("Building ProbAnno object %s/%s for genome %s..." %(input["probanno_workspace"], input["probanno"], input["genome"]))
