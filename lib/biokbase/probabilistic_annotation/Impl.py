@@ -6,16 +6,13 @@ import traceback
 import time
 import re
 from biokbase.probabilistic_annotation.DataParser import DataParser, NotReadyError
-from biokbase.probabilistic_annotation.Helpers import timestamp, make_object_identity, make_job_directory, ProbAnnoType, RxnProbsType
+from biokbase.probabilistic_annotation.Helpers import timestamp, make_object_identity, make_job_directory, ProbAnnoType, RxnProbsType, ServiceVersion
 from biokbase.workspace.client import Workspace
 from biokbase.fbaModelServices.Client import *
 from biokbase.cdmi.client import CDMI_EntityAPI
 from biokbase.userandjobstate.client import UserAndJobState
 from biokbase.fbaModelServices.Client import fbaModelServices
 from biokbase import log
-
-# Current version of service.
-SERVICE_VERSION = '1.1.0'
 
 # Exception thrown when static database file is missing from Shock.
 class MissingFileError(Exception):
@@ -572,7 +569,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         submod = os.environ.get('KB_SERVICE_NAME', 'probabilistic_annotation')
         self.mylog = log.log(submod, ip_address=True, authuser=True, module=True, method=True,
             call_id=True, config=os.getenv('KB_DEPLOYMENT_CONFIG'))
-        self.mylog.log_message(log.INFO, 'Server started, version is '+SERVICE_VERSION)
+        self.mylog.log_message(log.INFO, 'Server started, version is '+ServiceVersion)
         configValues = 'shock_url='+self.config['shock_url']
         configValues += ', userandjobstate_url='+self.config['userandjobstate_url']
         configValues += ', workspace_url='+self.config['workspace_url']
@@ -641,7 +638,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             @return List with service name string and version number string
         '''
 
-        returnVal = [ os.environ.get('KB_SERVICE_NAME'), SERVICE_VERSION ]
+        returnVal = [ os.environ.get('KB_SERVICE_NAME'), ServiceVersion ]
         #END version
 
         #At some point might do deeper type checking...
@@ -866,7 +863,9 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         objectProvData = dict()
         objectProvData['time'] = timestamp(0)
         objectProvData['service'] = os.environ['KB_SERVICE_NAME']
-        objectProvData['script'] = 'pa-calculate'
+        objectProvData['service_ver'] = ServiceVersion
+        objectProvData['method'] = 'calculate'
+        objectProvData['method_params'] = input.items()
         objectProvData['input_ws_objects'] = [ '%s/%s/%d' %(probannoObject['info'][7], probannoObject['info'][1], probannoObject['info'][4]) ]
         objectSaveData = dict();
         objectSaveData['type'] = RxnProbsType

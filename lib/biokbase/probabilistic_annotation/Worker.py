@@ -1,5 +1,5 @@
 
-from biokbase.probabilistic_annotation.Helpers import make_object_identity, make_job_directory, timestamp, ProbAnnoType
+from biokbase.probabilistic_annotation.Helpers import make_object_identity, make_job_directory, timestamp, ProbAnnoType, ServiceVersion
 from biokbase.probabilistic_annotation.DataParser import DataParser
 from biokbase.userandjobstate.client import UserAndJobState
 from biokbase.workspace.client import Workspace
@@ -147,6 +147,7 @@ class ProbabilisticAnnotationWorker:
             @param genomeObject Genome typed object from workspace
             @param workFolder Path to directory in which to store temporary files
             @return Path to fasta file with query proteins
+            @raise NoFeaturesError
         '''
 
         # Make sure the Genome object has features.
@@ -392,7 +393,9 @@ class ProbabilisticAnnotationWorker:
         objectProvData = dict()
         objectProvData['time'] = timestamp(0)
         objectProvData['service'] = os.environ['KB_SERVICE_NAME']
-        objectProvData['script'] = 'pa-annotate'
+        objectProvData['service_ver'] = ServiceVersion
+        objectProvData['method'] = 'annotate'
+        objectProvData['method_params'] = input.items()
         objectProvData['input_ws_objects'] = [ '%s/%s/%d' %(genomeObject['info'][7], genomeObject['info'][1], genomeObject['info'][4]) ]
         objectSaveData = dict()
         objectSaveData['type'] = ProbAnnoType
