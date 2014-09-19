@@ -192,7 +192,7 @@ class ProbabilisticAnnotationWorker:
             args = [ self.config['search_program_path'], '-ublast', queryFile,
                      '-db', self.dataParser.SearchFiles['subsystem_udb_file'],
                      '-evalue', '1e-5',
-                     '-accel', '0.33',
+                     '-accel', self.config['usearch_accel'],
                      '-threads', self.config['blast_threads'],
                      '-blast6out', blastResultFile ]
         else:
