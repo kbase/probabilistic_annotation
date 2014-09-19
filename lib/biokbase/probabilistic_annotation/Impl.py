@@ -584,6 +584,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         configValues += ', search_program='+self.config['search_program']
         configValues += ', search_program_path='+self.config['search_program_path']
         configValues += ', blast_threads='+self.config['blast_threads']
+        configValues += ', usearch_accel='+self.config['usearch_accel']
         self.mylog.log_message(log.INFO, configValues)
 
         # Create the data folder if it does not exist.
