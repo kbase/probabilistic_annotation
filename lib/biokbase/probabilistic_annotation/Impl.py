@@ -58,12 +58,13 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
     # the latter method is running.
     #########################################
     #BEGIN_CLASS_HEADER
-    def _checkInputArguments(self, input, requiredArgs, defaultArgDict):
+    def _checkInputArguments(self, ctx, input, requiredArgs, defaultArgDict):
         ''' Check that required input arguments are present and set defaults for non-required arguments.
         
             If a key in defaultArgDict is not found in the input it is added with the
             specified default value.
 
+            @param ctx Current context object
             @param input Dictionary keyed by argument name of argument values
             @param requiredArgs List of required arguments in the input dictionary
             @param defaultArgDict Dictionary keyed by argument name of default argument values
@@ -74,7 +75,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             for arg in requiredArgs:
                 if arg not in input:
                     message = "Required argument %s not found" %(arg)
-                    self.ctx.log_err(message)
+                    ctx.log_err(message)
                     raise ValueError(message)
         if defaultArgDict is not None:
             for arg in defaultArgDict:
@@ -143,7 +144,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             
         return roleProbs
     
-    def _totalRoleProbabilities(self, input, genome, roleProbs, workFolder):
+    def _totalRoleProbabilities(self, ctx, input, genome, roleProbs, workFolder):
         ''' Given the likelihood that each gene has each role, estimate the likelihood
             that the entire ORGANISM has that role.
 
@@ -157,6 +158,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             role are linked with an OR relationship to form a Boolean Gene-Function
             relationship.
 
+            @param ctx Current context object
             @param input Dictionary of input parameters to calculate() function
             @param genome Genome ID string
             @param roleProbs List of tuples with query gene, role, and likelihood
@@ -187,7 +189,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         for tuple in roleProbs:
             if tuple[1] not in roleToTotalProb:
                 message = "Role %s not placed properly in roleToTotalProb dictionary?" %(tuple[1])
-                self.ctx.log_err(message)
+                ctx.log_err(message)
                 raise RoleNotFoundError(message)
             if float(tuple[2]) >= float(self.config["dilution_percent"])/100.0 * roleToTotalProb[tuple[1]]:
                 if tuple[1] in roleToGeneList:
@@ -518,9 +520,10 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             
         return True
     
-    def _checkDatabaseFiles(self):
+    def _checkDatabaseFiles(self, ctx):
         ''' Check the status of the static database files.
 
+            @param ctx Current context object
             @return Nothing
             @raise NotReadyError if the database has not been loaded correctly.
         '''
@@ -528,11 +531,11 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             status = self.dataParser.readStatusFile()
             if status != "ready":
                 message = "Static database files are not ready.  Current status is '%s'." %(status)
-                self.ctx.log_err(message)
+                ctx.log_err(message)
                 raise NotReadyError(message)
         except IOError:
             message = "Static database files are not ready.  Failed to open status file '%s'." %(self.dataParser.StatusFiles['status_file'])
-            self.ctx.log_err(message)
+            ctx.log_err(message)
             raise NotReadyError(message)
         return
 
@@ -630,27 +633,28 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         #END_CONSTRUCTOR
         pass
 
-    def version(self):
-        # self.ctx is set by the wsgi application class
+    def version(self, ctx):
+        # ctx is the context object
         # return variables are: returnVal
         #BEGIN version
         ''' Return the name and version number of the service.
 
+            @param ctx Current context object
             @return List with service name string and version number string
         '''
 
         returnVal = [ os.environ.get('KB_SERVICE_NAME'), ServiceVersion ]
         #END version
 
-        #At some point might do deeper type checking...
+        # At some point might do deeper type checking...
         if not isinstance(returnVal, list):
             raise ValueError('Method version return value ' +
                              'returnVal is not type list as required.')
         # return the results
         return [returnVal]
 
-    def annotate(self, input):
-        # self.ctx is set by the wsgi application class
+    def annotate(self, ctx, input):
+        # ctx is the context object
         # return variables are: jobid
         #BEGIN annotate
         ''' Compute probabilistic annotations from the specified genome object.
@@ -664,31 +668,32 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             The following keys are optional:
             verbose: Print lots of messages on the progress of the algorithm
 
+            @param ctx Current context object
             @param input Dictionary with input parameters for function
             @return Job ID of job started to compute annotation likelihoods
         '''
 
-        input = self._checkInputArguments(input, 
+        input = self._checkInputArguments(ctx, input, 
                                           [ "genome", "genome_workspace", "probanno", "probanno_workspace"],
                                           { "verbose" : False }
                                           )
         
         # Make sure the static database files are ready.
-        self._checkDatabaseFiles()
+        self._checkDatabaseFiles(ctx)
         
         # Make sure the Genome object is available.
-        wsClient = Workspace(self.config["workspace_url"], token=self.ctx['token'])
+        wsClient = Workspace(self.config["workspace_url"], token=ctx['token'])
         genomeIdentity = make_object_identity(input['genome_workspace'], input['genome'])
         wsClient.get_object_info( [ genomeIdentity ], 0 )
 
         # Create a user and job state client and authenticate as the user.
-        ujsClient = UserAndJobState(self.config['userandjobstate_url'], token=self.ctx['token'])
+        ujsClient = UserAndJobState(self.config['userandjobstate_url'], token=ctx['token'])
 
         # Create a job to track running probabilistic annotation.
-        description = 'pa-annotate for genome %s to probanno %s for user %s' %(input['genome'], input['probanno'], self.ctx['user_id'])
+        description = 'pa-annotate for genome %s to probanno %s for user %s' %(input['genome'], input['probanno'], ctx['user_id'])
         progress = { 'ptype': 'task', 'max': 5 }
-        jobid = ujsClient.create_and_start_job(self.ctx['token'], 'initializing', description, progress, timestamp(3600))
-        self.ctx.log_info('Job '+jobid+' started for genome '+input['genome']+' to probanno '+input['probanno'])
+        jobid = ujsClient.create_and_start_job(ctx['token'], 'initializing', description, progress, timestamp(3600))
+        ctx.log_info('Job '+jobid+' started for genome '+input['genome']+' to probanno '+input['probanno'])
 
         # Run the job on the local machine.
         if self.config["job_queue"] == "local":
@@ -699,26 +704,26 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             errorFilename = os.path.join(jobDirectory, 'stderr.log')
     
             # Save data required for running the job.
-            jobData = { 'id': jobid, 'input': input, 'context': self.ctx, 'config': self.config }
+            jobData = { 'id': jobid, 'input': input, 'context': ctx, 'config': self.config }
             json.dump(jobData, open(jobDataFilename, "w"), indent=4)
     
             # Start worker to run the job.
             jobScript = os.path.join(os.environ['KB_TOP'], 'bin/pa-runjob')
             cmdline = "nohup %s %s >%s 2>%s &" %(jobScript, jobDirectory, outputFilename, errorFilename)
             status = os.system(cmdline)
-            self.ctx.log_info('Job %s is running on local host, status %d' %(jobid, status))
+            ctx.log_info('Job %s is running on local host, status %d' %(jobid, status))
 
         #END annotate
 
-        #At some point might do deeper type checking...
+        # At some point might do deeper type checking...
         if not isinstance(jobid, basestring):
             raise ValueError('Method annotate return value ' +
                              'jobid is not type basestring as required.')
         # return the results
         return [jobid]
 
-    def calculate(self, input):
-        # self.ctx is set by the wsgi application class
+    def calculate(self, ctx, input):
+        # ctx is the context object
         # return variables are: output
         #BEGIN calculate
         ''' Compute reaction probabilities from a probabilistic annotation.
@@ -734,6 +739,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             template_model: Name of TemplateModel object
             template_workspace: Workspace from which to grab TemplateModel object
 
+            @param ctx Current context object
             @param input Dictionary with input parameters for function
             @return Object info for RxnProbs object
             @raise WrongVersionError when ProbAnno object version number is invalid
@@ -741,7 +747,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         '''
 
         # Sanity check on input arguments
-        input = self._checkInputArguments(input, 
+        input = self._checkInputArguments(ctx, input, 
                                           ["probanno", "probanno_workspace", "rxnprobs", "rxnprobs_workspace"], 
                                           { "verbose" : False ,
                                             "template_model" : None,
@@ -750,10 +756,10 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                                          )
 
         # Make sure the static database files are ready.
-        self._checkDatabaseFiles()
+        self._checkDatabaseFiles(ctx)
         
         # Create a workspace client.
-        wsClient = Workspace(self.config["workspace_url"], token=self.ctx['token'])
+        wsClient = Workspace(self.config["workspace_url"], token=ctx['token'])
         
         # Get the ProbAnno object from the specified workspace.
         probannoObjectId = make_object_identity(input["probanno_workspace"], input["probanno"])
@@ -761,7 +767,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         probannoObject = objectList[0]
         if probannoObject['info'][2] != ProbAnnoType:
             message = "ProbAnno object type %s is not %s for object %s" %(probannoObject['info'][2], ProbAnnoType, probannoObject['info'][1])
-            self.ctx.log_err(message)
+            ctx.log_err(message)
             raise WrongVersionError(message)
         genome = probannoObject["data"]["genome"]
         
@@ -778,7 +784,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         if input["template_model"] is not None or input["template_workspace"] is not None:
             if not(input["template_model"] is not None and input["template_workspace"] is not None) :
                 message = "Template model workspace is required if template model ID is provided"
-                self.ctx.log_err(message)
+                ctx.log_err(message)
                 raise ValueError(message)
 
             # Create a dictionary to map a complex to a list of roles and a dictionary
@@ -792,7 +798,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             # fba modeling service.  The RoleComplexReactions structure has a list
             # of ComplexReactions structures for the given role.  And each ComplexReactions
             # structure has a list of reactions for the given complex.
-            fbaClient = fbaModelServices(self.config['fbamodeling_url'], token=self.ctx['token'])
+            fbaClient = fbaModelServices(self.config['fbamodeling_url'], token=ctx['token'])
             roleComplexReactionsList = fbaClient.role_to_reactions( { 'templateModel': input['template_model'], 'workspace': input['template_workspace'] } )
 
             # Build the two dictionaries from the returned list.
@@ -815,7 +821,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
 
         # Calculate whole cell role probabilities.
         # Note - eventually workFolder will be replaced with a rolesToReactions call
-        totalRoleProbs = self._totalRoleProbabilities(input, genome, roleProbs, workFolder)
+        totalRoleProbs = self._totalRoleProbabilities(ctx, input, genome, roleProbs, workFolder)
 
         # Calculate complex probabilities.
         complexProbs = self._complexProbabilities(input, genome, totalRoleProbs, workFolder, complexesToRequiredRoles = complexesToRoles)
@@ -879,37 +885,38 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         
         #END calculate
 
-        #At some point might do deeper type checking...
+        # At some point might do deeper type checking...
         if not isinstance(output, list):
             raise ValueError('Method calculate return value ' +
                              'output is not type list as required.')
         # return the results
         return [output]
 
-    def get_rxnprobs(self, input):
-        # self.ctx is set by the wsgi application class
+    def get_rxnprobs(self, ctx, input):
+        # ctx is the context object
         # return variables are: output
         #BEGIN get_rxnprobs
         ''' Convert a reaction probability object into a human-readable table.
 
+            @param ctx Current context object
             @param input Dictionary with input parameters for function
             @return List of reaction_probability tuples
             @raise WrongVersionError when RxnProbs object version number is invalid
         '''
 
         # Sanity check on input arguments
-        input = self._checkInputArguments(input, 
+        input = self._checkInputArguments(ctx, input, 
                                           [ "rxnprobs", "rxnprobs_workspace" ], 
                                           { 'rxnprobs_version': None, 'sort_field': 'rxnid' }
                                           )
 
-        wsClient = Workspace(self.config["workspace_url"], token=self.ctx['token'])
+        wsClient = Workspace(self.config["workspace_url"], token=ctx['token'])
         rxnProbsObjectId = make_object_identity(input["rxnprobs_workspace"], input["rxnprobs"], input['rxnprobs_version'])
         objectList = wsClient.get_objects( [ rxnProbsObjectId ] )
         rxnProbsObject = objectList[0]
         if rxnProbsObject['info'][2] != RxnProbsType:
             message = 'RxnProbs object type %s is not %s for object %s' %(rxnProbsObject['info'][2], RxnProbsType, rxnProbsObject['info'][1])
-            self.ctx.log_err(message)
+            ctx.log_err(message)
             raise WrongVersionError(message)
         output = rxnProbsObject["data"]["reaction_probabilities"]
         if input['sort_field'] == 'rxnid':
@@ -918,42 +925,43 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             output.sort(key=lambda tup: tup[1], reverse=True)
         #END get_rxnprobs
 
-        #At some point might do deeper type checking...
+        # At some point might do deeper type checking...
         if not isinstance(output, list):
             raise ValueError('Method get_rxnprobs return value ' +
                              'output is not type list as required.')
         # return the results
         return [output]
 
-    def get_probanno(self, input):
-        # self.ctx is set by the wsgi application class
+    def get_probanno(self, ctx, input):
+        # ctx is the context object
         # return variables are: output
         #BEGIN get_probanno
         ''' Convert a probabilistic annotation object into a human-readbable table.
 
+            @param ctx Current context object
             @param input Dictionary with input parameters for function
             @return Dictionary keyed by gene to a list of tuples with roleset and likelihood
             @raise WrongVersionError when ProbAnno object version number is invalid
         '''
 
-        input = self._checkInputArguments(input,
+        input = self._checkInputArguments(ctx, input,
                                           ['probanno', 'probanno_workspace'],
                                           { 'probanno_version': None }
                                           )
 
-        wsClient = Workspace(self.config["workspace_url"], token=self.ctx['token'])
+        wsClient = Workspace(self.config["workspace_url"], token=ctx['token'])
         probAnnoObjectId = make_object_identity(input["probanno_workspace"], input["probanno"], input['probanno_version'])
         objectList = wsClient.get_objects( [ probAnnoObjectId ] )
         probAnnoObject = objectList[0]
         if probAnnoObject['info'][2] != ProbAnnoType:
             message = 'ProbAnno object type %s is not %s for object %s' %(probAnnoObject['info'][2], ProbAnnoType, probAnnoObject['info'][1])
-            self.ctx.log_err(message)
+            ctx.log_err(message)
             raise WrongVersionError(message)
         output = probAnnoObject["data"]["roleset_probabilities"]
 
         #END get_probanno
 
-        #At some point might do deeper type checking...
+        # At some point might do deeper type checking...
         if not isinstance(output, dict):
             raise ValueError('Method get_probanno return value ' +
                              'output is not type dict as required.')
