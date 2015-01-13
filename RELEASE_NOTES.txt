@@ -5,7 +5,7 @@ This KBase service computes likelihoods for annotations and reactions for a give
 Likelihoods are computed based on similarity to genes with literature evidence and genes
 in subsystems. More ambiguous role calls are given lower probabilities.
 
-VERSION 1.1.0 (Released 07-06-2014)
+VERSION 1.1.0 (Released 01-16-2015)
 -----------------------------------------
 NEW FEATURES
 - None
@@ -24,7 +24,7 @@ UPDATED FEATURES / MAJOR BUG FIXES:
 - Converted all command scripts to Python
 - Added support for different protein search programs
 - Internal restructuring for using other job queues
-- Added logging to server
+- Added logging to server and removed debug configuration variable
 
 ANTICIPATED FUTURE DEVELOPMENTS:
 - None

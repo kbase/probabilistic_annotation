@@ -86,7 +86,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
 
         return input
 
-    def _rolesetProbabilitiesToRoleProbabilities(self, input, genome, queryToTuplist, workFolder):
+    def _rolesetProbabilitiesToRoleProbabilities(self, ctx, input, genome, queryToTuplist, workFolder):
         ''' Compute probability of each role from the rolesets for each query protein.
 
             At the moment the strategy is to take any set of rolestrings containing
@@ -99,10 +99,11 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             to R1R2 and one hit to R3 then the probability of R1 and R2 will be unfairly
             brought down due to the normalization scheme.
 
-            @param input Dictionary of input parameters to calculate() function
-            @param genome Genome ID string
-            @param queryToTuplist Dictionary keyed by query gene of list of tuples with roleset and likelihood
-            @param workFolder Path to directory in which to store temporary files
+            @param ctx: Current context object
+            @param input: Dictionary of input parameters to calculate() function
+            @param genome: Genome ID string
+            @param queryToTuplist: Dictionary keyed by query gene of list of tuples with roleset and likelihood
+            @param workFolder: Path to directory in which to store temporary files
             @return List of tuples with query gene, role, and likelihood
         '''
     
@@ -132,7 +133,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 roleProbs.append( (query, role, queryRolesToProbs[role]) )
     
         # Save the generated data when debug is turned on.
-        if self.config["debug"]:
+        if ctx.get_log_level() >= log.DEBUG:
             role_probability_file = os.path.join(workFolder, "%s.roleprobs" %(genome))
             fid = open(role_probability_file, "w")
             for tuple in roleProbs:
@@ -207,7 +208,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             totalRoleProbs.append( (role, roleToTotalProb[role], gpr ) )   
     
         # Save the generated data when debug is turned on.
-        if self.config["debug"]:
+        if ctx.get_log_level() >= log.DEBUG:
             total_role_probability_file = os.path.join(workFolder, "%s.cellroleprob" %(genome))
             fid = open(total_role_probability_file, "w")
             for tuple in totalRoleProbs:
@@ -219,7 +220,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             
         return totalRoleProbs
     
-    def _complexProbabilities(self, input, genome, totalRoleProbs, workFolder, complexesToRequiredRoles = None):
+    def _complexProbabilities(self, ctx, input, genome, totalRoleProbs, workFolder, complexesToRequiredRoles = None):
         ''' Compute the likelihood of each protein complex from the likelihood of each role.
 
             A protein complex represents a set functional roles that must all be present
@@ -242,12 +243,13 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             CPLX_NOREPS_AND_NOTTHERE - Likelihood is 0 because some genes aren't there
                 for any of the subunits and some genes have no representatives
 
-            @param input Dictionary of input parameters to calculate() function
-            @param genome Genome ID string
-            @param totalRoleProbs List of tuples with role, likelihood, and estimated set
+            @param ctx: Current context object
+            @param input: Dictionary of input parameters to calculate() function
+            @param genome: Genome ID string
+            @param totalRoleProbs: List of tuples with role, likelihood, and estimated set
                 of genes that perform the role
-            @param workFolder Path to directory in which to store temporary files
-            @param complexesToRequiredRoles Dictionary keyed by complex ID to the roles
+            @param workFolder: Path to directory in which to store temporary files
+            @param complexesToRequiredRoles: Dictionary keyed by complex ID to the roles
                 involved in forming that complex. If it is None we read it from the CDMI
                 files we downloaded, otherwise we use the provided dictionary. This is
                 included for template model support in the future
@@ -335,7 +337,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             complexProbs.append( (cplx, minp, TYPE, self.config["separator"].join(unavailRoles), self.config["separator"].join(noexistRoles), GPR) )
 
         # Save the generated data when debug is turned on.
-        if self.config["debug"]:
+        if ctx.get_log_level() >= log.DEBUG:
             complex_probability_file = os.path.join(workFolder, "%s.complexprob" %(genome))
             fid = open(complex_probability_file, "w")
             for tuple in complexProbs:
@@ -346,7 +348,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             sys.stderr.write("%s: Finished computing complex probabilities\n" %(genome))
         return complexProbs
     
-    def _reactionProbabilities(self, input, genome, complexProbs, workFolder, rxnsToComplexes = None):
+    def _reactionProbabilities(self, ctx, input, genome, complexProbs, workFolder, rxnsToComplexes = None):
         ''' Estimate the likelihood of reactions from the likelihood of complexes.
 
             The reaction likelihood is computed as the maximum likelihood of complexes
@@ -357,13 +359,14 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             and make it easier to catch issues with reaction --> complex links in the database.
             Some of the infrastructure is already there (with the TYPE).
 
-            @param input Dictionary of input parameters to calculate() function
-            @param genome Genome ID string
-            @param complexProbs List of tuples with complex ID, likelihood, type, list of
+            @param ctx: Current context object
+            @param input: Dictionary of input parameters to calculate() function
+            @param genome: Genome ID string
+            @param complexProbs: List of tuples with complex ID, likelihood, type, list of
                 roles not in organism, list of roles not in subsystems, and boolean
                 Gene-Protein relationship
-            @param workFolder Path to directory in which to store temporary files
-            @param rxnsToComplexes Dictionary keyed by reaction ID to a list of catalyzing
+            @param workFolder: Path to directory in which to store temporary files
+            @param rxnsToComplexes: Dictionary keyed by reaction ID to a list of catalyzing
                 complexes. If it is None we read it from the CDMI files we downloaded,
                 otherwise we use the provided dictionary. This is included for template
                 model support in the future
@@ -426,7 +429,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             reactionProbs.append( [rxn, maxProb, TYPE, complexString, GPR] )
     
         # Save the generated data when debug is turned on.
-        if self.config["debug"]:
+        if ctx.get_log_level() >= log.DEBUG:
             reaction_probability_file = os.path.join(workFolder, "%s.rxnprobs" %(genome))
             fid = open(reaction_probability_file, "w")
             for tuple in reactionProbs:
@@ -557,18 +560,6 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         else:
             self.config = config
         
-        # Convert flag to boolean value (a number greater than zero or the string 'True' turns the flag on).
-        if self.config["debug"].isdigit():
-            if int(self.config["debug"]) > 0:
-                self.config["debug"] = True
-            else:
-                self.config["debug"] = False
-        else:
-            if self.config["debug"] == "True":
-                self.config["debug"] = True
-            else:
-                self.config["debug"] = False
-            
         submod = os.environ.get('KB_SERVICE_NAME', 'probabilistic_annotation')
         self.mylog = log.log(submod, ip_address=True, authuser=True, module=True, method=True,
             call_id=True, config=os.getenv('KB_DEPLOYMENT_CONFIG'))
@@ -771,9 +762,10 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             raise WrongVersionError(message)
         genome = probannoObject["data"]["genome"]
         
-        # Create a temporary directory for storing intermediate files. Only used when debug flag is on.
-        if self.config["debug"]:
+        # Create a temporary directory for storing intermediate files when debug is turned on.
+        if ctx.get_log_level() >= log.DEBUG:
             workFolder = tempfile.mkdtemp("", "calculate-%s-" %(genome), self.config["work_folder_path"])
+            ctx.log_debug('Intermediate files saved in '+workFolder)
         else:
             workFolder = None
 
@@ -817,17 +809,17 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                             reactionsToComplexes[reactionId] = [ complexId ]
 
         # Calculate per-gene role probabilities.
-        roleProbs = self._rolesetProbabilitiesToRoleProbabilities(input, genome, probannoObject["data"]["roleset_probabilities"], workFolder)
+        roleProbs = self._rolesetProbabilitiesToRoleProbabilities(ctx, input, genome, probannoObject["data"]["roleset_probabilities"], workFolder)
 
         # Calculate whole cell role probabilities.
         # Note - eventually workFolder will be replaced with a rolesToReactions call
         totalRoleProbs = self._totalRoleProbabilities(ctx, input, genome, roleProbs, workFolder)
 
         # Calculate complex probabilities.
-        complexProbs = self._complexProbabilities(input, genome, totalRoleProbs, workFolder, complexesToRequiredRoles = complexesToRoles)
+        complexProbs = self._complexProbabilities(ctx, input, genome, totalRoleProbs, workFolder, complexesToRequiredRoles = complexesToRoles)
 
         # Calculate reaction probabilities.
-        reactionProbs = self._reactionProbabilities(input, genome, complexProbs, workFolder, rxnsToComplexes = reactionsToComplexes)
+        reactionProbs = self._reactionProbabilities(ctx, input, genome, complexProbs, workFolder, rxnsToComplexes = reactionsToComplexes)
 
         # If the reaction probabilities were not calculated using the data from the fba modeling service
         # via the template model, we need to convert from the KBase ID format to the ModelSEED format.

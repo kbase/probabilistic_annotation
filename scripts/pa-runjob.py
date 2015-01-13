@@ -4,7 +4,9 @@ import argparse
 import sys
 import os
 import json
+import traceback
 from biokbase.probabilistic_annotation.Worker import ProbabilisticAnnotationWorker
+from biokbase.userandjobstate.client import UserAndJobState
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='pa-runjob')

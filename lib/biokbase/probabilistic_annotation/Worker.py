@@ -117,17 +117,19 @@ class ProbabilisticAnnotationWorker:
             # Mark the job as done.
             status = "done"
             tb = None
+            self._log(log.INFO, 'Job '+job['id']+' finished for genome '+input['genome']+' to probanno '+input['probanno'])
 
         except:
             tb = traceback.format_exc()
             sys.stderr.write('\n'+tb)
             status = "failed"
+            self._log(log.ERR, 'Job '+job['id']+' failed for genome '+input['genome']+' to probanno '+input['probanno'])
         
         # Mark the job as complete with the given status.
         ujsClient.complete_job(job['id'], self.ctx['token'], status, tb, { })
 
         # Remove the temporary work directory.
-        if not self.config["debug"] or self.config["debug"] == "0" and status == 'done':
+        if self.logger.get_log_level() < log.DEBUG and status == 'done':
             try:
                 shutil.rmtree(workFolder)
             except OSError:
@@ -171,6 +173,7 @@ class ProbabilisticAnnotationWorker:
         
         fid.close()
         sys.stderr.write('wrote %d protein sequences\n' %(numProteins))
+        self._log(log.INFO, 'Wrote %d protein sequences to %s' %(numProteins, fastaFile))
         return fastaFile
         
     def _runBlast(self, input, queryFile, workFolder):
@@ -205,6 +208,7 @@ class ProbabilisticAnnotationWorker:
         # Run the command to search for proteins against subsystem proteins.
         cmd = ' '.join(args)
         sys.stderr.write("Started search with command: %s..." %(cmd))
+        self._log(log.INFO, 'Started search with command: '+cmd)
         try:
             proc = subprocess.Popen(args, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
             (stdout, stderr) = proc.communicate()
@@ -317,7 +321,7 @@ class ProbabilisticAnnotationWorker:
                     rolestringTuples[query] = [ (stri, p) ]
     
         # Save the generated data when debug is turned on.
-        if self.config["debug"]:
+        if self.logger.get_log_level() >= log.DEBUG:
             rolesetProbabilityFile = os.path.join(workFolder, "%s.rolesetprobs" %(input['genome']))
             fid = open(rolesetProbabilityFile, "w")
             for query in rolestringTuples:
@@ -418,19 +422,13 @@ class ProbabilisticAnnotationWorker:
         # Saving the object failed so raise the last exception that was caught.
         raise e
 
-    ''' Log a message to the system log.
-
-        @param level Message level (INFO, WARNING, etc.)
-        @param message Message text
-        @return Nothing
-    '''
-
     def _log(self, level, message):
-        # Create a logger if this is the first time the method has been called.
-        if self.logger is None:
-            submod = os.environ.get('KB_SERVICE_NAME', 'ProbabilisticAnnotation')
-            self.logger = log.log(submod, ip_address=True, authuser=True, module=True, method=True,
-                call_id=True, config=os.getenv('KB_DEPLOYMENT_CONFIG'))
+        ''' Log a message to the system log.
+
+            @param level: Message level (INFO, WARNING, etc.)
+            @param message: Message text
+            @return Nothing
+        '''
 
         # Log the message.
         self.logger.log_message(level, message, self.ctx['client_ip'], self.ctx['user_id'], self.ctx['module'],
@@ -438,4 +436,12 @@ class ProbabilisticAnnotationWorker:
         return
 
     def __init__(self):
-        self.logger = None
+        ''' Initialize object.
+
+            @return Nothing
+        '''
+
+        # Create a logger.
+        submod = os.environ.get('KB_SERVICE_NAME', 'ProbabilisticAnnotation')
+        self.logger = log.log(submod, ip_address=True, authuser=True, module=True, method=True,
+            call_id=True, config=os.getenv('KB_DEPLOYMENT_CONFIG'))
