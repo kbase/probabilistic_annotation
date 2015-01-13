@@ -58,6 +58,8 @@ class ProbabilisticAnnotationWorker:
 
         # The input parameters and user context for annotate() were stored in the job data for the job.
         input = job["input"]
+        if input['verbose']:
+            self.logger.set_log_level(log.DEBUG)
         self.ctx = job["context"]
         self.config = job['config']
 
@@ -129,7 +131,7 @@ class ProbabilisticAnnotationWorker:
         ujsClient.complete_job(job['id'], self.ctx['token'], status, tb, { })
 
         # Remove the temporary work directory.
-        if self.logger.get_log_level() < log.DEBUG and status == 'done':
+        if self.logger.get_log_level() < log.DEBUG2 and status == 'done':
             try:
                 shutil.rmtree(workFolder)
             except OSError:
@@ -173,7 +175,7 @@ class ProbabilisticAnnotationWorker:
         
         fid.close()
         sys.stderr.write('wrote %d protein sequences\n' %(numProteins))
-        self._log(log.INFO, 'Wrote %d protein sequences to %s' %(numProteins, fastaFile))
+        self._log(log.DEBUG, 'Wrote %d protein sequences to %s' %(numProteins, fastaFile))
         return fastaFile
         
     def _runBlast(self, input, queryFile, workFolder):
@@ -321,7 +323,7 @@ class ProbabilisticAnnotationWorker:
                     rolestringTuples[query] = [ (stri, p) ]
     
         # Save the generated data when debug is turned on.
-        if self.logger.get_log_level() >= log.DEBUG:
+        if self.logger.get_log_level() >= log.DEBUG2:
             rolesetProbabilityFile = os.path.join(workFolder, "%s.rolesetprobs" %(input['genome']))
             fid = open(rolesetProbabilityFile, "w")
             for query in rolestringTuples:

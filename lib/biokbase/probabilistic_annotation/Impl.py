@@ -107,8 +107,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             @return List of tuples with query gene, role, and likelihood
         '''
     
-        if input["verbose"]:
-            sys.stderr.write("%s: Started computing role probabilities from roleset probabilities\n" %(genome))
+        ctx.log_debug('Started computing role probabilities from roleset probabilities for '+genome)
 
         # Start with an empty list.
         roleProbs = list()
@@ -133,15 +132,14 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 roleProbs.append( (query, role, queryRolesToProbs[role]) )
     
         # Save the generated data when debug is turned on.
-        if ctx.get_log_level() >= log.DEBUG:
+        if ctx.get_log_level() >= log.DEBUG2:
             role_probability_file = os.path.join(workFolder, "%s.roleprobs" %(genome))
             fid = open(role_probability_file, "w")
             for tuple in roleProbs:
                 fid.write("%s\t%s\t%s\n" %(tuple[0], tuple[1], tuple[2]))
             fid.close()
 
-        if input["verbose"]:    
-            sys.stderr.write("%s: Finished computing role probabilities from roleset probabilities\n" %(genome))
+        ctx.log_debug('Finished computing role probabilities from roleset probabilities for '+genome)
             
         return roleProbs
     
@@ -168,8 +166,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             @raise RoleNotFoundError when role is not placed properly in roleToTotalProb dictionary
         '''
     
-        if input["verbose"]:
-            sys.stderr.write("%s: Started generating whole-cell role probability file\n" %(genome))        
+        ctx.log_debug('Started generating whole-cell role probability file for '+genome)
     
         # Find maximum likelihood among all query genes for each role.
         # This is assumed to be the likelihood of that role occurring in the organism as a whole.
@@ -208,15 +205,14 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             totalRoleProbs.append( (role, roleToTotalProb[role], gpr ) )   
     
         # Save the generated data when debug is turned on.
-        if ctx.get_log_level() >= log.DEBUG:
+        if ctx.get_log_level() >= log.DEBUG2:
             total_role_probability_file = os.path.join(workFolder, "%s.cellroleprob" %(genome))
             fid = open(total_role_probability_file, "w")
             for tuple in totalRoleProbs:
                 fid.write("%s\t%s\t%s\n" %(tuple[0], tuple[1], tuple[2]))
             fid.close()
         
-        if input["verbose"]:    
-            sys.stderr.write("%s: Finished generating whole-cell role probability file\n" %(genome))
+        ctx.log_debug('Finished generating whole-cell role probability file for '+genome)
             
         return totalRoleProbs
     
@@ -258,8 +254,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 relationship
         '''
     
-        if input["verbose"]:
-            sys.stderr.write("%s: Started computing complex probabilities\n" %(genome))
+        ctx.log_debug('Started computing complex probabilities for '+genome)
     
         # Get the mapping from complexes to roles if it isn't already provided.
         if complexesToRequiredRoles is None:
@@ -337,15 +332,14 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             complexProbs.append( (cplx, minp, TYPE, self.config["separator"].join(unavailRoles), self.config["separator"].join(noexistRoles), GPR) )
 
         # Save the generated data when debug is turned on.
-        if ctx.get_log_level() >= log.DEBUG:
+        if ctx.get_log_level() >= log.DEBUG2:
             complex_probability_file = os.path.join(workFolder, "%s.complexprob" %(genome))
             fid = open(complex_probability_file, "w")
             for tuple in complexProbs:
                 fid.write("%s\t%1.4f\t%s\t%s\t%s\t%s\n" %(tuple[0], tuple[1], tuple[2], tuple[3], tuple[4], tuple[5]))
             fid.close()
         
-        if input["verbose"]:
-            sys.stderr.write("%s: Finished computing complex probabilities\n" %(genome))
+        ctx.log_debug('Finished computing complex probabilities for '+genome)
         return complexProbs
     
     def _reactionProbabilities(self, ctx, input, genome, complexProbs, workFolder, rxnsToComplexes = None):
@@ -374,8 +368,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                 and gene-protein-reaction relationship
         '''
     
-        if input["verbose"]:
-            sys.stderr.write("%s: Started computing reaction probabilities\n" %(genome))
+        ctx.log_debug('Started computing reaction probabilities for '+genome)
         
         # Build a dictionary keyed by complex ID of tuples with likelihood, type, and GPR.
         # Note we don't need to use the list of roles not in organism and list of roles
@@ -429,15 +422,14 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             reactionProbs.append( [rxn, maxProb, TYPE, complexString, GPR] )
     
         # Save the generated data when debug is turned on.
-        if ctx.get_log_level() >= log.DEBUG:
+        if ctx.get_log_level() >= log.DEBUG2:
             reaction_probability_file = os.path.join(workFolder, "%s.rxnprobs" %(genome))
             fid = open(reaction_probability_file, "w")
             for tuple in reactionProbs:
                 fid.write("%s\t%1.4f\t%s\t%s\t%s\n" %(tuple[0], tuple[1], tuple[2], tuple[3], tuple[4]))
             fid.close()
     
-        if input["verbose"]:
-            sys.stderr.write("%s: Finished computing reaction probabilities\n" %(genome))
+        ctx.log_debug('Finished computing reaction probabilities for '+genome)
         return reactionProbs
     
     def _metaboliteWeights(input, model):
@@ -563,7 +555,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         submod = os.environ.get('KB_SERVICE_NAME', 'probabilistic_annotation')
         self.mylog = log.log(submod, ip_address=True, authuser=True, module=True, method=True,
             call_id=True, config=os.getenv('KB_DEPLOYMENT_CONFIG'))
-        self.mylog.log_message(log.INFO, 'Server started, version is '+ServiceVersion)
+        self.mylog.log_message(log.NOTICE, 'Server started, version is '+ServiceVersion)
         configValues = 'shock_url='+self.config['shock_url']
         configValues += ', userandjobstate_url='+self.config['userandjobstate_url']
         configValues += ', workspace_url='+self.config['workspace_url']
@@ -579,7 +571,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         configValues += ', search_program_path='+self.config['search_program_path']
         configValues += ', blast_threads='+self.config['blast_threads']
         configValues += ', usearch_accel='+self.config['usearch_accel']
-        self.mylog.log_message(log.INFO, configValues)
+        self.mylog.log_message(log.NOTICE, configValues)
 
         # Create the data folder if it does not exist.
         if not os.path.exists(self.config["data_folder_path"]):
@@ -672,6 +664,10 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         # Make sure the static database files are ready.
         self._checkDatabaseFiles(ctx)
         
+        # Set log level to INFO when verbose parameter is enabled.
+        if input['verbose']:
+            ctx.set_log_level(log.DEBUG)
+
         # Make sure the Genome object is available.
         wsClient = Workspace(self.config["workspace_url"], token=ctx['token'])
         genomeIdentity = make_object_identity(input['genome_workspace'], input['genome'])
@@ -748,6 +744,10 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
 
         # Make sure the static database files are ready.
         self._checkDatabaseFiles(ctx)
+
+        # Set log level to INFO when verbose parameter is enabled.
+        if input['verbose']:
+            ctx.set_log_level(log.DEBUG)
         
         # Create a workspace client.
         wsClient = Workspace(self.config["workspace_url"], token=ctx['token'])
@@ -763,7 +763,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         genome = probannoObject["data"]["genome"]
         
         # Create a temporary directory for storing intermediate files when debug is turned on.
-        if ctx.get_log_level() >= log.DEBUG:
+        if ctx.get_log_level() >= log.DEBUG2:
             workFolder = tempfile.mkdtemp("", "calculate-%s-" %(genome), self.config["work_folder_path"])
             ctx.log_debug('Intermediate files saved in '+workFolder)
         else:
