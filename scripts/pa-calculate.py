@@ -16,18 +16,32 @@ desc2 = '''
 DESCRIPTION
       Calculate reaction likelihoods from a probabilistic annotation generated
       by the pa-annotate command.
-      
+
       The results are saved in a RxnProbs typed object and contain putative
       gene annotations (based on a cutoff from the gene most likely to fulfill
       each role associated with the reaction) and likelihood scores.
-      
-      The RxnProbs object can be used as input to gapfilling a metabolic model
-      using the --probrxn option for the fba-gapfill command.  However, if 
-      you do this you must make sure that the same template model is used for
-      gapfilling and for computing probabilities.  If you want to avoid this
-      issue, we recommend using the ProbAnno object instead.
-      
-      (default is to use all reactions in the biochemistry)
+
+      The probanno argument is the ID of a ProbAnno object to analyze.  The
+      rxnprobs argument is the ID of the created RxnProbs object.  The
+      --probannows and --rxnprobsws optional arguments specify the workspace for
+      the corresponding objects.  The default is the user's current workspace.
+
+      The --template optional argument specifies the ModelTemplate object to use.
+      The default is to use all reactions in the biochemistry database.  The
+      --templatews optional argument specifies the workspace for the
+      ModelTemplate object.  The default is the user's current workspace.
+
+      The RxnProbs object can be used as input to gap filling a metabolic model
+      using the --probrxn argument for the fba-gapfill command.  However, if
+      you do this you must make sure that the same model template is used for
+      gap filling and for computing likelihoods.  If you want to avoid this
+      issue, use the ProbAnno object and the --probanno argument instead.
+
+      The --url optional argument specifies an alternate URL for the service
+      endpoint.
+
+      The --show-error optional argument shows additional detailed information
+      when an exception occurs.
 '''
 
 desc3 = '''
@@ -39,7 +53,9 @@ EXAMPLES
 SEE ALSO
       pa-annotate
       pa-getrxnprobs
+      pa-url
       fba-gapfill
+      ws-workspace
 
 AUTHORS
       Matt Benedict, Mike Mundy 

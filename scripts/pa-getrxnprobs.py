@@ -43,6 +43,7 @@ EXAMPLES
 
 SEE ALSO
       pa-calculate
+      pa-url
       ws-workspace
 
 AUTHORS

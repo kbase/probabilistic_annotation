@@ -46,6 +46,7 @@ EXAMPLES
 
 SEE ALSO
       pa-annotate
+      pa-url
       ws-workspace
 
 AUTHORS

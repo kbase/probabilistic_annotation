@@ -19,14 +19,26 @@ DESCRIPTION
       is based on similarity (BLAST) to genes in subsystems and genes with
       literature evidence.
       
-      This command takes a significant amount of time to run (since it has to
-      run BLAST against a large database), so it is placed on a queue and 
-      returns a job ID.  Use the pa-checkjob command to see if your job has
-      finished.  When it is done the results are saved in a ProbAnno typed
-      object with the specified ID.
+      The genome argument is the ID of a Genome object to analyze.  The
+      probanno argument is the ID of the created ProbAnno object.  The
+      --genomews and --probannows optional arguments specify the workspace for
+      the corresponding objects.  The default is the user's current workspace.
+
+      This command can take a long time to run since it has to search for
+      matches against a large database.  A job is started to run the search and
+      this command returns the job ID.  Use the pa-checkjob command to see if
+      the job has finished.  When it is done the results are saved in a ProbAnno
+      typed object with the specified ID.
       
-      The ProbAnno object can be used as input to gapfilling a metabolic model
-      using the --probanno option for the fba-gapfill command.
+      The ProbAnno object can be used as input to gap filling a metabolic model
+      using the --probanno option for the fba-gapfill command or as input to the
+      pa-calculate command to calculate reaction likelihoods.
+
+      The --url optional argument specifies an alternate URL for the service
+      endpoint.
+
+      The --show-error optional argument shows additional detailed information
+      when an exception occurs.
 '''
 
 desc3 = '''
@@ -38,7 +50,10 @@ SEE ALSO
       pa-calculate
       pa-checkjob
       pa-getprobanno
+      pa-url
       fba-gapfill
+      fba-loadgenome
+      ws-workspace
 
 AUTHORS
       Matt Benedict, Mike Mundy 
