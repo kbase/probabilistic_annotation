@@ -47,24 +47,25 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     if args.newurl == None:
-        print "Current URL: " + get_url()
+        url = get_url()
+        print "Current URL: " + url
     else:
-        newurl = set_url(args.newurl)
+        url = set_url(args.newurl)
         if args.noCheck:
-            print 'New URL set to: '+newurl
-        else:
-            try:
-                paClient = ProbabilisticAnnotation(url=newurl)
-                serverInfo = paClient.version()
-                if serverInfo[0] != 'probabilistic_annotation':
-                    print newurl+' is not a probabilistic annotation server'
-                    exit(1)
-                print newurl+' is valid and running %s v%s' %(serverInfo[0], serverInfo[1])
-            except ProbAnnoServerError as e:
-                print 'Endpoint at %s returned error: %s' %(newurl, e)
-                exit(1)
-            except Exception as e:
-                print 'Could not get a valid response from endpoint at %s: %s' %(newurl, e)
-                exit(1)
+            print 'New URL set to: '+url
+            exit(0)
+    try:
+        paClient = ProbabilisticAnnotation(url=url)
+        serverInfo = paClient.version()
+        if serverInfo[0] != 'probabilistic_annotation':
+            print url+' is not a probabilistic annotation server'
+            exit(1)
+        print url+' is valid and running %s v%s' %(serverInfo[0], serverInfo[1])
+    except ProbAnnoServerError as e:
+        print 'Endpoint at %s returned error: %s' %(url, e)
+        exit(1)
+    except Exception as e:
+        print 'Could not get a valid response from endpoint at %s: %s' %(url, e)
+        exit(1)
     exit(0)
-    
+
