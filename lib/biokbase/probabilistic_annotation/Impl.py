@@ -116,7 +116,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         # querygene -> [ (roleset1, likelihood_1), (roleset2, likelihood_2), ...]
         for query in queryToTuplist:
             # This section actually does the conversion of likelihoods.
-            # See equation 3 in the paper.
+            # See equation 3 in the paper ("Calculating reaction likelihoods" section).
             queryRolesToProbs = dict()
             for tup in queryToTuplist[query]:
                 rolelist = tup[0].split(self.config["separator"])
@@ -182,7 +182,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         # likelihood and assert that these are the most likely genes responsible for that role.
         # (note - DILUTION_PERCENT is defined in the config file)
         # This produces a dictionary from role to a list of genes
-        # See equation 4 in the paper.
+        # See equation 4 in the paper ("Calculating reaction likelihoods" section).
         roleToGeneList = dict()
         for tuple in roleProbs:
             if tuple[1] not in roleToTotalProb:
@@ -278,7 +278,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         # Iterate over complexes and compute complex probabilities from role probabilities.
         # Separate out cases where no genes seem to exist in the organism for the reaction
         # from cases where there is a database deficiency.
-        # See equation 5 in the paper.
+        # See equation 5 in the paper ("Calculating reaction likelihoods" section).
         SEPARATOR = self.config["separator"]
         complexProbs = list()
         for cplx in complexesToRequiredRoles:
@@ -384,7 +384,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
 
         # Take the MAXIMUM likelihood of complexes catalyzing a particular reaction
         # and call that the reaction likelihood.
-        # See equation 6 in the paper.
+        # See equation 6 in the paper ("Calculating reaction likelihoods" section).
         reactionProbs = list()
         for rxn in rxnsToComplexes:
             TYPE = "NOCOMPLEXES"
@@ -585,7 +585,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         status = 'failed'
         if self.config["load_data_option"] == "shock":
             try:
-                self.dataParser.loadDatabaseFiles(self.config['shock_url'], self.mylog)
+                self.dataParser.loadDatabaseFiles(self.mylog)
                 status = "ready"
                 sys.stderr.write("All static database files loaded from Shock.\n")
                 self.mylog.log_message(log.INFO, 'All static database files loaded from Shock')

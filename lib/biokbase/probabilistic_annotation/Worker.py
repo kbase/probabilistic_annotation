@@ -269,7 +269,7 @@ class ProbabilisticAnnotationWorker:
         rolestringTuples = dict()
 
         # For each query gene we calculate the likelihood of each possible rolestring.
-        # See equation N in the paper.
+        # See equation 2 in the paper ("Calculating annotation likelihoods" section).
         for query in idToTargetList:
             # First we need to know the maximum score for this gene.
             # I have no idea why but I'm pretty sure Python is silently turning the second
