@@ -175,12 +175,9 @@ if __name__ == "__main__":
     # Get the probabilistic_annotation section from the configuration file.
     config = get_config(args.configFilePath)
 
-    # Create a DataParser object for working with the static database files.
+    # Create a DataParser object for working with the static database files (the
+    # data folder is created if it does not exist).
     dataParser = DataParser(config)
-
-    # Create the data folder if it does not exist.
-    if not os.path.exists(config["data_folder_path"]):
-        os.makedirs(config["data_folder_path"], 0775)
 
     # Update the status file.
     dataParser.writeStatusFile('building')

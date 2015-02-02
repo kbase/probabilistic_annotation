@@ -23,6 +23,7 @@ UPDATED FEATURES / MAJOR BUG FIXES:
 - Updated pa-gendata command with faster OTU filtering and better messages
 - Converted all command scripts to Python
 - Added support for different protein search programs
+- Added pa-loaddata command to load static database files from Shock
 - Internal restructuring for using other job queues
 - Added logging to server and removed debug configuration variable
 

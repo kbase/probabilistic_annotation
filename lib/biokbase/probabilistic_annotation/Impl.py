@@ -573,40 +573,14 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         configValues += ', usearch_accel='+self.config['usearch_accel']
         self.mylog.log_message(log.NOTICE, configValues)
 
-        # Create the data folder if it does not exist.
-        if not os.path.exists(self.config["data_folder_path"]):
-            os.makedirs(self.config["data_folder_path"], 0775)
-
-        # Create a DataParser object for working with the static database files.
+        # Create a DataParser object for working with the static database files (the
+        # data folder is created if it does not exist).
         self.dataParser = DataParser(self.config)
 
-        # See if the static database files are available.
-        self.dataParser.writeStatusFile('running')
-        status = 'failed'
-        if self.config["load_data_option"] == "shock":
-            try:
-                self.dataParser.loadDatabaseFiles(self.mylog)
-                status = "ready"
-                sys.stderr.write("All static database files loaded from Shock.\n")
-                self.mylog.log_message(log.INFO, 'All static database files loaded from Shock')
-            except:
-                sys.stderr.write("WARNING: Failed to load static database files from Shock. Checking current files but they might not be the latest!\n")
-                self.mylog.log_message(log.NOTICE, 'Failed to load static database files from Shock. Checking current files...')
-                traceback.print_exc(file=sys.stderr)
-                self.config["load_data_option"] = "preload"
-        if self.config["load_data_option"] == "preload":
-            try:
-                self.dataParser.checkIfDatabaseFilesExist()
-                status = "ready"
-                sys.stderr.write("All static database files are available.\n")
-                self.mylog.log_message(log.INFO, 'All static database files are available')
-            except:
-                status = "ready"
-                self.config['data_folder_path'] = os.path.join(os.environ['KB_SERVICE_DIR'], 'testdata')
-                sys.stderr.write("WARNING: Static database files are missing.  Switched to test database files.\n")
-                self.mylog.log_message(log.NOTICE, 'Static database files are missing.  Switched to test database files')
-                traceback.print_exc(file=sys.stderr)
-        self.dataParser.writeStatusFile(status)
+        # Get the static database files.  If the files do not exist and they are downloaded
+        # from Shock, it can take a few minutes before the server is ready.
+        testDataPath = os.path.join(os.environ['KB_SERVICE_DIR'], 'testdata')
+        self.config['load_data_option'] = self.dataParser.getDatabaseFiles(self.mylog, testDataPath)
 
         # Validate the value of the job_queue variable.  Currently the only supported value is 'local'.
         # Force it to a valid value to avoid an error trying to submit a job later.

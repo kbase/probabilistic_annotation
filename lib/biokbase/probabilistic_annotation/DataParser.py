@@ -6,6 +6,7 @@ import sys
 import math
 import subprocess
 import json
+import traceback
 from shock import Client as ShockClient
 from biokbase import log
 from biokbase.probabilistic_annotation.Helpers import now
@@ -15,6 +16,10 @@ MIN_EVALUE = 1E-200
 
 # Exception thrown when makeblastdb command failed
 class MakeblastdbError(Exception):
+    pass
+
+# Exception thrown when static database file is missing from Shock.
+class MissingFileError(Exception):
     pass
 
 # Exception thrown when static database files are not ready
@@ -37,6 +42,7 @@ class DataParser:
         self.searchProgram = config['search_program']
         self.searchProgramPath = config['search_program_path']
         self.shockURL = config['shock_url']
+        self.loadDataOption = config['load_data_option']
        
         # Paths to files for tracking status of static database files.
         self.StatusFiles = dict()
@@ -63,7 +69,13 @@ class DataParser:
             self.SearchFiles['subsystem_otu_index_file'] = os.path.join(self.dataFolderPath, 'SUBSYSTEM_FASTA.pin')
             self.SearchFiles['subsystem_otu_sequence_file'] = os.path.join(self.dataFolderPath, 'SUBSYSTEM_FASTA.psq')
             self.SearchFiles['subsystem_otu_header_file'] = os.path.join(self.dataFolderPath, 'SUBSYSTEM_FASTA.phr')
-        
+
+        # Create the data folder if it does not exist.
+        if not os.path.exists(config["data_folder_path"]):
+            os.makedirs(config["data_folder_path"], 0775)
+
+        return
+
     # The OTU ID file is a list of representative OTU genome IDs.  Each line has these fields:
     #   1. Genome ID in KBase format (e.g. kb|g.0)
     #   2. Flag indicating if the genome is a prokaryote (1 means yes, 0 means no)
@@ -632,6 +644,59 @@ class DataParser:
         json.dump(fileCache, open(cacheFilename, "w"), indent=4)
 
         return
+
+    def getDatabaseFiles(self, mylog, testDataPath):
+        ''' Get the static database files.
+
+            The static database files come from one of three places: (1) Shock,
+            (2) a local data directory, (3) a test data directory.  If the files
+            are not found in Shock, the local data directory is searched.  If the
+            file are not found in the local data directory, the test data directory
+            is used.
+
+            @param mylog: Log object for messages
+            @param testDataPath: Path to directory with test database files
+            @return Current value of load data option which indicates which of the
+                three places is being used for the static database files
+        '''
+
+        # Update the status file to indicate that the static database files are being updated.
+        self.writeStatusFile('running')
+        status = 'failed'
+
+        # Get the static database files from Shock (only missing or changed files are downloaded).
+        if self.loadDataOption == 'shock':
+            try:
+                self.loadDatabaseFiles(mylog)
+                status = 'ready'
+                sys.stderr.write('All static database files loaded from Shock to %s.\n' %(self.dataFolderPath))
+                mylog.log_message(log.INFO, 'All static database files loaded from Shock to %s' %(self.dataFolderPath))
+            except:
+                traceback.print_exc(file=sys.stderr)
+                sys.stderr.write('WARNING: Failed to load static database files from Shock. Checking current files but they might not be the latest!\n')
+                mylog.log_message(log.NOTICE, 'Failed to load static database files from Shock. Checking current files...')
+                self.loadDataOption = 'preload'
+
+        # Get the static database files from the data directory specified in the configuration.
+        if self.loadDataOption == 'preload':
+            try:
+                self.checkIfDatabaseFilesExist()
+                status = 'ready'
+                sys.stderr.write('All static database files are available in %s.\n' %(self.dataFolderPath))
+                mylog.log_message(log.INFO, 'All static database files are available in %s' %(self.dataFolderPath))
+            except:
+                # There is a problem with at least one of the static database files so switch
+                # to the test data.
+                status = 'ready'
+                self.loadDataOption = 'test'
+                self.dataFolderPath = testDataPath
+                traceback.print_exc(file=sys.stderr)
+                sys.stderr.write('WARNING: Static database files are missing. Switched to test database files in %s.\n' %(testDataPath))
+                mylog.log_message(log.NOTICE, 'Static database files are missing. Switched to test database files in %s' %(testDataPath))
+
+        # Update the status file to indicate that the static database files updating is done.
+        self.writeStatusFile(status)
+        return self.loadDataOption
 
     #####################
     # OTU neighborhoods #
