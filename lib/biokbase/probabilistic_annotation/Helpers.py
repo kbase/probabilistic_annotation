@@ -16,7 +16,7 @@ ProbAnnoType = 'ProbabilisticAnnotation.ProbAnno-1.0'
 RxnProbsType = 'ProbabilisticAnnotation.RxnProbs-1.0'
 
 # Current version of service.
-ServiceVersion = '1.1.0'
+ServiceVersion = '1.2.0'
 
 def read_config(filename=None):
     ''' Read a configuration file.

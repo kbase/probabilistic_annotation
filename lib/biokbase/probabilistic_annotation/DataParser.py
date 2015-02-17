@@ -9,10 +9,14 @@ import json
 import traceback
 from shock import Client as ShockClient
 from biokbase import log
-from biokbase.probabilistic_annotation.Helpers import now
+from biokbase.probabilistic_annotation.Helpers import now, ServiceVersion
 
 # E values of less than 1E-200 are treated as 1E-200 to avoid log of 0 issues.
 MIN_EVALUE = 1E-200
+
+# Exception thrown when there is an invalid sources configuration variable
+class BadSourceList(Exception):
+    pass
 
 # Exception thrown when makeblastdb command failed
 class MakeblastdbError(Exception):
@@ -42,33 +46,74 @@ class DataParser:
         self.searchProgram = config['search_program']
         self.searchProgramPath = config['search_program_path']
         self.shockURL = config['shock_url']
+        self.keggURL = config['kegg_url']
         self.loadDataOption = config['load_data_option']
-       
+
+        # Create a dictionary with the valid sources and initialize to not set.
+        self.sources = { 'cdm': 0, 'kegg': 0 }
+
+        # The list of sources are separated with a comma.
+        sourceList = config['data_sources'].split(',')
+        if len(sourceList) == 0:
+            raise BadSourceError('List of data sources is empty')
+        
+        # Check for valid sources and mark each one that is in the list.
+        for src in sourceList:
+            if src in self.sources:
+                self.sources[src] = 1
+            else:
+                raise BadSourceError('Source %s is not supported' %(src))
+
+        # Must have cdm source.
+
         # Paths to files for tracking status of static database files.
         self.StatusFiles = dict()
         self.StatusFiles['status_file'] = os.path.join(self.dataFolderPath, 'staticdata.status')
         self.StatusFiles['cache_file'] = os.path.join(self.dataFolderPath, 'staticdata.cache')
 
+        # Paths to files with source data when central data model is a source.
+        self.CdmDataFiles = dict()
+        if self.sources['cdm']:
+            self.CdmDataFiles['subsystem_fid_file'] = os.path.join(self.dataFolderPath, 'CDM_SUBSYSTEM_FID')
+            self.CdmDataFiles['dlit_fid_file'] = os.path.join(self.dataFolderPath, 'CDM_DLIT_FID')
+            self.CdmDataFiles['concatenated_fid_file'] = os.path.join(self.dataFolderPath, 'CDM_ALL_FID')
+            self.CdmDataFiles['fid_role_file'] = os.path.join(self.dataFolderPath, 'CDM_ALL_FID_ROLE')
+            self.CdmDataFiles['otu_fid_role_file'] = os.path.join(self.dataFolderPath, 'CDM_OTU_FID_ROLE')
+            self.CdmDataFiles['protein_fasta_file'] = os.path.join(self.dataFolderPath, 'CDM_PROTEIN_FASTA')
+            self.CdmDataFiles['complex_role_file'] = os.path.join(self.dataFolderPath, 'CDM_COMPLEX_ROLE')
+            self.CdmDataFiles['reaction_complex_file'] = os.path.join(self.dataFolderPath, 'CDM_REACTION_COMPLEX')
+
+        # Add the data files when KEGG is a source.
+        if self.sources['kegg']:
+            self.DataFiles['kegg_reaction_file'] = os.path.join(self.dataFolderPath, 'KEGG_KBASE_REACTIONS')
+            self.DataFiles['kegg_otu_fid_roles'] = os.path.join(self.dataFolderPath, 'KEGG_OTU_FID_ROLES')
+            self.DataFiles['kegg_otu_fasta_file'] = os.path.join(self.dataFolderPath, 'KEGG_FASTA')
+            self.DataFiles['kegg_complexes_roles_file'] = os.path.join(self.dataFolderPath, 'KEGG_COMPLEXES_ROLES')
+            self.DataFiles['kegg_reactions_complexes_file'] = os.path.join(self.dataFolderPath, 'KEGG_REACTIONS_COMPLEXES')
+
         # Paths to files with source data.
         self.DataFiles = dict()
         self.DataFiles['otu_id_file'] = os.path.join(self.dataFolderPath, 'OTU_GENOME_IDS')
-        self.DataFiles['subsystem_fid_file'] = os.path.join(self.dataFolderPath, 'SUBSYSTEM_FIDS')
-        self.DataFiles['dlit_fid_file'] = os.path.join(self.dataFolderPath, 'DLIT_FIDS')
-        self.DataFiles['concatenated_fid_file'] = os.path.join(self.dataFolderPath, 'ALL_FIDS')
-        self.DataFiles['concatenated_fid_role_file'] = os.path.join(self.dataFolderPath, 'ALL_FID_ROLES')
-        self.DataFiles['subsystem_otu_fid_roles_file'] = os.path.join(self.dataFolderPath, 'SUBSYSTEM_OTU_FID_ROLES')
-        self.DataFiles['subsystem_otu_fasta_file'] = os.path.join(self.dataFolderPath, 'SUBSYSTEM_FASTA')
-        self.DataFiles['complexes_roles_file'] = os.path.join(self.dataFolderPath, 'COMPLEXES_ROLES')
-        self.DataFiles['reaction_complexes_file'] = os.path.join(self.dataFolderPath, 'REACTIONS_COMPLEXES')
+        self.DataFiles['protein_fasta_file'] = os.path.join(self.dataFolderPath, 'PROTEIN_FASTA')
+
+        # Maybe DataFiles is just the merged data files needed for runtime.
+        # KeggFiles is the files for Kegg source
+        # CdmFiles is the files for CDM source
+
+        # Merged files
+        # OTU_FID_ROLES
+        # PROTEIN_FASTA
+        # COMPLEXES_ROLES
+        # REACTIONS_COMPLEXES
         
         # Paths to files for searching for proteins.
         self.SearchFiles = dict()
         if self.searchProgram == 'usearch':
-            self.SearchFiles['subsystem_udb_file'] = os.path.join(self.dataFolderPath, 'SUBSYSTEM.udb')
+            self.SearchFiles['protein_udb_file'] = os.path.join(self.dataFolderPath, 'PROTEIN.udb')
         else:
-            self.SearchFiles['subsystem_otu_index_file'] = os.path.join(self.dataFolderPath, 'SUBSYSTEM_FASTA.pin')
-            self.SearchFiles['subsystem_otu_sequence_file'] = os.path.join(self.dataFolderPath, 'SUBSYSTEM_FASTA.psq')
-            self.SearchFiles['subsystem_otu_header_file'] = os.path.join(self.dataFolderPath, 'SUBSYSTEM_FASTA.phr')
+            self.SearchFiles['protein_otu_index_file'] = os.path.join(self.dataFolderPath, 'PROTEIN_FASTA.pin')
+            self.SearchFiles['protein_otu_sequence_file'] = os.path.join(self.dataFolderPath, 'PROTEIN_FASTA.psq')
+            self.SearchFiles['protein_otu_header_file'] = os.path.join(self.dataFolderPath, 'PROTEIN_FASTA.phr')
 
         # Create the data folder if it does not exist.
         if not os.path.exists(config["data_folder_path"]):
@@ -114,220 +159,98 @@ class DataParser:
         fid.close()
         return
     
-    # The subsystem feature ID file is a list of feature IDs from SEED subsystems.  Each line has
-    # one field that is the feature ID in KBase format (e.g. kb|g.3.peg.541).
-    
-    def readSubsystemFids(self):
-        ''' Read data from the subsystem feature ID file.
-        
-            @return List of feature IDs from SEED subystems
-        '''
-    
-        fid = open(self.DataFiles['subsystem_fid_file'], 'r')
-        sub_fids = list()
-        for line in fid:
-            spl = line.strip("\r\n")
-            sub_fids.append(spl)
-        fid.close()
-        return sub_fids
-    
-    def writeSubsystemFids(self, sub_fids):
-        ''' Write data to the subsystem feature ID file.
-        
-            @param sub_fids List of feature IDs from SEED subsystems
-            @return Nothing
-        '''
-    
-        fid = open(self.DataFiles['subsystem_fid_file'], 'w')
-        for f in sub_fids:
-            fid.write("%s\n" %(f))
-        fid.close()
-        return
-    
-    # The direct literature-supported feature ID file is a list of feature IDs identified in the
-    # literature.  Each line has one field that is the feature ID in KBase format (e.g. kb|g.428.peg.6254).
-    
-    def readDlitFids(self):
-        ''' Read data from the direct literature-supported feature ID file.
-        
-            @return List of feature IDs from literature
-        '''
-    
-        fid = open(self.DataFiles['dlit_fid_file'], 'r')
-        otu_fids = list()
-        for line in fid:
-            spl = line.strip("\r\n")
-            otu_fids.append(spl)
-        fid.close()
-        return otu_fids
-    
-    def writeDlitFids(self, otu_fids):
-        ''' Write data to the direct literature-supported feature ID file.
-        
-            @param otu_fids List of feature IDs from literature
-            @return Nothing
-        '''
-    
-        fid = open(self.DataFiles['dlit_fid_file'], 'w')
-        for f in otu_fids:
-            fid.write("%s\n" %(f))
-        fid.close()
-        return
-    
-    # The concatenated feature ID file is a list of all feature IDs from both
-    # SEED subsystems and literature.  Each line has one field that is the feature
-    # ID in KBase format (e.g. kb|g.428.peg.6254).
+    # A feature ID file is a list of features IDs.  Each line has one field that is
+    # the feature ID in KBase format (e.g. kb|g.3.peg.541).
 
-    def readAllFids(self):
-        ''' Read data from the concatenated feature ID file.
+    def readFeatureIdFile(self, filename):
+        ''' Read data from a feature ID file.
         
-            @return List of all feature IDs
+            @param filename: Path to feature ID file
+            @return List of feature IDs.
         '''
+        featureIds = list()
+        with open(filename, 'r') as handle:
+            for line in handle:
+                featureIds.append(line.strip('\r\n'))
+        return featureIds
+
+    def writeFeatureIdFile(self, filename, featureIds):
+        ''' Write data to a feature ID file.
         
-        fid = open(self.DataFiles['concatenated_fid_file'], 'r')
-        all_fids = list()
-        for line in fid:
-            spl = line.strip('\r\n')
-            all_fids.append(spl)
-        fid.close()
-        return all_fids
-        
-    def writeAllFids(self, all_fids):
-        ''' Write data to the concatenated feature ID file.
-        
-            @param all_fids List of all feature IDs
+            @param filename: Path to feature ID file
+            @param featureIds: List of feature IDs
             @return Nothing
         '''
         
-        fid = open(self.DataFiles['concatenated_fid_file'], 'w')
-        for f in all_fids:
-            fid.write("%s\n" %(f))
-        fid.close()
+        with open(filename, 'w') as handle:
+            for index in range(len(featureIds)):
+                handle.write('%s\n' %(featureIds[index]))
         return
-    
-    # The concatenated feature ID to role file is a mapping of feature IDs to functional roles.
+
+    # A feature ID to role file is a mapping of feature IDs to functional roles.
     # Each line has these fields:
     #   1. Feature ID in KBase format (e.g. kb|g.0.peg.2094)
     #   2. List of names of functional roles (e.g. Conserved ATP-binding protein YghS)
     #
     # Note that functional roles must be separated by a string that does not occur in any role.
     
-    def readAllFidRoles(self):
-        ''' Read data from the concatenated feature ID to role file.
+    def readFidRoleFile(self, filename):
+        ''' Read data from a feature ID to role file.
         
-            @return Dictionary mapping a feature ID to list of names of roles, dictionary mapping a role to feature ID
+            @param filename: Path to feature ID to role file
+            @return Dictionary mapping a feature ID to list of names of roles,
+                dictionary mapping a role to feature ID
         '''
-    
-        fid = open(self.DataFiles['concatenated_fid_role_file'], 'r')
-        all_fidsToRoles = dict()
-        for line in fid:
-            spl = line.strip("\r\n").split("\t")
-            roles = spl[1].split(self.separator)
-            if spl[0] in all_fidsToRoles:
-                all_fidsToRoles[spl[0]] += roles
-            else:
-                all_fidsToRoles[spl[0]] = roles
-        fid.close()
-    
-        all_rolesToFids = dict()
-        for fid in all_fidsToRoles:
-            roles = all_fidsToRoles[fid]
-            for role in roles:
-                if role in all_rolesToFids:
-                    all_rolesToFids[role].append(fid)
+        
+        fidsToRoles = dict()
+        with open(filename, 'r') as handle:
+            for line in handle:
+                fields = line.strip('\r\n').split('\t')
+                roles = fields[1].split(self.separator)
+                if fields[0] in fidsToRoles:
+                    fidsToRoles[fields[0]] += roles
                 else:
-                    all_rolesToFids[role] = [ fid ]
-    
-        return all_fidsToRoles, all_rolesToFids
-    
-    def writeAllFidRoles(self, otu_fidsToRoles):
-        ''' Write data to the concatenated feature ID to role file.
-        
-            @param otu_fidsToRoles Dictionary mapping a feature ID to list of names of roles
-            @return Nothing
-        '''
-    
-        fid = open(self.DataFiles['concatenated_fid_role_file'], 'w')
-        for f in otu_fidsToRoles:
-            fid.write("%s\t%s\n" %(f, self.separator.join(otu_fidsToRoles[f])))
-        fid.close()
-        return
-    
-    # The filtered feature ID to roles file is a mapping of feature IDs to functional roles where
-    # there is one protein from each OTU for each functional role.  Each line has these fields:
-    #   1. Feature ID in KBase format (e.g. kb|g.0.peg.2094)
-    #   2. List of names of functional roles (e.g. Conserved ATP-binding protein YghS)
-    #
-    # Note that functional roles must be separated by a string that does not occur in any role.
-    
-    def readFilteredOtuRoles(self):
-        ''' Read data from the filtered feature ID to roles file.
-        
-            @return Dictionary mapping a feature ID to list of names of roles, dictionary mapping a role to feature ID
-        '''
-    
-        fid = open(self.DataFiles['subsystem_otu_fid_roles_file'], 'r')
-        otu_fidsToRoles = dict()
-        for line in fid:
-            spl = line.strip("\r\n").split("\t")
-            roles = spl[1].split(self.separator)
-            if spl[0] in otu_fidsToRoles:
-                otu_fidsToRoles[spl[0]] += roles
-            else:
-                otu_fidsToRoles[spl[0]] = roles
-        fid.close()
-    
-        otu_rolesToFids = dict()
-        for fid in otu_fidsToRoles:
-            roles = otu_fidsToRoles[fid]
+                    fidsToRoles[fields[0]] = roles
+
+        rolesToFids = dict()
+        for fid in fidsToRoles:
+            roles = fidsToRoles[fid]
             for role in roles:
-                if role in otu_rolesToFids:
-                    otu_rolesToFids[role].append(fid)
+                if role in rolesToFids:
+                    rolesToFids[role].append(fid)
                 else:
-                    otu_rolesToFids[role] = [ fid ]
+                    rolesToFids[role] = [ fid ]
     
-        return otu_fidsToRoles, otu_rolesToFids
-    
-    def writeFilteredOtuRoles(self, otu_fidsToRoles):
-        ''' Write data to the filtered feature ID to roles file.
+        return fidsToRoles, rolesToFids
+
+    def writeFidRoleFile(self, filename, fidsToRoles):
+        ''' Write data to a feature ID to role file.
         
-            @param otu_fidsToRoles Dictionary mapping a feature ID to list of names of roles
+            @param filename: Path to feature ID to role file
+            @param fidsToRoles: Dictionary mapping a feature ID to list of names of roles
             @return Nothing
         '''
-    
-        fid = open(self.DataFiles['subsystem_otu_fid_roles_file'], 'w')
-        for f in otu_fidsToRoles:
-            fid.write("%s\t%s\n" %(f, self.separator.join(otu_fidsToRoles[f])))
-        fid.close()
+
+        with open(filename, 'w') as handle:
+            for fid in fidsToRoles:
+                handle.write('%s\t%s\n' %(fid, self.separator.join(fidsToRoles[fid])))
         return
+
+    # A protein FASTA file contains the amino acid sequences for a set of feature IDs.
     
-    # The subsystem FASTA file contains the amino acid sequences for a set of feature IDs.  When the file
-    # is written a search database is automatically generated.
-    
-    def readSubsystemFasta(self):
-        ''' Read data from the subsystem FASTA file.
+    def writeProteinFastaFile(self, filename, fidsToSeqs):
+        ''' Write data to a protein FASTA file.
         
-            @note This function does not return data (not sure it is really needed except for symmetry).
+            @param filename: Path to protein FASTA file
+            @param fidsToSeqs: Dictionary mapping a feature ID to amino acid sequence
             @return Nothing
         '''
     
-        fid = open(self.DataFiles['subsystem_otu_fasta_file'], 'r')
-        fid.close()
-        return
-    
-    def writeSubsystemFasta(self, fidsToSeqs):
-        ''' Write data to the subsystem FASTA file.
-        
-            @param fidsToSeqs Dictionary mapping a feature ID to amino acid sequence
-            @return Nothing
-        '''
-    
-        fid = open(self.DataFiles['subsystem_otu_fasta_file'], 'w')
         # Sort the fids so that fasta files containing the same proteins hash to the same MD5 (for
         # data provenance purposes)
-        for fids in sorted(fidsToSeqs.keys()):
-            fid.write(">%s\n%s\n" %(fids, fidsToSeqs[fids]))
-        fid.close()
+        with open(filename, 'w') as handle:
+            for fid in sorted(fidsToSeqs.keys()):
+                handle.write('>%s\n%s\n' %(fid, fidsToSeqs[fid]))
         return
     
     def buildSearchDatabase(self):
@@ -339,9 +262,9 @@ class DataParser:
 
         # Build the command based on the configured search program.
         if self.searchProgram == 'usearch':
-            args = [ self.searchProgramPath, '-makeudb_ublast', self.DataFiles['subsystem_otu_fasta_file'], '-output', self.SearchFiles['subsystem_udb_file'] ]
+            args = [ self.searchProgramPath, '-makeudb_ublast', self.DataFiles['protein_fasta_file'], '-output', self.SearchFiles['protein_udb_file'] ]
         else:
-            args = [ "/usr/bin/makeblastdb", "-in", self.DataFiles['subsystem_otu_fasta_file'], "-dbtype", "prot" ]
+            args = [ "/usr/bin/makeblastdb", "-in", self.DataFiles['protein_fasta_file'], "-dbtype", "prot" ]
     
         # Run the command to compile the database from the subsystem fasta file.
         try:
@@ -392,46 +315,51 @@ class DataParser:
                 idToTargetList[queryid] = [ tup ]
         return idToTargetList
     
-    # The complexes to roles file contains a mapping of complex IDs to functional roles.
+    # A complexes to roles file contains a mapping of complex IDs to functional roles.
     # Each line has these fields:
     #   1. Complex ID in KBase format (e.g. kb|cpx.1048)
     #   2. List of functional roles for the complex
     #
     # Note that functional role names must be separated by a string that does not occur in any name.
 
-    def readComplexRoles(self):
-        ''' Read data from the complex to roles file.
-        
-            @return Dictionary mapping a complex ID to list of names of functional roles
+    def readComplexRoleFile(self, filename):
+        ''' Read data from a complex to role file.
+
+            @param filename: Path to complex to roles file
+            @return Dictionary mapping a complex ID to list of names of functional roles,
+                dictionary mapping a role to a list of complex IDs
         '''
-    
-        fid = open(self.DataFiles['complexes_roles_file'], 'r')
-        complexToRequiredRoles = dict()
-        for line in fid:
-            spl = line.strip("\r\n").split("\t")
-            complexes = spl[0]
-            roles = spl[1].split(self.separator)
-            # This shouldn't be necessary but just to be safe...
-            if complexes in complexToRequiredRoles:
-                complexToRequiredRoles[complexes] += roles
-            else:
-                complexToRequiredRoles[complexes]  = roles
-        fid.close()
-        return complexToRequiredRoles
-    
-    def writeComplexRoles(self, complexToRequiredRoles):
-        ''' Write data to the complex to roles file.
-        
-            @param complexToRequiredRoles Dictionary mapping a complex ID to list of names of functional roles
+
+        complexToRoles = dict()
+        roleToComplexes = dict()
+        with open(filename, 'r') as handle:
+            for line in handle:
+                fields = line.strip('\r\n').split('\t')
+                complex = fields[0]
+                roles = fields[1].split(self.separator)
+                if complex not in complexToRoles:
+                    complexToRoles[complex] = roles
+                else:
+                    complexToRoles[complex] += roles
+                for rindex in range(len(roles)):
+                    if roles[rindex] not in roleToComplexes:
+                        roleToComplexes[roles[rindex]] = list()
+                    roleToComplexes[roles[rindex]].append(complex)
+        return complexToRoles, roleToComplexes
+
+    def writeComplexRoleFile(self, filename, complexToRoles):
+        ''' Write data to a complex to role file.
+
+            @param filename: Path to complex to role file
+            @param complexToRoles: Dictionary mapping a complex ID to list of names of functional roles
             @return Nothing
         '''
-    
-        fid = open(self.DataFiles['complexes_roles_file'], 'w')
-        for complexes in complexToRequiredRoles:
-            fid.write("%s\t%s\n" %(complexes, self.separator.join(complexToRequiredRoles[complexes])))
-        fid.close()
+
+        with open(filename, 'w') as handle:
+            for complex in complexToRoles:
+                handle.write('%s\t%s\n' %(complex, self.separator.join(complexToRoles[complex])))
         return
-    
+
     # The reaction to complexes file contains a mapping of reaction IDs to complex IDs.
     # Each line has these fields:
     #   1. Reaction ID in KBase format (e.g. kb|rxn.5682)
@@ -439,39 +367,70 @@ class DataParser:
     #
     # Note that complex IDs must be separated by a string that does not occur in any complex ID.
     
-    def readReactionComplex(self):
-        ''' Read data from the reaction to complexes file.
-        
+    def readReactionComplexFile(self, filename):
+        ''' Read data from a reaction to complexes file.
+
+            @param filename: Path to reaction to complexes file
             @return Dictionary mapping a reaction ID to list of complex IDs
         '''
-    
-        fid = open(self.DataFiles['reaction_complexes_file'], 'r')
+
         rxnToComplexes = dict()
-        for line in fid:
-            spl = line.strip("\r\n").split("\t")
-            rxn = spl[0]
-            cplxlist = spl[1].split(self.separator)
-            # This shouldn't be necessary but just to be safe...
-            if rxn in rxnToComplexes:
-                rxnToComplexes[rxn] += cplxlist
-            else:
-                rxnToComplexes[rxn] = cplxlist
-        fid.close()
+        with open(filename, 'r') as handle:
+            for line in handle:
+                fields = line.strip('\r\n').split('\t')
+                rxn = fields[0]
+                complexes = fields[1].split(self.separator)
+                if rxn not in rxnToComplexes:
+                    rxnToComplexes[rxn] = complexes
+                else:
+                    rxnToComplexes[rxn] += complexes
         return rxnToComplexes
-    
-    def writeReactionComplex(self, rxnToComplexes):
-        ''' Write data to reaction to complexes file.
-        
-            @param rxnToComplexes Dictionary mapping a reaction ID to list of complex IDs
+
+    def writeReactionComplexFile(self, filename, rxnToComplexes):
+        ''' Write data to a reaction to complexes file.
+
+            @param filename: Path to reaction to complexes file
+            @param rxnToComplexes: Dictionary mapping a reaction ID to list of complex IDs
             @return Nothing
         '''
-    
-        fid = open(self.DataFiles['reaction_complexes_file'], 'w')
-        for rxn in rxnToComplexes:
-            fid.write("%s\t%s\n" %(rxn, self.separator.join(rxnToComplexes[rxn])))
-        fid.close()
+
+        with open(filename, 'w') as handle:
+            for rxn in rxnToComplexes:
+                handle.write('%s\t%s\n' %(rxn, self.separator.join(rxnToComplexes[rxn])))
         return
     
+    # The reaction mapping file contains a mapping of KBase reactions to KEGG reactions.
+    # Each line has these fields:
+    #   1. Reaction ID in KEGG format (e.g. R03056)
+    #   2. Reaction ID in KBase format (e.g. )
+    #   3. Name of reaction in CDM
+
+    def readKeggReactionFile(self):
+        '''
+        '''
+        keggReactionList = list()
+        with open(self.DataFiles['kegg_reaction_file'], 'r') as handle:
+            for line in handle:
+                fields = line.strip('\r\n').split('\t')
+                keggReactionList.append( [ fields[0], fields[1], fields[2] ] )
+        return keggReactionList
+
+    def writeKeggReactionFile(self, keggRxnIdList):
+        ''' Write data to KEGG to KBase reactions file.
+
+            The input list is a list of tuples where the first element is the
+            KEGG reaction ID, the second element is the KBase reaction ID, and
+            the third element is the KBase reaction name.
+
+            @param keggRxnIdList: List of tuples as described above
+            @return Nothing
+        '''
+
+        with open(self.DataFiles['kegg_reaction_file'], 'w') as handle:
+            for index in range(len(keggRxnIdList)):
+                handle.write('%s\t%s\t%s\n' %(keggRxnIdList[index][0], keggRxnIdList[index][1], keggRxnIdList[index][2]))
+        return
+
     def readRolesetProbabilityFile(self, roleset_probability_file):
         ''' Read the roleset probability file.
         

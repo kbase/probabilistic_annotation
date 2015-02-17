@@ -5,6 +5,18 @@ This KBase service computes likelihoods for annotations and reactions for a give
 Likelihoods are computed based on similarity to genes with literature evidence and genes
 in subsystems. More ambiguous role calls are given lower probabilities.
 
+VERSION 1.2.0 (Released 05-01-2015)
+-----------------------------------------
+NEW FEATURES
+- Added supported for more sources of data when building static database files
+
+UPDATED FEATURES / MAJOR BUG FIXES:
+- None
+
+ANTICIPATED FUTURE DEVELOPMENTS:
+- None
+
+
 VERSION 1.1.0 (Released 01-16-2015)
 -----------------------------------------
 NEW FEATURES

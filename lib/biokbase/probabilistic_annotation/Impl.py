@@ -813,7 +813,12 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                     pass
             for index in range(len(reactionProbs)):
                 rxnId = reactionProbs[index][0]
-                reactionProbs[index][0] = reactionData[rxnId]['source_id']
+                if rxnId in reactionData:
+                    reactionProbs[index][0] = reactionData[rxnId]['source_id']
+                else:
+                    ctx.log_err('Reaction %s was not found in CDM' %(rxnId))
+                    rxnnum = re.sub(r'kb\|rxn.', '', rxnId)
+                    reactionProbs[index][0] = 'rxn%05d' %(int(rxnnum))
  
         # Create a reaction probability object
         objectData = dict()

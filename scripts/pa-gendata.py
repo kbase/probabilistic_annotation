@@ -77,18 +77,18 @@ def generate_data(dataParser, config, force):
     # Functional annotations from the SEED subsystems are manually curated from
     # multiple sources of information.
     sys.stderr.write("Getting list of subsystem feature IDs at %s\n" %(now()))
-    sys.stderr.write("Saving list to file '%s'\nDownloading from cdmi server...\n" %(dataParser.DataFiles['subsystem_fid_file']))
+    sys.stderr.write("Saving list to file '%s'\nDownloading from cdmi server...\n" %(dataParser.CdmDataFiles['subsystem_fid_file']))
     subsysFids = subsystemFids(1000, config) # Data build V2 size is 2057
-    dataParser.writeSubsystemFids(subsysFids)
+    dataParser.writeFeatureIdFile(dataParser.CdmDataFiles['subsystem_fid_file'], subsysFids)
     sys.stderr.write("Found %d subsystem feature IDs\nDone at %s\n\n" %(len(subsysFids), now()))
     
     # Get a list of direct literature-supported feature IDs.
     # We include these because having them greatly expands the
     # number of roles for which we have representatives.
     sys.stderr.write("Getting list of direct literature-supported feature IDs at %s\n" %(now()))
-    sys.stderr.write("Saving list to file '%s'\nDownloading from cdmi server...\n" %(dataParser.DataFiles['dlit_fid_file']))
+    sys.stderr.write("Saving list to file '%s'\nDownloading from cdmi server...\n" %(dataParser.CdmDataFiles['dlit_fid_file']))
     literatureFids = getDlitFids(5000, config) # Data build V2 size is 12469
-    dataParser.writeDlitFids(literatureFids)
+    dataParser.writeFeatureIdFile(dataParser.CdmDataFiles['dlit_fid_file'], literatureFids)
     sys.stderr.write("Found %d literature-supported feature IDs\nDone at %s\n\n" %(len(literatureFids), now()))
     
     # Concatenate the two feature ID lists before filtering.
@@ -97,17 +97,17 @@ def generate_data(dataParser, config, force):
     # the subsystems... I'm not sure the problem would
     # be as bad for these though)
     sys.stderr.write("Merging lists of subsystem and literature feature IDs at %s\n" %(now()))
-    sys.stderr.write("Saving list to file '%s'\nGenerating file...\n" %(dataParser.DataFiles['concatenated_fid_file']))
+    sys.stderr.write("Saving list to file '%s'\nGenerating file...\n" %(dataParser.CdmDataFiles['concatenated_fid_file']))
     allFids = list(set(subsysFids + literatureFids))
-    dataParser.writeAllFids(allFids)
+    dataParser.writeFeatureIdFile(dataParser.CdmDataFiles['concatenated_fid_file'], allFids)
     sys.stderr.write("Stored %d feature IDs in combined list\nDone at %s\n\n" %(len(allFids), now()))
     del subsysFids, literatureFids
     
     # Identify a role for each feature ID in the concatenated list.
     sys.stderr.write("Getting roles for all feature IDs at %s\n" %(now()))
-    sys.stderr.write("Saving mapping of feature ID to roles to file '%s'\nDownloading from cdmi server...\n" %(dataParser.DataFiles['concatenated_fid_role_file']))
+    sys.stderr.write("Saving mapping of feature ID to roles to file '%s'\nDownloading from cdmi server...\n" %(dataParser.CdmDataFiles['fid_role_file']))
     allFidsToRoles, allRolesToFids = fidsToRoles(allFids, config)
-    dataParser.writeAllFidRoles(allFidsToRoles)
+    dataParser.writeFidRoleFile(dataParser.CdmDataFiles['fid_role_file'], allFidsToRoles)
     sys.stderr.write("Stored %d feature ID to roles mappings\nDone at %s\n\n" %(len(allFidsToRoles), now()))
     del allFidsToRoles
     
@@ -121,9 +121,9 @@ def generate_data(dataParser, config, force):
     # functional role.  Unlike the neighborhood analysis, we don't want to include only 
     # prokaryotes here.
     sys.stderr.write("Filtering list of feature IDs so there is one protein from each OTU for each functional role at %s\n" %(now()))
-    sys.stderr.write("Saving list of filtered feature IDs in file '%s'\nQuerying cdmi server...\n" %(dataParser.DataFiles['subsystem_otu_fid_roles_file']))
+    sys.stderr.write("Saving list of filtered feature IDs in file '%s'\nQuerying cdmi server...\n" %(dataParser.CdmDataFiles['otu_fid_role_file']))
     otuFidsToRoles, otuRolesToFids = filterFidsByOtusOptimized(allFids, allRolesToFids, otuGenomes, config)
-    dataParser.writeFilteredOtuRoles(otuFidsToRoles)
+    dataParser.writeFidRoleFile(dataParser.CdmDataFiles['otu_fid_role_file'], otuFidsToRoles)
     sys.stderr.write("Stored %d feature ID to role mappings\nDone at %s\n\n" %(len(otuFidsToRoles), now()))
     del allFids, otuRolesToFids, otuGenomes
     
@@ -131,9 +131,9 @@ def generate_data(dataParser, config, force):
     sys.stderr.write("Getting amino acid sequences for filtered feature IDs at %s\n" %(now()))
     sys.stderr.write("Downloading from cdmi server...\n")
     fidsToSeqs = fidsToSequences(otuFidsToRoles.keys(), config)
-    sys.stderr.write("Writing amino acid sequences to FASTA file '%s'\nGenerating file and making search database...\n" %(dataParser.DataFiles['subsystem_otu_fasta_file']))
-    dataParser.writeSubsystemFasta(fidsToSeqs)
-    dataParser.buildSearchDatabase()
+    sys.stderr.write("Writing amino acid sequences to FASTA file '%s'\nGenerating file and making search database...\n" %(dataParser.DataFiles['protein_fasta_file']))
+    dataParser.writeProteinFastaFile(fidsToSeqs)
+#    dataParser.buildSearchDatabase()
     sys.stderr.write("Done at %s\n\n" %(now()))
     del otuFidsToRoles, fidsToSeqs
     
@@ -141,18 +141,18 @@ def generate_data(dataParser, config, force):
     # reaction likelihoods.  Note that it is easier to go in this direction because we need all
     # the roles in a complex to get the probability of that complex.
     sys.stderr.write("Getting mapping of complex to roles at %s\n" %(now()))
-    sys.stderr.write("Saving complex to roles mapping in file '%s'\nDownloading from cdmi server...\n" %(dataParser.DataFiles['complexes_roles_file']))
+    sys.stderr.write("Saving complex to roles mapping in file '%s'\nDownloading from cdmi server...\n" %(dataParser.CdmDataFiles['complex_role_file']))
     complexToRequiredRoles, requiredRolesToComplexes = complexRoleLinks(1000, config) # Data build V2 size is 2369
-    dataParser.writeComplexRoles(complexToRequiredRoles)
+    dataParser.writeComplexRoleFile(dataParser.CdmDataFiles['complex_role_file'], complexToRequiredRoles)
     sys.stderr.write("Stored %d complex to roles mappings\nDone at %s\n\n" %(len(complexToRequiredRoles), now()))
     del complexToRequiredRoles, requiredRolesToComplexes
     
     # Create a mapping of reactions to complexes.  Note that it is easier to go in this direction since
     # we'll be filtering multiple complexes down to a single reaction.
     sys.stderr.write("Getting mapping of reaction to complexes at %s\n" %(now()))
-    sys.stderr.write("Saving reaction to complexes mapping in file '%s'\nDownloading from cdmi server...\n" %(dataParser.DataFiles['reaction_complexes_file']))
+    sys.stderr.write("Saving reaction to complexes mapping in file '%s'\nDownloading from cdmi server...\n" %(dataParser.CdmDataFiles['reaction_complex_file']))
     reactionToComplexes, complexesToReactions = reactionComplexLinks(5000, config) # Data build V2 size is 33733
-    dataParser.writeReactionComplex(reactionToComplexes)
+    dataParser.writeReactionComplexFile(dataParser.CdmDataFiles['reaction_complex_file'], reactionToComplexes)
     sys.stderr.write("Stored %d reaction to complexes mappings\nDone at %s\n\n" %(len(reactionToComplexes), now()))
     del reactionToComplexes, complexesToReactions
     
