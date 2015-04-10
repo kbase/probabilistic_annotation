@@ -7,6 +7,7 @@ import math
 import subprocess
 import json
 import traceback
+import time
 from shock import Client as ShockClient
 from biokbase import log
 from biokbase.probabilistic_annotation.Helpers import now
@@ -591,14 +592,15 @@ class DataParser:
         json.dump(fileCache, open(cacheFilename, "w"), indent=4)
         return
      
-    def storeDatabaseFiles(self):
+    def storeDatabaseFiles(self, token):
         ''' Store the static database files to Shock.
 
+            @param token: Authorization token for authenticating to shock
             @return Nothing
         '''
         
         # Create a shock client.
-        shockClient = ShockClient(self.shockURL)
+        shockClient = ShockClient(self.shockURL, token=token)
         
         # Upload all of the static database files to shock.
         fileCache = dict()
@@ -610,7 +612,7 @@ class DataParser:
                 sys.stderr.write("Saving '%s'..." %(localPath))
                 
                 # See if the file already exists in Shock.
-                query = "lookupname=ProbAnnoData/"+name
+                query = { 'lookupname': 'ProbAnnoData/'+name }
                 nodelist = shockClient.query_node(query)
                 
                 # Remove all instances of the file in Shock.
@@ -621,7 +623,7 @@ class DataParser:
                 # Build the attributes for this file and store as json in a separate file.
                 moddate = time.ctime(os.path.getmtime(localPath))           
                 attr = { "lookupname": "ProbAnnoData/"+name, "moddate": moddate }
-                attrFilename = os.path.join(args.dataFolderPath, name+".attr")
+                attrFilename = os.path.join(self.dataFolderPath, name+".attr")
                 attrFid = open(attrFilename, "w")
                 json.dump(attr, attrFid, indent=4)
                 attrFid.close()
@@ -632,15 +634,16 @@ class DataParser:
                 os.remove(attrFilename)
                 
                 # Remove the list of users from the read ACL to give the file public read permission.
-                readacl = shockClient.get_acl(metadata["id"], "read")
-                shockClient.delete_acl(metadata["id"], readacl["read"], "read")
+                # Note this needs to change for Shock version 0.9.5 but not sure how to set public ACLs.
+                readacl = shockClient.get_acl(metadata["id"])
+                shockClient.delete_acl(metadata['id'], 'read', readacl['read'][0])
                 sys.stderr.write("done\n")
                 
             else:
                 sys.stderr.write("Could not find '%s' so it was not saved\n" %(localPath))
                 
         # Save the metadata on all of the database files.
-        cacheFilename = os.path.join(args.dataFolderPath, StatusFiles["cache_file"])
+        cacheFilename = os.path.join(self.dataFolderPath, self.StatusFiles["cache_file"])
         json.dump(fileCache, open(cacheFilename, "w"), indent=4)
 
         return
