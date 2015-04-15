@@ -576,7 +576,7 @@ class DataParser:
             # Download the file if the checksum does not match or the file is not available on this system.
             download = False
             if key in fileCache:
-                if node["file"]["checksum"]["sha1"] != fileCache[key]["file"]["checksum"]["sha1"]:
+                if node['file']['checksum']['md5'] != fileCache[key]['file']['checksum']['md5']:
                     download = True
             else:
                 download = True
