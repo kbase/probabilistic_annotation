@@ -2,7 +2,8 @@
 
 import argparse
 from biokbase.probabilistic_annotation.DataParser import DataParser
-from biokbase.probabilistic_annotation.Helpers import get_config
+from biokbase.probabilistic_annotation.Helpers import get_config, get_url
+from biokbase.probabilistic_annotation.Client import ProbabilisticAnnotation
 
 desc1 = '''
 NAME
@@ -53,6 +54,7 @@ if __name__ == "__main__":
     dataParser = DataParser(config)
 
     # Store the static database files in Shock.
-    dataParser.storeDatabaseFiles()
+    paClient = ProbabilisticAnnotation(url=get_url())
+    dataParser.storeDatabaseFiles(paClient._headers['AUTHORIZATION'])
 
     exit(0)

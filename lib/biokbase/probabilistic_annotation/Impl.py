@@ -258,10 +258,11 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
     
         # Get the mapping from complexes to roles if it isn't already provided.
         if complexesToRequiredRoles is None:
-            complexesToRequiredRoles = self.dataParser.readComplexRoles()
+            complexesToRequiredRoles, rolesToComplexes = self.dataParser.readComplexRoleFile(self.dataParser.DataFiles['complex_role_file'])
+            ctx.log_info('Got complex to roles: %d' %(len(complexesToRequiredRoles)))
         
         # Get the subsystem roles (used to distinguish between NOTTHERE and NOREPS).
-        otu_fidsToRoles, otu_rolesToFids = self.dataParser.readFilteredOtuRoles()
+        otu_fidsToRoles, otu_rolesToFids = self.dataParser.readFidRoleFile(self.dataParser.DataFiles['otu_fid_role_file'])
         allroles = set()
         for fid in otu_fidsToRoles:
             for role in otu_fidsToRoles[fid]:
@@ -380,7 +381,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         
         # Get the mapping from reactions to complexes if it isn't already provided.
         if rxnsToComplexes is None:
-            rxnsToComplexes = self.dataParser.readReactionComplex()
+            rxnsToComplexes = self.dataParser.readReactionComplexFile(self.dataParser.DataFiles['reaction_complex_file'])
 
         # Take the MAXIMUM likelihood of complexes catalyzing a particular reaction
         # and call that the reaction likelihood.

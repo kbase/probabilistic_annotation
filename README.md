@@ -8,9 +8,8 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
 
 * Users can quickly assess the quality of an annotation.
 
-* Reaction likelihood computations allow users to estimate the quality of
-  metabolic networks generated using the automated reconstruction tools in
-  other services.
+* Reaction likelihoods estimate the quality of metabolic networks generated
+  using the automated reconstruction tools in other services.
 
 * Combining reaction likelihoods with gap filling both directly incorporates
   available genetic evidence into the gap filling process and provides putative
@@ -40,8 +39,8 @@ The Probabilistic Annotation server supports the following configuration variabl
 * **kegg_url**: URL of the Kyoto Encyclopedia of Genes and Genomes API service endpoint.
   The KEGG API service is used update local reaction and enzyme databases and to
   download amino acid sequences for genes when building the static database files.
-* **work_folder_path**: Path to work folder containing sub-folders for running service.
-  requests.  The intermediate files created by the annotate() and calculate() methods
+* **work_folder_path**: Path to work folder containing sub-folders for running jobs.
+  The intermediate files created by the annotate() and calculate() methods
   are stored in this location.
 * **data_folder_path**: Path to data folder containing static database files.  A server
   can use different static database files by using different locations.
@@ -50,8 +49,8 @@ The Probabilistic Annotation server supports the following configuration variabl
   to use preloaded static database files.
 * **sources**: List of sources for generating static database files.  The supported
   sources are "cdm" for the KBase central data model and "kegg" for the Kyoto
-  Encyclopedia of Genes and Genomes.  Sources are separated by a comma in the list.
-  Default value is "cdm".  Note the value must be quoted in the config file.
+  Encyclopedia of Genes and Genomes.  Sources are separated by a colon in the list.
+  Default value is "cdm".
 * **separator**: Character string not found in any roles and used as separator between
   elements in lists. Default value is '///'.
 * **dilution_percent**: Percentage of the maximum likelihood to use as a threshold
@@ -74,15 +73,14 @@ Static Database Files
 ---------------------
 
 The static database files contain pre-processed data that is used by the Probabilistic
-Annotation server for building ProbAnno and RxnProbs typed objects.  Commands to work
-with files:
+Annotation server for building ProbAnno and RxnProbs typed objects.
 
-pa-gendata generates the files using the KBase Central Data Model.
-pa-gendata-kegg generates files using the Kyoto Encylopedia of Genes and Genomes.  Need CDM files first.
-pa-savedata stores the files in Shock
-pa-loaddata retrieves the files from Shock
+The static database files come from multiple sources.  The default source is the
+KBase central data model and includes these intermediate files:
 
-* OTU\_GENOME\_IDS: List of representative OTU genome IDs.
+* **CDM_OTU_GENOME_IDS**: List of representative OTU genome IDs. Each line has one
+  field that is a genome ID in KBase format that identifies a genome marked as the
+  representative of its OTU.
 * **CDM_SUBSYSTEM_FID**: List of feature IDs from SEED subsystems. Each line has one
   field that is the feature ID in KBase format.
 * **CDM_DLIT_FID**: List of feature IDs with direct literature support.  Each line
@@ -106,13 +104,34 @@ pa-loaddata retrieves the files from Shock
   in KBase format (e.g. kb|cpx.1507///kb|cpx.1813) delimited by separator configuration
   variable.
 
+An additional source is KEGG and includes these intermediate files:
+
+* **KEGG_OTU_FID_ROLE**: Mapping of gene IDs to functional roles.
+* **KEGG_PROTEIN_FASTA**: Fasta file containing the amino acid sequences for a set of
+  gene IDs.
+* **KEGG_COMPLEX_ROLE**: Mapping of complex IDs to functional roles.  Each line has
+  two fields: (1) Complex ID in KBase format (e.g. kb|cpx.1048) (2) List of functional
+  roles for the complex delimited by separator configuration variable.
+* **KEGG_REACTION_COMPLEX**: Mapping of reaction IDs to complex IDs. Each line has two
+  fields: (1) Reaction ID in KBase format (e.g. kb|rxn.5682) (2) List of complex IDs
+  in KBase format (e.g. kb|cpx.1507///kb|cpx.1813) delimited by separator configuration
+  variable.
+
 Building the Static Database Files
 ----------------------------------
 
+The static database files are built in multiple steps from one or more sources.
 The Probabilistic Annotation server uses a set of files for its calculations.
 Get the data from the KBase Central Data Model (CDM).  Need to link genes to
 reactions.
 
+Commands to work
+with files:
+
+pa-gendata generates the files using the KBase Central Data Model.
+pa-gendata-kegg generates files using the Kyoto Encylopedia of Genes and Genomes.  Need CDM files first.
+pa-savedata stores the files in Shock
+pa-loaddata retrieves the files from Shock
 Get the data from KEGG.
 
 Loading the Static Database Files

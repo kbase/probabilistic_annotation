@@ -195,17 +195,17 @@ class ProbabilisticAnnotationWorker:
         # Build the command based on the configured search program.
         if self.config['search_program'] == 'usearch':
             args = [ self.config['search_program_path'], '-ublast', queryFile,
-                     '-db', self.dataParser.SearchFiles['subsystem_udb_file'],
+                     '-db', self.dataParser.SearchFiles['protein_udb_file'],
                      '-evalue', self.config['search_program_evalue'],
                      '-accel', self.config['usearch_accel'],
                      '-threads', self.config['blast_threads'],
                      '-blast6out', blastResultFile ]
         else:
-            args = [ self.config['search_program_path'], "-query", queryFile,
-                     "-db", self.dataParser.DataFiles["subsystem_otu_fasta_file"],
-                     "-outfmt", "6", "-evalue", self.config['search_program_evalue'],
-                     "-num_threads", self.config["blast_threads"],
-                     "-out", blastResultFile ]
+            args = [ self.config['search_program_path'], '-query', queryFile,
+                     '-db', self.dataParser.DataFiles['protein_fasta_file'],
+                     '-outfmt', '6', '-evalue', self.config['search_program_evalue'],
+                     '-num_threads', self.config['blast_threads'],
+                     '-out', blastResultFile ]
 
         # Run the command to search for proteins against subsystem proteins.
         cmd = ' '.join(args)
@@ -248,7 +248,7 @@ class ProbabilisticAnnotationWorker:
         sys.stderr.write("Performing marble-picking on rolesets for genome %s..." %(input["genome"]))
     
         # Read in the target roles (this function returns the roles as lists!)
-        targetIdToRole, targetRoleToId = self.dataParser.readFilteredOtuRoles()
+        targetIdToRole, targetRoleToId = self.dataParser.readFidRoleFile(self.dataParser.DataFiles['otu_fid_role_file'])
     
         # Convert the lists of roles into "rolestrings" (sort the list so that order doesn't matter)
         # in order to deal with the case where some of the hits are multi-functional and others only have
@@ -354,7 +354,7 @@ class ProbabilisticAnnotationWorker:
         sys.stderr.write("Building ProbAnno object %s/%s for genome %s..." %(input["probanno_workspace"], input["probanno"], input["genome"]))
 
         # Read in the target roles (this function returns the roles as lists!)
-        targetToRoles, rolesToTargets = self.dataParser.readFilteredOtuRoles()
+        targetToRoles, rolesToTargets = self.dataParser.readFidRoleFile(self.dataParser.DataFiles['otu_fid_role_file'])
         targetToRoleSet = dict()
         for target in targetToRoles:
             stri = self.config["separator"].join(sorted(targetToRoles[target]))

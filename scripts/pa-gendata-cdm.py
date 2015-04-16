@@ -11,7 +11,7 @@ from biokbase.probabilistic_annotation.DataExtractor import *
 
 desc1 = '''
 NAME
-      pa-gendata -- generate static database of gene annotations
+      pa-gendata-cdm -- generate static database of gene annotations from CDM
 
 SYNOPSIS      
 '''
@@ -19,8 +19,9 @@ SYNOPSIS
 desc2 = '''
 DESCRIPTION
       Generate the static database of high-quality gene annotations along with
-      files containing intermediate data.  The configFilePath argument specifies
-      the path to the configuration file for the service.
+      files containing intermediate data from KBase central data model.  The
+      configFilePath argument specifies the path to the configuration file for
+      the service.
 
       The --makedb optional argument only builds the search database for the
       configured search program.  Note that the input subsystem FASTA file must
@@ -36,7 +37,10 @@ EXAMPLES
       > pa-gendata gendata.cfg
       
 SEE ALSO
+      pa-gendata-kegg
+      pa-gendata
       pa-savedata
+      pa-loaddata
 
 AUTHORS
       Matt Benedict, Mike Mundy 

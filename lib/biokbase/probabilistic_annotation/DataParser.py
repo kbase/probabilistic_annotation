@@ -7,6 +7,7 @@ import math
 import subprocess
 import json
 import traceback
+import time
 from shock import Client as ShockClient
 from biokbase import log
 from biokbase.probabilistic_annotation.Helpers import now, ServiceVersion
@@ -15,7 +16,7 @@ from biokbase.probabilistic_annotation.Helpers import now, ServiceVersion
 MIN_EVALUE = 1E-200
 
 # Exception thrown when there is an invalid sources configuration variable
-class BadSourceList(Exception):
+class BadSourceError(Exception):
     pass
 
 # Exception thrown when makeblastdb command failed
@@ -50,62 +51,50 @@ class DataParser:
         self.loadDataOption = config['load_data_option']
 
         # Create a dictionary with the valid sources and initialize to not set.
-        self.sources = { 'cdm': 0, 'kegg': 0 }
+        self.sources = { 'cdm': dict(), 'kegg': dict() }
 
-        # The list of sources are separated with a comma.
-        sourceList = config['data_sources'].split(',')
+        # The list of sources are separated with a colon.
+        sourceList = config['data_sources'].split(':')
         if len(sourceList) == 0:
             raise BadSourceError('List of data sources is empty')
         
         # Check for valid sources and mark each one that is in the list.
         for src in sourceList:
-            if src in self.sources:
-                self.sources[src] = 1
-            else:
-                raise BadSourceError('Source %s is not supported' %(src))
+            if src not in self.sources:
+                raise BadSourceError('Source "%s" is not supported' %(src))
+            if src == 'cdm':
+                self.sources['cdm']['subsystem_fid_file'] = os.path.join(self.dataFolderPath, 'CDM_SUBSYSTEM_FID')
+                self.sources['cdm']['dlit_fid_file'] = os.path.join(self.dataFolderPath, 'CDM_DLIT_FID')
+                self.sources['cdm']['concatenated_fid_file'] = os.path.join(self.dataFolderPath, 'CDM_ALL_FID')
+                self.sources['cdm']['fid_role_file'] = os.path.join(self.dataFolderPath, 'CDM_ALL_FID_ROLE')
+                self.sources['cdm']['otu_id_file'] = os.path.join(self.dataFolderPath, 'OTU_GENOME_IDS')
+                self.sources['cdm']['otu_fid_role_file'] = os.path.join(self.dataFolderPath, 'CDM_OTU_FID_ROLE')
+                self.sources['cdm']['protein_fasta_file'] = os.path.join(self.dataFolderPath, 'CDM_PROTEIN_FASTA')
+                self.sources['cdm']['complex_role_file'] = os.path.join(self.dataFolderPath, 'CDM_COMPLEX_ROLE')
+                self.sources['cdm']['reaction_complex_file'] = os.path.join(self.dataFolderPath, 'CDM_REACTION_COMPLEX')
+            if src == 'kegg':
+                self.sources['kegg']['reaction_file'] = os.path.join(self.dataFolderPath, 'KEGG_KBASE_REACTION')
+                self.sources['kegg']['otu_fid_role_file'] = os.path.join(self.dataFolderPath, 'KEGG_OTU_FID_ROLE')
+                self.sources['kegg']['protein_fasta_file'] = os.path.join(self.dataFolderPath, 'KEGG_PROTEIN_FASTA')
+                self.sources['kegg']['complex_role_file'] = os.path.join(self.dataFolderPath, 'KEGG_COMPLEX_ROLE')
+                self.sources['kegg']['reaction_complex_file'] = os.path.join(self.dataFolderPath, 'KEGG_REACTION_COMPLEX')
 
-        # Must have cdm source.
+        # One of the source must be central data model.
+        if len(self.sources['cdm']) == 0:
+            raise BadSourceError('One of the data sources must be cdm')
 
         # Paths to files for tracking status of static database files.
         self.StatusFiles = dict()
         self.StatusFiles['status_file'] = os.path.join(self.dataFolderPath, 'staticdata.status')
         self.StatusFiles['cache_file'] = os.path.join(self.dataFolderPath, 'staticdata.cache')
 
-        # Paths to files with source data when central data model is a source.
-        self.CdmDataFiles = dict()
-        if self.sources['cdm']:
-            self.CdmDataFiles['subsystem_fid_file'] = os.path.join(self.dataFolderPath, 'CDM_SUBSYSTEM_FID')
-            self.CdmDataFiles['dlit_fid_file'] = os.path.join(self.dataFolderPath, 'CDM_DLIT_FID')
-            self.CdmDataFiles['concatenated_fid_file'] = os.path.join(self.dataFolderPath, 'CDM_ALL_FID')
-            self.CdmDataFiles['fid_role_file'] = os.path.join(self.dataFolderPath, 'CDM_ALL_FID_ROLE')
-            self.CdmDataFiles['otu_fid_role_file'] = os.path.join(self.dataFolderPath, 'CDM_OTU_FID_ROLE')
-            self.CdmDataFiles['protein_fasta_file'] = os.path.join(self.dataFolderPath, 'CDM_PROTEIN_FASTA')
-            self.CdmDataFiles['complex_role_file'] = os.path.join(self.dataFolderPath, 'CDM_COMPLEX_ROLE')
-            self.CdmDataFiles['reaction_complex_file'] = os.path.join(self.dataFolderPath, 'CDM_REACTION_COMPLEX')
-
-        # Add the data files when KEGG is a source.
-        if self.sources['kegg']:
-            self.DataFiles['kegg_reaction_file'] = os.path.join(self.dataFolderPath, 'KEGG_KBASE_REACTIONS')
-            self.DataFiles['kegg_otu_fid_roles'] = os.path.join(self.dataFolderPath, 'KEGG_OTU_FID_ROLES')
-            self.DataFiles['kegg_otu_fasta_file'] = os.path.join(self.dataFolderPath, 'KEGG_FASTA')
-            self.DataFiles['kegg_complexes_roles_file'] = os.path.join(self.dataFolderPath, 'KEGG_COMPLEXES_ROLES')
-            self.DataFiles['kegg_reactions_complexes_file'] = os.path.join(self.dataFolderPath, 'KEGG_REACTIONS_COMPLEXES')
-
         # Paths to files with source data.
         self.DataFiles = dict()
-        self.DataFiles['otu_id_file'] = os.path.join(self.dataFolderPath, 'OTU_GENOME_IDS')
+        self.DataFiles['otu_fid_role_file'] = os.path.join(self.dataFolderPath, 'OTU_FID_ROLE')
         self.DataFiles['protein_fasta_file'] = os.path.join(self.dataFolderPath, 'PROTEIN_FASTA')
+        self.DataFiles['complex_role_file'] = os.path.join(self.dataFolderPath, 'COMPLEX_ROLE')
+        self.DataFiles['reaction_complex_file'] = os.path.join(self.dataFolderPath, 'REACTION_COMPLEX')
 
-        # Maybe DataFiles is just the merged data files needed for runtime.
-        # KeggFiles is the files for Kegg source
-        # CdmFiles is the files for CDM source
-
-        # Merged files
-        # OTU_FID_ROLES
-        # PROTEIN_FASTA
-        # COMPLEXES_ROLES
-        # REACTIONS_COMPLEXES
-        
         # Paths to files for searching for proteins.
         self.SearchFiles = dict()
         if self.searchProgram == 'usearch':
@@ -405,30 +394,121 @@ class DataParser:
     #   2. Reaction ID in KBase format (e.g. )
     #   3. Name of reaction in CDM
 
-    def readKeggReactionFile(self):
-        '''
+    def readKeggReactionFile(self, filename):
+        ''' Read data from a KEGG to KBase reaction mapping file.
+
+            The reaction mapping is a tuple where the first element is the KEGG
+            reaction ID, the second element is the KBase reaction ID, and the
+            third element is the KBase reaction name.
+
+            @param filename: Path to reaction mapping file
+            @return List of tuples as described above
         '''
         keggReactionList = list()
-        with open(self.DataFiles['kegg_reaction_file'], 'r') as handle:
+        lastRxn = 'R00000'
+        with open(filename, 'r') as handle:
             for line in handle:
                 fields = line.strip('\r\n').split('\t')
+                if fields[0] == lastRxn:
+                    print fields
+                else:
+                    lastRxn = fields[0]
                 keggReactionList.append( [ fields[0], fields[1], fields[2] ] )
         return keggReactionList
 
-    def writeKeggReactionFile(self, keggRxnIdList):
+    def writeKeggReactionFile(self, filename, keggRxnIdList):
         ''' Write data to KEGG to KBase reactions file.
 
             The input list is a list of tuples where the first element is the
             KEGG reaction ID, the second element is the KBase reaction ID, and
             the third element is the KBase reaction name.
 
+            @param filename: Path to reaction mapping file
             @param keggRxnIdList: List of tuples as described above
             @return Nothing
         '''
 
-        with open(self.DataFiles['kegg_reaction_file'], 'w') as handle:
+        with open(filename, 'w') as handle:
             for index in range(len(keggRxnIdList)):
                 handle.write('%s\t%s\t%s\n' %(keggRxnIdList[index][0], keggRxnIdList[index][1], keggRxnIdList[index][2]))
+        return
+
+    def mergeFiles(self, sourceFiles, targetFile):
+        ''' Merge a list of source files into a target file.
+
+            @param sourceFiles: List of paths to source files
+            @param targetFile: Path to target file
+            @return Nothing
+        '''
+
+        # Open the target file.
+        with open(targetFile, 'w') as target:
+            # Write every line from all source files to the target file.
+            for srcfile in sourceFiles:
+                with open(srcfile, 'r') as source:
+                    for line in source:
+                        target.write(line)
+        return
+
+    def mergeFilesById(self, sourceFiles, targetFile):
+        ''' Merge a list of source files into a target file with no duplicate IDs.
+
+            Each source file must have two tab delimited fields where the first
+            field is an ID and the second field is a list of values delimited by
+            the separator configuration variable.
+
+            @param sourceFiles: List of paths to source files
+            @param targetFile: Path to target file
+            @return Nothing
+        '''
+
+        # Start with an empty output dictionary.
+        mergedDict = dict()
+
+        # Read every line from every source file.  If the ID is not a key in the
+        # output dictionary, add it to the dictionary.  Otherwise, append the value
+        # to the current value using the separator configuration variable.
+        for index in range(len(sourceFiles)):
+            with open(sourceFiles[index], 'r') as handle:
+                for line in handle:
+                    fields = line.strip('\r\n').split('\t')
+                    key = fields[0]
+                    if key not in mergedDict:
+                        mergedDict[key] = fields[1]
+                    else:
+                        value = mergedDict[key]+self.separator+fields[1]
+                        mergedDict[key] = value
+
+        # Write the output dictionary to the target file.
+        with open(targetFile, 'w') as handle:
+            for key in sorted(mergedDict):
+                handle.write('%s\t%s\n' %(key, mergedDict[key]))
+
+        return
+
+    def mergeDataFiles(self):
+        ''' Merge the data files from the configured sources.
+
+            @note There must be a matching key in the dictionary of files for a
+                source as there is in the DataFiles dictionary.
+            @return Nothing
+        '''
+
+        # The data files are created by merging the data files from each of the
+        # configured sources.
+        for key in self.DataFiles:
+            # Build the list of source files to be merged.
+            sourceList = list()
+            for src in self.sources:
+                if len(self.sources[src]) > 0: # Make sure source is configured
+                    sourceList.append(self.sources[src][key])
+
+            # Merge the source files to the target file.
+            if key == 'reaction_complex_file' or key == 'complex_role_file':
+                self.mergeFilesById(sourceList, self.DataFiles[key])
+            else:
+                self.mergeFiles(sourceList, self.DataFiles[key])
+
         return
 
     def readRolesetProbabilityFile(self, roleset_probability_file):
@@ -534,7 +614,7 @@ class DataParser:
             # Download the file if the checksum does not match or the file is not available on this system.
             download = False
             if key in fileCache:
-                if node["file"]["checksum"]["sha1"] != fileCache[key]["file"]["checksum"]["sha1"]:
+                if node['file']['checksum']['md5'] != fileCache[key]['file']['checksum']['md5']:
                     download = True
             else:
                 download = True
@@ -550,14 +630,15 @@ class DataParser:
         json.dump(fileCache, open(cacheFilename, "w"), indent=4)
         return
      
-    def storeDatabaseFiles(self):
+    def storeDatabaseFiles(self, token):
         ''' Store the static database files to Shock.
 
+            @param token: Authorization token for authenticating to shock
             @return Nothing
         '''
         
         # Create a shock client.
-        shockClient = ShockClient(self.shockURL)
+        shockClient = ShockClient(self.shockURL, token=token)
         
         # Upload all of the static database files to shock.
         fileCache = dict()
@@ -569,7 +650,7 @@ class DataParser:
                 sys.stderr.write("Saving '%s'..." %(localPath))
                 
                 # See if the file already exists in Shock.
-                query = "lookupname=ProbAnnoData/"+name
+                query = { 'lookupname': 'ProbAnnoData/'+name }
                 nodelist = shockClient.query_node(query)
                 
                 # Remove all instances of the file in Shock.
@@ -580,7 +661,7 @@ class DataParser:
                 # Build the attributes for this file and store as json in a separate file.
                 moddate = time.ctime(os.path.getmtime(localPath))           
                 attr = { "lookupname": "ProbAnnoData/"+name, "moddate": moddate }
-                attrFilename = os.path.join(args.dataFolderPath, name+".attr")
+                attrFilename = os.path.join(self.dataFolderPath, name+'.attr')
                 attrFid = open(attrFilename, "w")
                 json.dump(attr, attrFid, indent=4)
                 attrFid.close()
@@ -591,15 +672,16 @@ class DataParser:
                 os.remove(attrFilename)
                 
                 # Remove the list of users from the read ACL to give the file public read permission.
-                readacl = shockClient.get_acl(metadata["id"], "read")
-                shockClient.delete_acl(metadata["id"], readacl["read"], "read")
+                # Note this needs to change for Shock version 0.9.5 but not sure how to set public ACLs.
+                readacl = shockClient.get_acl(metadata['id'])
+                shockClient.delete_acl(metadata['id'], 'read', readacl['read'][0])
                 sys.stderr.write("done\n")
                 
             else:
                 sys.stderr.write("Could not find '%s' so it was not saved\n" %(localPath))
                 
         # Save the metadata on all of the database files.
-        cacheFilename = os.path.join(args.dataFolderPath, StatusFiles["cache_file"])
+        cacheFilename = os.path.join(self.dataFolderPath, StatusFiles['cache_file'])
         json.dump(fileCache, open(cacheFilename, "w"), indent=4)
 
         return
