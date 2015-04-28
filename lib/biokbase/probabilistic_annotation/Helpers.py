@@ -184,3 +184,21 @@ def make_job_directory(workDirectory, jobID):
     if not os.path.exists(jobDirectory):
         os.makedirs(jobDirectory, 0775)
     return jobDirectory
+
+def safe_remove(filename):
+    ''' Remove a file after checking that it exists.
+
+        @param filename: Path to file to be removed
+        @returns Nothing
+    '''
+
+    try:
+        # Check for file existence
+        if os.path.exists(filename):
+            os.remove(filename)
+            
+    # If there is still an OSError despite the file existing we want to raise that, it will probably
+    # cause problems trying to write to the files anyway. but an IOError just means the file isn't there.
+    except IOError:
+        pass
+

@@ -43,9 +43,9 @@ The Probabilistic Annotation server supports the following configuration variabl
   The intermediate files created by the annotate() and calculate() methods
   are stored in this location.
 * **data_folder_path**: Path to data folder containing static database files.  A server
-  can use different static database files by using different locations.
+  can use different static database files by using different folders.
 * **load_data_option**: Control how static database files are handled when starting
-  service. Valid values are "shock" to load static files from Shock or 'preload'
+  service. Valid values are "shock" to load static files from Shock or "preload"
   to use preloaded static database files.
 * **sources**: List of sources for generating static database files.  The supported
   sources are "cdm" for the KBase central data model and "kegg" for the Kyoto
@@ -88,55 +88,71 @@ KBase central data model and includes these intermediate files:
 * **CDM_ALL_FID**: Concatenated list of all unique feature IDs from SEED subsystems
   and literature.  Each line has one field that is the feature ID in KBase format.
 * **CDM_ALL_FID_ROLE**: Mapping of all feature IDs to functional roles.  Each line
-  has two fields: (1) Feature ID in KBase format (e.g. kb|g.0.peg.2094) (2) List of
-  names of functional roles delimited by separator configuration variable.
+  has two fields: (1) Feature ID in KBase format (2) List of functional roles
+  delimited by separator configuration variable.
 * **CDM_OTU_FID_ROLE**: Mapping of feature IDs to functional roles where there is
   one protein from each OTU for each functional role.  Each line has two fields:
-  (1) Feature ID in KBase format (e.g. kb|g.0.peg.2094) (2) List of names of functional
-  roles delimited by separator configuration variable.
-* **CDM_PROTEIN_FASTA**: Fasta file containing the amino acid sequences for a set of
-  feature IDs.
+  (1) Feature ID in KBase format (2) List of functional roles delimited by
+  separator configuration variable.
+* **CDM_PROTEIN_FASTA**: Fasta file containing the amino acid sequences for proteins
+  in list of OTU feature IDs.
 * **CDM_COMPLEX_ROLE**: Mapping of complex IDs to functional roles.  Each line has
-  two fields: (1) Complex ID in KBase format (e.g. kb|cpx.1048) (2) List of functional
-  roles for the complex delimited by separator configuration variable.
+  two fields: (1) Complex ID in KBase format (2) List of functional roles for the
+  complex delimited by separator configuration variable.
 * **CDM_REACTION_COMPLEX**: Mapping of reaction IDs to complex IDs. Each line has two
-  fields: (1) Reaction ID in KBase format (e.g. kb|rxn.5682) (2) List of complex IDs
-  in KBase format (e.g. kb|cpx.1507///kb|cpx.1813) delimited by separator configuration
-  variable.
+  fields: (1) Reaction ID in KBase format (2) List of complex IDs in KBase format
+  delimited by separator configuration variable.
 
 An additional source is KEGG and includes these intermediate files:
 
-* **KEGG_OTU_FID_ROLE**: Mapping of gene IDs to functional roles.
-* **KEGG_PROTEIN_FASTA**: Fasta file containing the amino acid sequences for a set of
-  gene IDs.
+* **KEGG_OTU_FID_ROLE**: Mapping of feature IDs to functional roles.  Each line has
+  two fields: (1) Feature ID in KEGG format (2) List of functional roles delimited by
+  separator configuration variable.
+* **KEGG_PROTEIN_FASTA**: Fasta file containing the amino acid sequences for proteins
+  in list of OTU feature IDs.
 * **KEGG_COMPLEX_ROLE**: Mapping of complex IDs to functional roles.  Each line has
-  two fields: (1) Complex ID in KBase format (e.g. kb|cpx.1048) (2) List of functional
-  roles for the complex delimited by separator configuration variable.
+  two fields: (1) Complex ID in KBase format (2) List of functional roles for the
+  complex delimited by separator configuration variable.
 * **KEGG_REACTION_COMPLEX**: Mapping of reaction IDs to complex IDs. Each line has two
-  fields: (1) Reaction ID in KBase format (e.g. kb|rxn.5682) (2) List of complex IDs
-  in KBase format (e.g. kb|cpx.1507///kb|cpx.1813) delimited by separator configuration
-  variable.
+  fields: (1) Reaction ID in KBase format (2) List of complex IDs in KBase format
+  delimited by separator configuration variable.
+
+For building ProbAnno and RxnProbs typed objects, the intermediate files from the
+configured sources are merged into these final files:
+
+* **OTU_FID_ROLE**: Mapping of feature IDs to functional roles.  Each line has two
+  fields: (1) Feature ID in source format (2) List of functional roles delimited by
+  separator configuration variable.
+* **PROTEIN_FASTA**: Fasta file containing the amino acid sequences for proteins
+  in list of OTU feature IDs.
+* **COMPLEX_ROLE**: Mapping of complex IDs to functional roles.  Each line has
+  two fields: (1) Complex ID in KBase format (2) List of functional roles for the
+  complex delimited by separator configuration variable.
+* **REACTION_COMPLEX**: Mapping of reaction IDs to complex IDs. Each line has two
+  fields: (1) Reaction ID in KBase format (2) List of complex IDs in KBase format
+  delimited by separator configuration variable.
 
 Building the Static Database Files
 ----------------------------------
 
 The static database files are built in multiple steps from one or more sources.
-The Probabilistic Annotation server uses a set of files for its calculations.
-Get the data from the KBase Central Data Model (CDM).  Need to link genes to
-reactions.
+The Probabilistic Annotation methods use a merged set of files for calculating
+likelihoods.  The files are managed with the following commands:
 
-Commands to work
-with files:
-
-pa-gendata generates the files using the KBase Central Data Model.
-pa-gendata-kegg generates files using the Kyoto Encylopedia of Genes and Genomes.  Need CDM files first.
-pa-savedata stores the files in Shock
-pa-loaddata retrieves the files from Shock
-Get the data from KEGG.
+* **pa-gendata-cdm**: Generates intermediate files from KBase Central Data Model.
+* **pa-gendata-kegg**: Generates intermediate files from Kyoto Encylopedia of
+  Genes and Genomes.
+* **pa-gendata**: Merges intermediate files into final files and builds search
+  database for configured search program.
+* **pa-savedata**: Stores final files in Shock.
+* **pa-loaddata**: Retrieves final files from Shock.
 
 Loading the Static Database Files
 ---------------------------------
 
-A couple of choices.  download from Shock, preload.
+The static database files can be loaded for the server in these ways:
 
-
+1. Automatically from Shock.  When the load\_data_option
+   configuration variable is set to "shock", the server checks the 
+2. When the load\_data_option configuration variable is set to "preload",
+   use the files already loaded in the data\_folder_path.

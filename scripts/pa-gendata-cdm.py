@@ -6,8 +6,8 @@ import os
 import traceback
 import argparse
 from biokbase.probabilistic_annotation.DataParser import DataParser
-from biokbase.probabilistic_annotation.Helpers import get_config, now
-from biokbase.probabilistic_annotation.DataExtractor import *
+from biokbase.probabilistic_annotation.Helpers import get_config, now, safe_remove
+from biokbase.probabilistic_annotation.DataExtractor import CDMExtractor
 
 desc1 = '''
 NAME
@@ -22,10 +22,6 @@ DESCRIPTION
       files containing intermediate data from KBase central data model.  The
       configFilePath argument specifies the path to the configuration file for
       the service.
-
-      The --makedb optional argument only builds the search database for the
-      configured search program.  Note that the input subsystem FASTA file must
-      be available before using this option.
 
       The --force optional argument deletes all existing files before they are
       generated.
@@ -46,45 +42,37 @@ AUTHORS
       Matt Benedict, Mike Mundy 
 '''
 
-def safeRemove(filename):
-    try:
-        # Check for file existence
-        if os.path.exists(filename):
-            os.remove(filename)
-            
-    # If there is still an OSError despite the file existing we want to raise that, it will probably
-    # cause problems trying to write to the files anyway. but an IOError just means the file isn't there.
-    except IOError:
-        pass
-
-def generate_data(dataParser, config, force):
+def generate_data(dataParser, cdmExtractor, force):
     
-    # When regenerating the database files, remove all of them first.
+    print 'Generating CDM static database files in "%s"...' %(config['data_folder_path'])
+    print 'Central data model server is at %s' %(config['cdmi_url'])
+    print
+
+    # If requested, remove the generated files first.
     if force:
-        sys.stderr.write("Removing all static database files...")
+        print 'Removing CDM existing static database files...'
         for filename in dataParser.DataFiles.values():
             safeRemove(filename)
-        sys.stderr.write("done\n")
-    
-    sys.stderr.write("Generating static database files in '%s'...\n" %(config["data_folder_path"]))
-    sys.stderr.write("Central data model server is at %s\n\n" %(config['cdmi_url']))
+        print 'Done at %s\n' %(now())
     
     # Get list of representative OTU genome IDs.
-    sys.stderr.write("Getting list of representative OTU genome IDs at %s\n" %(now()))
-    sys.stderr.write("Saving list to file '%s'\nDownloading from cdmi server...\n" %(dataParser.DataFiles['otu_id_file']))
-    otus, prokotus = getOtuGenomeIds(1000, config) # Data build V2 size is 1274
+    print 'Getting list of representative OTU genome IDs at %s' %(now())
+    print 'Saving list to file "%s"...' %(dataParser.sources['cdm']['otu_id_file'])
+    otus, prokotus = cdmExtractor.getOtuGenomeIds(1000)
     dataParser.writeOtuData(otus, prokotus)
-    sys.stderr.write("Found %d OTU genome IDs of which %d are from prokaryotes\nDone at %s\n\n" %(len(otus), len(prokotus), now()))
+    print 'Found %d OTU genome IDs of which %d are from prokaryotes' %(len(otus), len(prokotus))
+    print 'Done at %s\n' %(now())
     del otus, prokotus
     
     # Get a list of subsystem feature IDs (FIDs).
     # Functional annotations from the SEED subsystems are manually curated from
     # multiple sources of information.
-    sys.stderr.write("Getting list of subsystem feature IDs at %s\n" %(now()))
-    sys.stderr.write("Saving list to file '%s'\nDownloading from cdmi server...\n" %(dataParser.CdmDataFiles['subsystem_fid_file']))
-    subsysFids = subsystemFids(1000, config) # Data build V2 size is 2057
-    dataParser.writeFeatureIdFile(dataParser.CdmDataFiles['subsystem_fid_file'], subsysFids)
-    sys.stderr.write("Found %d subsystem feature IDs\nDone at %s\n\n" %(len(subsysFids), now()))
+    print 'Getting list of subsystem feature IDs at %s' %(now())
+    print 'Saving list to file "%s"...' %(dataParser.sources['cdm']['subsystem_fid_file'])
+    subsysFids = cdmExtractor.subsystemFids(1000)
+    dataParser.writeFeatureIdFile(dataParser.sources['cdm']['subsystem_fid_file'], subsysFids)
+    print 'Found %d subsystem feature IDs' %(len(subsysFids))
+    print 'Done at %s\n' %(now())
     
     # Get a list of direct literature-supported feature IDs.
     # We include these because having them greatly expands the
@@ -164,7 +152,10 @@ def generate_data(dataParser, config, force):
     return
 
 # Main script function
-if __name__ == "__main__":
+if __name__ == '__main__':
+    # Force output to be unbuffered.
+    sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+    sys.stderr = os.fdopen(sys.stderr.fileno(), 'w', 0)
 
     # Parse arguments.
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, prog='pa-gendata', epilog=desc3)
@@ -183,15 +174,15 @@ if __name__ == "__main__":
     # data folder is created if it does not exist).
     dataParser = DataParser(config)
 
+    # Create a CDMExtractor object for getting data from the central data model.
+    cdmExtractor = CDMExtractor(config)
+
     # Update the status file.
     dataParser.writeStatusFile('building')
 
     # Generate the static database files.
     try:
-        if args.makeDB:
-            dataParser.buildSearchDatabase()
-        else:
-            generate_data(dataParser, config, args.force)
+        generate_data(dataParser, cdmExtractor, args.force)
         status = "ready"
     except:
         status = "failed"

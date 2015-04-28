@@ -8,7 +8,8 @@ in subsystems. More ambiguous role calls are given lower probabilities.
 VERSION 1.2.0 (Released 05-01-2015)
 -----------------------------------------
 NEW FEATURES
-- Added supported for more sources of data when building static database files
+- Added support for more sources of data when building static database files
+- Added support for Narrative interface
 
 UPDATED FEATURES / MAJOR BUG FIXES:
 - None

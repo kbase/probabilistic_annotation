@@ -45,7 +45,7 @@ AUTHORS
       Mike Mundy 
 '''
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     # Force output to be unbuffered.
     sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
     sys.stderr = os.fdopen(sys.stderr.fileno(), 'w', 0)

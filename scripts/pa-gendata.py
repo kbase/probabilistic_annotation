@@ -7,7 +7,6 @@ import traceback
 import argparse
 from biokbase.probabilistic_annotation.DataParser import DataParser
 from biokbase.probabilistic_annotation.Helpers import get_config, now
-from biokbase.probabilistic_annotation.DataExtractor import *
 
 desc1 = '''
 NAME
