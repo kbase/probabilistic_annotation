@@ -7,7 +7,7 @@ import traceback
 import argparse
 from biokbase.probabilistic_annotation.DataParser import DataParser
 from biokbase.probabilistic_annotation.Helpers import get_config, now, safe_remove
-from biokbase.probabilistic_annotation.DataExtractor import CDMExtractor
+from biokbase.probabilistic_annotation.CDMExtractor import CDMExtractor
 
 desc1 = '''
 NAME
@@ -44,111 +44,112 @@ AUTHORS
 
 def generate_data(dataParser, cdmExtractor, force):
     
-    print 'Generating CDM static database files in "%s"...' %(config['data_folder_path'])
-    print 'Central data model server is at %s' %(config['cdmi_url'])
-    print
-
     # If requested, remove the generated files first.
     if force:
-        print 'Removing CDM existing static database files...'
-        for filename in dataParser.DataFiles.values():
-            safeRemove(filename)
+        print 'Removing existing CDM static database files...'
+        for filename in dataParser.sources['cdm'].values():
+            safe_remove(filename)
         print 'Done at %s\n' %(now())
     
     # Get list of representative OTU genome IDs.
     print 'Getting list of representative OTU genome IDs at %s' %(now())
     print 'Saving list to file "%s"...' %(dataParser.sources['cdm']['otu_id_file'])
     otus, prokotus = cdmExtractor.getOtuGenomeIds(1000)
-    dataParser.writeOtuData(otus, prokotus)
-    print 'Found %d OTU genome IDs of which %d are from prokaryotes' %(len(otus), len(prokotus))
+    dataParser.writeOtuData(dataParser.sources['cdm']['otu_id_file'], otus, prokotus)
+    print 'Stored %d OTU genome IDs of which %d are from prokaryotes' %(len(otus), len(prokotus))
     print 'Done at %s\n' %(now())
     del otus, prokotus
-    
+
     # Get a list of subsystem feature IDs (FIDs).
     # Functional annotations from the SEED subsystems are manually curated from
     # multiple sources of information.
     print 'Getting list of subsystem feature IDs at %s' %(now())
     print 'Saving list to file "%s"...' %(dataParser.sources['cdm']['subsystem_fid_file'])
-    subsysFids = cdmExtractor.subsystemFids(1000)
+    subsysFids = cdmExtractor.getSubsystemFids(1000)
     dataParser.writeFeatureIdFile(dataParser.sources['cdm']['subsystem_fid_file'], subsysFids)
-    print 'Found %d subsystem feature IDs' %(len(subsysFids))
+    print 'Stored %d subsystem feature IDs' %(len(subsysFids))
     print 'Done at %s\n' %(now())
-    
+
     # Get a list of direct literature-supported feature IDs.
     # We include these because having them greatly expands the
     # number of roles for which we have representatives.
-    sys.stderr.write("Getting list of direct literature-supported feature IDs at %s\n" %(now()))
-    sys.stderr.write("Saving list to file '%s'\nDownloading from cdmi server...\n" %(dataParser.CdmDataFiles['dlit_fid_file']))
-    literatureFids = getDlitFids(5000, config) # Data build V2 size is 12469
-    dataParser.writeFeatureIdFile(dataParser.CdmDataFiles['dlit_fid_file'], literatureFids)
-    sys.stderr.write("Found %d literature-supported feature IDs\nDone at %s\n\n" %(len(literatureFids), now()))
-    
+    print 'Getting list of direct literature-supported feature IDs at %s' %(now())
+    print 'Saving list to file "%s"...' %(dataParser.sources['cdm']['dlit_fid_file'])
+    literatureFids = cdmExtractor.getDlitFids(5000)
+    dataParser.writeFeatureIdFile(dataParser.sources['cdm']['dlit_fid_file'], literatureFids)
+    print 'Stored %d literature-supported feature IDs' %(len(literatureFids))
+    print 'Done at %s\n' %(now())
+
     # Concatenate the two feature ID lists before filtering.
     # (Note - doing so after would be possible as well but
     # can lead to the same kinds of biases as not filtering
     # the subsystems... I'm not sure the problem would
     # be as bad for these though)
-    sys.stderr.write("Merging lists of subsystem and literature feature IDs at %s\n" %(now()))
-    sys.stderr.write("Saving list to file '%s'\nGenerating file...\n" %(dataParser.CdmDataFiles['concatenated_fid_file']))
+    print 'Merging lists of subsystem and literature feature IDs at %s' %(now())
+    print 'Saving list to file "%s"...' %(dataParser.sources['cdm']['concatenated_fid_file'])
     allFids = list(set(subsysFids + literatureFids))
-    dataParser.writeFeatureIdFile(dataParser.CdmDataFiles['concatenated_fid_file'], allFids)
-    sys.stderr.write("Stored %d feature IDs in combined list\nDone at %s\n\n" %(len(allFids), now()))
+    dataParser.writeFeatureIdFile(dataParser.sources['cdm']['concatenated_fid_file'], allFids)
+    print 'Stored %d feature IDs in merged list' %(len(allFids))
+    print 'Done at %s\n' %(now())
     del subsysFids, literatureFids
-    
+
     # Identify a role for each feature ID in the concatenated list.
-    sys.stderr.write("Getting roles for all feature IDs at %s\n" %(now()))
-    sys.stderr.write("Saving mapping of feature ID to roles to file '%s'\nDownloading from cdmi server...\n" %(dataParser.CdmDataFiles['fid_role_file']))
-    allFidsToRoles, allRolesToFids = fidsToRoles(allFids, config)
-    dataParser.writeFidRoleFile(dataParser.CdmDataFiles['fid_role_file'], allFidsToRoles)
-    sys.stderr.write("Stored %d feature ID to roles mappings\nDone at %s\n\n" %(len(allFidsToRoles), now()))
+    print 'Getting roles for all feature IDs at %s' %(now())
+    print 'Saving mapping of feature ID to roles to file "%s"...' %(dataParser.sources['cdm']['fid_role_file'])
+    allFidsToRoles, allRolesToFids = cdmExtractor.mapFidsToRoles(allFids)
+    dataParser.writeFidRoleFile(dataParser.sources['cdm']['fid_role_file'], allFidsToRoles)
+    print 'Stored %d mappings of feature ID to roles' %(len(allFidsToRoles))
+    print 'Done at %s\n' %(now())
     del allFidsToRoles
-    
+
     # Get a mapping of OTU representative genome IDs to all genomes in the OTU.
-    sys.stderr.write("Getting mapping of OTU representative genome IDs to all genomes in OTU at %s\n" %(now()))
-    sys.stderr.write("Downloading from cdmi server...\n")
-    otuGenomes = getOtuGenomeDictionary(1000, config) # Data build V2 size is 1274
-    sys.stderr.write("Found %d representative OTU genome IDs\nDone at %s\n\n" %(len(otuGenomes), now()))
-    
+    print 'Getting mapping of OTU representative genome IDs to all genomes in OTU at %s' %(now())
+    otuGenomes = cdmExtractor.getOtuGenomeDictionary(1000)
+    print 'Found %d representative OTU genome IDs' %(len(otuGenomes))
+    print 'Done at %s\n' %(now())
+
     # Filter the feature IDs by organism. We only want one feature ID from each OTU for each
     # functional role.  Unlike the neighborhood analysis, we don't want to include only 
     # prokaryotes here.
-    sys.stderr.write("Filtering list of feature IDs so there is one protein from each OTU for each functional role at %s\n" %(now()))
-    sys.stderr.write("Saving list of filtered feature IDs in file '%s'\nQuerying cdmi server...\n" %(dataParser.CdmDataFiles['otu_fid_role_file']))
-    otuFidsToRoles, otuRolesToFids = filterFidsByOtusOptimized(allFids, allRolesToFids, otuGenomes, config)
-    dataParser.writeFidRoleFile(dataParser.CdmDataFiles['otu_fid_role_file'], otuFidsToRoles)
-    sys.stderr.write("Stored %d feature ID to role mappings\nDone at %s\n\n" %(len(otuFidsToRoles), now()))
+    print 'Filtering list of feature IDs so there is one protein from each OTU for each functional role at %s' %(now())
+    print 'Saving list of filtered feature IDs in file "%s"...' %(dataParser.sources['cdm']['otu_fid_role_file'])
+    otuFidsToRoles, otuRolesToFids = cdmExtractor.filterFidsByOtusOptimized(allFids, allRolesToFids, otuGenomes)
+    dataParser.writeFidRoleFile(dataParser.sources['cdm']['otu_fid_role_file'], otuFidsToRoles)
+    print 'Stored %d feature ID to role mappings' %(len(otuFidsToRoles))
+    print 'Done at %s\n' %(now())
     del allFids, otuRolesToFids, otuGenomes
-    
-    # Generate a FASTA file for the feature IDs in filtered list and make a BLAST database.
-    sys.stderr.write("Getting amino acid sequences for filtered feature IDs at %s\n" %(now()))
-    sys.stderr.write("Downloading from cdmi server...\n")
-    fidsToSeqs = fidsToSequences(otuFidsToRoles.keys(), config)
-    sys.stderr.write("Writing amino acid sequences to FASTA file '%s'\nGenerating file and making search database...\n" %(dataParser.DataFiles['protein_fasta_file']))
-    dataParser.writeProteinFastaFile(fidsToSeqs)
-#    dataParser.buildSearchDatabase()
-    sys.stderr.write("Done at %s\n\n" %(now()))
+
+    # Generate a FASTA file for the feature IDs in filtered list.
+    print 'Getting amino acid sequences for filtered feature IDs at %s' %(now())
+    print 'Saving amino acid sequences to FASTA file "%s"...' %(dataParser.sources['cdm']['protein_fasta_file'])
+    fidsToSeqs = cdmExtractor.getAminoAcidSequences(otuFidsToRoles.keys())
+    dataParser.writeProteinFastaFile(dataParser.sources['cdm']['protein_fasta_file'], fidsToSeqs)
+    print 'Stored %d amino acid sequences' %(len(fidsToSeqs))
+    print 'Done at %s\n' %(now())
     del otuFidsToRoles, fidsToSeqs
-    
+
     # Create a mapping of complexes to roles which is needed to go from annotation likelihoods to
     # reaction likelihoods.  Note that it is easier to go in this direction because we need all
     # the roles in a complex to get the probability of that complex.
-    sys.stderr.write("Getting mapping of complex to roles at %s\n" %(now()))
-    sys.stderr.write("Saving complex to roles mapping in file '%s'\nDownloading from cdmi server...\n" %(dataParser.CdmDataFiles['complex_role_file']))
-    complexToRequiredRoles, requiredRolesToComplexes = complexRoleLinks(1000, config) # Data build V2 size is 2369
-    dataParser.writeComplexRoleFile(dataParser.CdmDataFiles['complex_role_file'], complexToRequiredRoles)
-    sys.stderr.write("Stored %d complex to roles mappings\nDone at %s\n\n" %(len(complexToRequiredRoles), now()))
+    print 'Getting mapping of complex to role at "%s"' %(now())
+    print 'Saving complex to role mapping in file "%s"...' %(dataParser.sources['cdm']['complex_role_file'])
+    complexToRequiredRoles, requiredRolesToComplexes = cdmExtractor.mapComplexToRole(1000)
+    dataParser.writeComplexRoleFile(dataParser.sources['cdm']['complex_role_file'], complexToRequiredRoles)
+    print 'Stored %d complex to role mappings' %(len(complexToRequiredRoles))
+    print 'Done at %s\n' %(now())
     del complexToRequiredRoles, requiredRolesToComplexes
-    
+
     # Create a mapping of reactions to complexes.  Note that it is easier to go in this direction since
     # we'll be filtering multiple complexes down to a single reaction.
-    sys.stderr.write("Getting mapping of reaction to complexes at %s\n" %(now()))
-    sys.stderr.write("Saving reaction to complexes mapping in file '%s'\nDownloading from cdmi server...\n" %(dataParser.CdmDataFiles['reaction_complex_file']))
-    reactionToComplexes, complexesToReactions = reactionComplexLinks(5000, config) # Data build V2 size is 33733
-    dataParser.writeReactionComplexFile(dataParser.CdmDataFiles['reaction_complex_file'], reactionToComplexes)
-    sys.stderr.write("Stored %d reaction to complexes mappings\nDone at %s\n\n" %(len(reactionToComplexes), now()))
+    print 'Getting mapping of reaction to complex at %s' %(now())
+    print 'Saving reaction to complex mapping in file "%s"...' %(dataParser.sources['cdm']['reaction_complex_file'])
+    reactionToComplexes, complexesToReactions = cdmExtractor.mapReactionToComplex(5000)
+    dataParser.writeReactionComplexFile(dataParser.sources['cdm']['reaction_complex_file'], reactionToComplexes)
+    print 'Stored %d reaction to complex mappings' %(len(reactionToComplexes))
+    print 'Done at %s\n' %(now())
     del reactionToComplexes, complexesToReactions
-    
-    sys.stderr.write("Done generating static database files\n")
+
+    print 'Done generating CDM static database files'
     return
 
 # Main script function
@@ -161,7 +162,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, prog='pa-gendata', epilog=desc3)
     parser.add_argument('configFilePath', help='path to configuration file', action='store', default=None)
     parser.add_argument('--force', help='remove existing static database files first', dest='force', action='store_true', default=False)
-    parser.add_argument('--makedb', help='only make the protein search database', dest='makeDB', action='store_true', default=False)
     usage = parser.format_usage()
     parser.description = desc1 + '      ' + usage + desc2
     parser.usage = argparse.SUPPRESS
@@ -169,6 +169,9 @@ if __name__ == '__main__':
 
     # Get the probabilistic_annotation section from the configuration file.
     config = get_config(args.configFilePath)
+    print 'Generating CDM static database files in directory "%s"' %(config['data_folder_path'])
+    print 'Central data model server is at %s' %(config['cdmi_url'])
+    print
 
     # Create a DataParser object for working with the static database files (the
     # data folder is created if it does not exist).
@@ -177,19 +180,12 @@ if __name__ == '__main__':
     # Create a CDMExtractor object for getting data from the central data model.
     cdmExtractor = CDMExtractor(config)
 
-    # Update the status file.
-    dataParser.writeStatusFile('building')
-
-    # Generate the static database files.
+    # Generate the intermediate static database files from the central data model.
+    # Note the status file is not used when generating intermediate files.
     try:
         generate_data(dataParser, cdmExtractor, args.force)
-        status = "ready"
     except:
-        status = "failed"
         sys.stderr.write("\nERROR Caught exception...\n")
         traceback.print_exc(file=sys.stderr)
-    
-    # Update the status file.
-    dataParser.writeStatusFile(status)
     
     exit(0)

@@ -105,7 +105,7 @@ class CDMExtractor():
             f.append(entry[objIndex][fieldName])
         return f
     
-    def subsystemFids(self, count):
+    def getSubsystemFids(self, count):
         ''' Query the CDMI for a list of feature IDs in the subsystems.
     
             @param count: Number of entities to retrieve in each function call
@@ -122,8 +122,8 @@ class CDMExtractor():
             start += count
             if len(subdict) < count:
                 done = True
-        ssids = getFieldFromEntity(ssdict, "id")
-        sys.stderr.write('Found %d subsystems\n' %(len(ssids)))
+        ssids = self.getFieldFromEntity(ssdict, "id")
+        print 'Found %d subsystems' %(len(ssids))
     
         # Now lets get a list of FIDs within those subsystems
         # Break the complete list into smaller sub-lists to avoid timeouts
@@ -177,13 +177,13 @@ class CDMExtractor():
             if len(subdict) < count:
                 done = True
     
-        pubids = getFieldFromEntity(pubdict, "id")
-        sys.stderr.write("Found %d publication IDs\n" %(len(pubids)))
+        pubids = self.getFieldFromEntity(pubdict, "id")
+        print 'Found %d publication IDs' %(len(pubids))
         pub2seq = self.cdmiEntity.get_relationship_Concerns(pubids, [], [], ["id"])
-        pubseqs = getFieldFromRelationship(pub2seq, "id", "to")
-        sys.stderr.write("Found %d protein sequences from publications\n" %(len(pubseqs)))
+        pubseqs = self.getFieldFromRelationship(pub2seq, "id", "to")
+        print 'Found %d protein sequences from publications' %(len(pubseqs))
         seq2fids = self.cdmiEntity.get_relationship_IsProteinFor(pubseqs, [], [], ["id"])
-        fids = getFieldFromRelationship(seq2fids, "id", "to")
+        fids = self.getFieldFromRelationship(seq2fids, "id", "to")
         return fids
     
     def filterFidsByOtus(fidlist, otus, config):
@@ -196,8 +196,8 @@ class CDMExtractor():
         # Identify the organism belonging to each fid
         # If this fails to find an organism we don't want it anyway...
         orgdict = self.cdmiEntity.get_relationship_IsOwnedBy(fidlist, [], [], ["id"])
-        flist = getFieldFromRelationship(orgdict, "from_link", "rel")
-        olist = getFieldFromRelationship(orgdict, "id", "to")
+        flist = self.getFieldFromRelationship(orgdict, "from_link", "rel")
+        olist = self.getFieldFromRelationship(orgdict, "id", "to")
     
         fids = []
         for ii in range(len(olist)):
@@ -244,8 +244,8 @@ class CDMExtractor():
             if end >= len(fidlist):
                 end = len(fidlist)
             counter -= increment
-        fidlist = getFieldFromRelationship(orgdict, "from_link", "rel")
-        orglist = getFieldFromRelationship(orgdict, "id", "to")
+        fidlist = self.getFieldFromRelationship(orgdict, "from_link", "rel")
+        orglist = self.getFieldFromRelationship(orgdict, "id", "to")
         fidToOrg = {}
         for ii in range(len(fidlist)):
             fidToOrg[fidlist[ii]] = orglist[ii]
@@ -329,8 +329,8 @@ class CDMExtractor():
                 sys.stderr.write("caught '%s' error, increment is now %d\n" %(e.reason, increment))
                 continue
             # just build the dictionary here, run the list of ob, extracting fid from from_link and organism from id
-            fidList = getFieldFromRelationship(ownedBy, "from_link", "rel")
-            organismList = getFieldFromRelationship(ownedBy, "id", "to")
+            fidList = self.getFieldFromRelationship(ownedBy, "from_link", "rel")
+            organismList = self.getFieldFromRelationship(ownedBy, "id", "to")
             for index in range(len(fidList)):
                 fidToOrganism[fidList[index]] = organismList[index]
     
@@ -356,7 +356,7 @@ class CDMExtractor():
             # to track progress.
             otuCounter += 1
             if otuCounter % 10 == 0:
-                sys.stderr.write('Processed %d OTUs at %s\n' %(otuCounter, now()))
+                print 'Processed %d OTUs at %s' %(otuCounter, now())
     
             # Check every functional role.
             for role in rolesToFids:
@@ -410,13 +410,14 @@ class CDMExtractor():
         '''
 
         # Get list of OTUs
-        otulist = getOtuGenomeIds(count)
+        otulist = self.getOtuGenomeIds(count)
         otudict = self.cdmi.otu_members(otulist[0])
         return otudict
     
-    def fidsToRoles(self, fidlist):
-        ''' Given a list of feature IDs return a dictionary from FID to the list of roles the encoding gene
-            performs and a dictionary from roles to the FIDs performing them.
+    def mapFidsToRoles(self, fidlist):
+        ''' Given a list of feature IDs return a dictionary keyed by feature ID to
+            the list of roles the encoding gene performs and a dictionary keyed by
+            roles to the feature IDs performing them.
     
             @param fidlist: List of feature IDs
             @return Dictionary keyed by feature ID of list of roles encoding gene performs, dictionary
@@ -439,8 +440,8 @@ class CDMExtractor():
                     end = start + increment
                 sys.stderr.write("caught '%s' error, increment is now %d\n" %(e.reason, increment))
                 continue
-            flist = getFieldFromRelationship(roledict, "from_link", "rel")
-            rolelist = getFieldFromRelationship(roledict, "id", "to")
+            flist = self.getFieldFromRelationship(roledict, "from_link", "rel")
+            rolelist = self.getFieldFromRelationship(roledict, "id", "to")
             for ii in range(len(flist)):
                 # We have to use sets here because a bug(?) in get_relationship_HasFunctional allows multiple identical
                 # links between fids and roles.
@@ -468,8 +469,9 @@ class CDMExtractor():
             rolesToFids[r] = list(rolesToFids[r])
         return fidsToRoles, rolesToFids
     
-    def fidsToSequences(self, fidlist):
-        ''' Given a list of feature IDs, returns a dictionary from FID to its amino acid sequence.
+    def getAminoAcidSequences(self, fidlist):
+        ''' Given a list of feature IDs, returns a dictionary keyed by feature ID to
+            its amino acid sequence.
     
             @note Features with no amino acid sequence are discarded.
             @param fidlist: List of feature IDs
@@ -502,16 +504,17 @@ class CDMExtractor():
         
         return seqs
     
-    def genomesToPegs(self, genomes):
-        ''' Given a list of genome IDs, returns a list of feature IDs for protein-encoding genes in the specified genomes.
+    def getPegs(self, genomes):
+        ''' Given a list of genome IDs, returns a list of feature IDs for
+            protein-encoding genes in the specified genomes.
     
             @param genomes: List of genome IDs
             @return List of feature IDs for protein-encoding genes in specified genomes
         '''
     
         fiddict = self.cdmiEntity.get_relationship_IsOwnerOf(genomes, [], [], ["id", "feature_type"])
-        fidlist = getFieldFromRelationship(fiddict, "id", "to")
-        typelist = getFieldFromRelationship(fiddict, "feature_type", "to")
+        fidlist = self.getFieldFromRelationship(fiddict, "id", "to")
+        typelist = self.getFieldFromRelationship(fiddict, "feature_type", "to")
         # We want protein-encoding genes only (not e.g. operons, operators, etc...)
         # The type of protein-encoding genes is CDS now but will possibly be changed to peg later...
         pegs = []
@@ -539,11 +542,11 @@ class CDMExtractor():
                 done = True
     
         # Find out if a OTU is marked as representative and if it is prokaryotic.
-        otuids = getFieldFromEntity(otudict, "id")
+        otuids = self.getFieldFromEntity(otudict, "id")
         gendict = self.cdmiEntity.get_relationship_IsCollectionOf(otuids, [], ["representative"], ["id", "prokaryotic"])
-        isrep = getFieldFromRelationship(gendict, "representative", "rel")
-        isprok = getFieldFromRelationship(gendict, "prokaryotic", "to")
-        genomeid = getFieldFromRelationship(gendict, "id", "to")
+        isrep = self.getFieldFromRelationship(gendict, "representative", "rel")
+        isprok = self.getFieldFromRelationship(gendict, "prokaryotic", "to")
+        genomeid = self.getFieldFromRelationship(gendict, "id", "to")
         prokotus = []
         otus = []
         for ii in range(len(genomeid)):
@@ -568,10 +571,10 @@ class CDMExtractor():
         pegs = genomesToPegs(genomes)
         # Get contigs
         fidlocdict = cdmiEntity.get_relationship_IsLocatedIn(pegs, [], ["begin", "dir"], ["id"])
-        fids = getFieldFromRelationship(fidlocdict, "from_link", "rel")
-        begins = getFieldFromRelationship(fidlocdict, "begin", "rel")
-        dirs = getFieldFromRelationship(fidlocdict, "dir", "rel")
-        cids = getFieldFromRelationship(fidlocdict, "id", "to")
+        fids = self.getFieldFromRelationship(fidlocdict, "from_link", "rel")
+        begins = self.getFieldFromRelationship(fidlocdict, "begin", "rel")
+        dirs = self.getFieldFromRelationship(fidlocdict, "dir", "rel")
+        cids = self.getFieldFromRelationship(fidlocdict, "id", "to")
     
         tuplist = []
         for ii in range(len(cids)):
@@ -582,8 +585,8 @@ class CDMExtractor():
         # Now lets get the role for all of these IDs
         # Note that a single protein can have multiple roles.
         roledict = cdmiEntity.get_relationship_HasFunctional(fids, [], [], ["id"])
-        fids = getFieldFromRelationship(roledict, "from_link", "rel")
-        roles = getFieldFromRelationship(roledict, "id", "to")
+        fids = self.getFieldFromRelationship(roledict, "from_link", "rel")
+        roles = self.getFieldFromRelationship(roledict, "id", "to")
         fidToRoles = {}
         rolesToFids = {}
         for ii in range(len(fids)):
@@ -597,12 +600,12 @@ class CDMExtractor():
                 rolesToFids[roles[ii]] = [ fids[ii] ]
         return tuplist, fidToRoles
     
-    def complexRoleLinks(self, count):
+    def mapComplexToRole(self, count):
         ''' Query the CDM for a list of links from complexes to roles.
     
             Only roles listed as "required" are included in the links.
     
-            @note OBSOLETE - will be replaced by Chris's roles_to_reactions() function
+            @note Someday the modeling service will provide this data from Mapping objects.
             @param count: Number of entities to retrieve in each function call
             @return Dictionary keyed by role of a list of complex IDs, dictionary keyed by
                 complex ID to a list of roles.
@@ -618,13 +621,13 @@ class CDMExtractor():
             start += count
             if len(subdict) < count:
                 done = True
-        cplxlist = getFieldFromEntity(cplxdict, "id")
+        cplxlist = self.getFieldFromEntity(cplxdict, "id")
     
         # Get a list of roles linked to those complexes
         roledict = self.cdmiEntity.get_relationship_IsTriggeredBy(cplxlist, [], ["optional"], ["id"])
-        cplx = getFieldFromRelationship(roledict, "from_link", "rel")
-        opt = getFieldFromRelationship(roledict, "optional", "rel")
-        role = getFieldFromRelationship(roledict, "id", "to")
+        cplx = self.getFieldFromRelationship(roledict, "from_link", "rel")
+        opt = self.getFieldFromRelationship(roledict, "optional", "rel")
+        role = self.getFieldFromRelationship(roledict, "id", "to")
         complexToRequiredRoles = {}
         requiredRolesToComplex = {}
         for ii in range(len(cplx)):
@@ -642,10 +645,10 @@ class CDMExtractor():
                 requiredRolesToComplex[role[ii]] = [ cplx[ii] ]
         return complexToRequiredRoles, requiredRolesToComplex
     
-    def reactionComplexLinks(self, count):
+    def mapReactionToComplex(self, count):
         ''' Query the CDM for a list of links from reactions to complexes.
     
-            @note OBSOLETE - will be replaced by Chris's roles_to_reactions() function
+            @note Someday the modeling service will provide this data from Mapping objects.
             @param count: Number of entities to retrieve in each function call
             @return Dictionary keyed by reaction ID to lists of complexes performing them,
                 dictionary keyed by complex ID to list of reactions they perform.
@@ -663,10 +666,10 @@ class CDMExtractor():
             start += count
             if len(subdict) < count:
                 done = True
-        rxns = getFieldFromEntity(rxndict, "id")
+        rxns = self.getFieldFromEntity(rxndict, "id")
         cplxdict = self.cdmiEntity.get_relationship_IsStepOf(rxns, [], [], ["id"])
-        rxnlist = getFieldFromRelationship(cplxdict, "from_link", "rel")
-        cplxlist = getFieldFromRelationship(cplxdict, "id", "to")
+        rxnlist = self.getFieldFromRelationship(cplxdict, "from_link", "rel")
+        cplxlist = self.getFieldFromRelationship(cplxdict, "id", "to")
         
         rxnToComplex = {}
         complexToRxn = {}

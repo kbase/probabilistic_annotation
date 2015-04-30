@@ -114,38 +114,38 @@ class DataParser:
     #   1. Genome ID in KBase format (e.g. kb|g.0)
     #   2. Flag indicating if the genome is a prokaryote (1 means yes, 0 means no)
     
-    def readOtuData(self):
+    def readOtuData(self, filename):
         ''' Read data from the representative OTU genome ID file.
-        
+
+            @param filename: Path to OTU genome ID file
             @return List of all OTU genome IDs, list of prokaryote OTU genome IDs
         '''
     
-        fid = open(self.DataFiles['otu_id_file'], 'r')
         otus = list()
         prokotus = list()
-        for line in fid:
-            spl = line.strip("\r\n").split("\t")
-            otus.append(spl[0])
-            if int(spl[1]) == 1:
-                prokotus.append(spl[0])
-        fid.close()
+        with open(filename, 'r') as handle:
+            for line in handle:
+                fields = line.strip('\r\n').split('\t')
+                otus.append(fields[0])
+                if int(fields[1]) == 1:
+                    prokotus.append(fields[0])
         return otus, prokotus
     
-    def writeOtuData(self, otus, prokotus):
+    def writeOtuData(self, filename, otus, prokotus):
         ''' Write data to the representative OTU genome ID file.
-        
-            @param otus List of all OTU genome IDs
-            @param prokouts List of prokaryote OTU genome IDs
+
+            @param filename: Path to OTU genome ID file
+            @param otus: List of all OTU genome IDs
+            @param prokotus: List of prokaryote OTU genome IDs
             @return Nothing
         '''
-    
-        fid = open(self.DataFiles['otu_id_file'], 'w')
-        for otu in otus:
-            if otu in prokotus:
-                fid.write("%s\t%d\n" %(otu, 1))
-            else:
-                fid.write("%s\t%d\n" %(otu, 0))
-        fid.close()
+
+        with open(filename, 'w') as handle:
+            for otu in otus:
+                if otu in prokotus:
+                    handle.write('%s\t%d\n' %(otu, 1))
+                else:
+                    handle.write('%s\t%d\n' %(otu, 0))
         return
     
     # A feature ID file is a list of features IDs.  Each line has one field that is
@@ -222,7 +222,13 @@ class DataParser:
 
         with open(filename, 'w') as handle:
             for fid in fidsToRoles:
-                handle.write('%s\t%s\n' %(fid, self.separator.join(fidsToRoles[fid])))
+                try:
+                    handle.write('%s\t%s\n' %(fid, self.separator.join(fidsToRoles[fid])))
+                except UnicodeEncodeError:
+                    roles = list()
+                    for index in range(len(fidsToRoles[fid])):
+                        roles.append(fidsToRoles[fid][index].encode('ascii', 'replace'))
+                    handle.write('%s\t%s\n' %(fid, self.separator.join(roles)))
         return
 
     # A protein FASTA file contains the amino acid sequences for a set of feature IDs.
