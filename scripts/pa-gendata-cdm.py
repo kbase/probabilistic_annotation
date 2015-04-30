@@ -25,12 +25,21 @@ DESCRIPTION
 
       The --force optional argument deletes all existing files before they are
       generated.
+
+      The method to generate intermediate data from KEGG is as follows: (1) Get
+      a list of representative OTU genome IDs. (2) Get a list of subsystem feature
+      IDs. (3) Get a list of direct literature-supported feature IDs. (4) Merge
+      the two lists of feature IDs. (5) Create a mapping from feature IDs to
+      roles. (6) Filter the feature IDs so there is one protein from each OTU
+      for each functional role. (7) Get the amino acid sequence for each filtered
+      feature ID. (8) Create a mapping of complexes to roles. (9) Create a
+      mapping of reactions to complexes.
 '''
 
 desc3 = '''
 EXAMPLES
       Generate static database files:
-      > pa-gendata gendata.cfg
+      > pa-gendata-cdm gendata.cfg
       
 SEE ALSO
       pa-gendata-kegg
