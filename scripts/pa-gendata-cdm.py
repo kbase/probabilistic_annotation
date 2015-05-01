@@ -52,6 +52,14 @@ AUTHORS
 '''
 
 def generate_data(dataParser, cdmExtractor, force):
+    ''' Generate intermediate database files from central data model.
+
+        @param dataParser: DataParser object for reading and writing data files
+        @param cdmExtractor: CDMExtractor object for extracting data from CDM
+        @param force: When true, remove existing files first
+        @return Nothing
+    '''
+
     
     # If requested, remove the generated files first.
     if force:
