@@ -1,16 +1,15 @@
 #! /usr/bin/python
 
+import argparse
 import sys
-import time
 import os
 import traceback
-import argparse
 from biokbase.probabilistic_annotation.DataParser import DataParser
-from biokbase.probabilistic_annotation.Helpers import get_config, now
+from biokbase.probabilistic_annotation.Helpers import get_config, now, safe_remove
 
 desc1 = '''
 NAME
-      pa-gendata-cdm -- generate static database of gene annotations
+      pa-gendata -- generate static database of gene annotations
 
 SYNOPSIS      
 '''
@@ -20,6 +19,8 @@ DESCRIPTION
       Generate the static database of high-quality gene annotations from the
       data files generated from the set of data sources.  The configFilePath
       argument specifies the path to the configuration file for the service.
+      You must first run the corresponding script for each data source to
+      generate the intermediate files.
 
       When the --makedb optional argument is specified only build the search
       database for the configured search program.  Note that the input protein
@@ -44,27 +45,21 @@ AUTHORS
       Matt Benedict, Mike Mundy 
 '''
 
-def safeRemove(filename):
-    try:
-        # Check for file existence
-        if os.path.exists(filename):
-            os.remove(filename)
-            
-    # If there is still an OSError despite the file existing we want to raise that, it will probably
-    # cause problems trying to write to the files anyway. but an IOError just means the file isn't there.
-    except IOError:
-        pass
-
 def generate_data(dataParser, config, force):
+    ''' Generate final database files from configured sources.
+
+        @param dataParser: DataParser object for reading and writing data files
+        @param config: Dictionary of configuration variables
+        @param force: When true, remove existing files first
+        @return Nothing
+    '''
     
-    # When regenerating the database files, remove all of them first.
+    # If requested, remove the generated files first.
     if force:
-        print('Removing all static database files...')
+        print('Removing existing final static database files...')
         for filename in dataParser.DataFiles.values():
             safeRemove(filename)
         print('Done at %s' %(now()))
-    
-    print('Generating static database files in "%s"...\n' %(config['data_folder_path']))
     
     # Merge the data files from all of the configured sources.
     print('Merging static database files from configured sources at %s' %(now()))
@@ -78,7 +73,7 @@ def generate_data(dataParser, config, force):
     dataParser.buildSearchDatabase()
     print('Done at %s\n' %(now()))
     
-    print('Done generating static database files')
+    print('Done generating final static database files')
     return
 
 # Main script function
@@ -99,6 +94,7 @@ if __name__ == "__main__":
 
     # Get the probabilistic_annotation section from the configuration file.
     config = get_config(args.configFilePath)
+    print('Generating final static database files in directory "%s"...\n' %(config['data_folder_path']))
 
     # Create a DataParser object for working with the static database files (the
     # data folder is created if it does not exist).
