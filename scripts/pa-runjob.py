@@ -14,11 +14,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # Run the job.
-    jobDataPath = os.path.join(args.jobDirectory, "jobdata.json")
+    jobDataPath = os.path.join(args.jobDirectory, 'jobdata.json')
     job = json.load(open(jobDataPath, 'r'))
     try:
-        worker = ProbabilisticAnnotationWorker()
-        worker.runAnnotate(job)
+        worker = ProbabilisticAnnotationWorker(job['context'])
+        worker.runAnnotate(job['id'], job['input'])
     except Exception as e:
         # Mark the job as failed.
         tb = traceback.format_exc()

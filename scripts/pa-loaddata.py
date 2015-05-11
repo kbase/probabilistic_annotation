@@ -3,7 +3,7 @@
 import argparse
 import os
 from biokbase.probabilistic_annotation.DataParser import DataParser
-from biokbase.probabilistic_annotation.Helpers import get_config
+from biokbase.probabilistic_annotation.Helpers import get_config, ServiceName
 from biokbase import log
 
 desc1 = '''
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Create a log object.
-    submod = os.environ.get('KB_SERVICE_NAME', 'probabilistic_annotation')
+    submod = os.environ.get('KB_SERVICE_NAME', ServiceName)
     mylog = log.log(submod, ip_address=True, authuser=True, module=True, method=True,
         call_id=True, config=args.configFilePath)
 

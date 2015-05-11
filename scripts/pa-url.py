@@ -1,5 +1,5 @@
 import argparse
-from biokbase.probabilistic_annotation.Helpers import get_url, set_url
+from biokbase.probabilistic_annotation.Helpers import get_url, set_url, ServiceName
 from biokbase.probabilistic_annotation.Client import ProbabilisticAnnotation, ServerError as ProbAnnoServerError
 
 desc1 = '''
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     try:
         paClient = ProbabilisticAnnotation(url=url)
         serverInfo = paClient.version()
-        if serverInfo[0] != 'probabilistic_annotation':
+        if serverInfo[0] != ServiceName:
             print url+' is not a probabilistic annotation server'
             exit(1)
         print url+' is valid and running %s v%s' %(serverInfo[0], serverInfo[1])

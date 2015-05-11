@@ -711,6 +711,8 @@ class DataParser:
         self.writeStatusFile('running')
         status = 'failed'
 
+        # @todo May need to remove all stderr messages.
+
         # Get the static database files from Shock (only missing or changed files are downloaded).
         if self.loadDataOption == 'shock':
             try:

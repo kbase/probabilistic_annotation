@@ -15,8 +15,15 @@ ProbAnnoType = 'ProbabilisticAnnotation.ProbAnno-1.0'
 # Current version number of RxnProbs object
 RxnProbsType = 'ProbabilisticAnnotation.RxnProbs-1.0'
 
+# Exception thrown when object version is not valid
+class WrongVersionError(Exception):
+    pass
+
 # Current version of service.
 ServiceVersion = '1.2.0'
+
+# Default name of service.
+ServiceName = 'probabilistic_annotation'
 
 def read_config(filename=None):
     ''' Read a configuration file.
@@ -41,8 +48,8 @@ def read_config(filename=None):
         print "Error while reading config file %s: %s" % (filename, e)
 
     # Make sure there is a probabilistic_annotation section in the config file.
-    if not config.has_section('probabilistic_annotation'):
-        config.add_section('probabilistic_annotation')
+    if not config.has_section(ServiceName):
+        config.add_section(ServiceName)
         with open(filename, 'w') as configfile:
             config.write(configfile)
 
@@ -62,7 +69,7 @@ def get_config(filename=None):
 
     # Extract the probabilistic annotation section.
     sectionConfig = dict()
-    for nameval in config.items("probabilistic_annotation"):
+    for nameval in config.items(ServiceName):
         sectionConfig[nameval[0]] = nameval[1]
     return sectionConfig
 
@@ -101,7 +108,7 @@ def set_url(newURL):
 
     # Save the new URL to the config file.
     config = read_config(kb_config)
-    config.set('probabilistic_annotation', 'url', newURL)
+    config.set(ServiceName, 'url', newURL)
     with open(kb_config, 'w') as configfile:
         config.write(configfile)
     return newURL
