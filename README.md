@@ -2,9 +2,10 @@ Probabilistic Annotation
 ========================
 
 The purpose of the Probabilistic Annotation service is to provide users with
-alternative annotations for genes, each attached to a likelihood score, and to
-translate these likelihood scores into likelihood scores for the existence of
-reactions in metabolic models.  With the Probabilistic Annotation service:
+alternative annotations for genes, each attached to a likelihood score.  The
+annotation likelihood scores are then translated into likelihood scores for the
+existence of reactions in metabolic models.  With the Probabilistic Annotation
+service:
 
 * Users can quickly assess the quality of an annotation.
 
@@ -16,7 +17,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
   gene annotations automatically, reducing the effort needed to search for
   evidence for gap filled reactions.
 
-Details on the algorithm available in [Likelihood-Based Gene Annotations
+Details on the algorithm are available in [Likelihood-Based Gene Annotations
 for Gap Filling and Quality Assessment in Genome-Scale Metabolic
 Models](http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1003882)
 
@@ -46,7 +47,7 @@ The Probabilistic Annotation server supports the following configuration variabl
   can use different static database files by using different folders.
 * **load_data_option**: Control how static database files are handled when starting
   service. Valid values are "shock" to load static files from Shock or "preload"
-  to use preloaded static database files.
+  to use static database files preloaded in the data folder.
 * **sources**: List of sources for generating static database files.  The supported
   sources are "cdm" for the KBase central data model and "kegg" for the Kyoto
   Encyclopedia of Genes and Genomes.  Sources are separated by a colon in the list.
@@ -147,12 +148,23 @@ likelihoods.  The files are managed with the following commands:
 * **pa-savedata**: Stores final files in Shock.
 * **pa-loaddata**: Retrieves final files from Shock.
 
+Build the static database files by following these steps:
+
+1. Run the pa-gendata-cdm command to generate KBase Central Data Model
+   intermediate files.
+2. Optionally, run the pa-gendata-kegg command to generate KEGG intermediate
+   files (requires local copies of KEGG reaction, enzyme, and organism databases).
+3. Run the pa-gendata command to generate final files and search database.
+
+
 Loading the Static Database Files
 ---------------------------------
 
 The static database files can be loaded for the server in these ways:
 
 1. Automatically from Shock.  When the load\_data_option
-   configuration variable is set to "shock", the server checks the 
+   configuration variable is set to "shock", the server checks Shock to
+   see if a new version of each file is available and downloads any new
+   or missing files. 
 2. When the load\_data_option configuration variable is set to "preload",
-   use the files already loaded in the data\_folder_path.
+   use the files already loaded in the data folder.

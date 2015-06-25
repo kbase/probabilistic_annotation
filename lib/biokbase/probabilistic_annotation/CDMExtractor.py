@@ -434,7 +434,7 @@ class CDMExtractor():
         while counter > 0:
             try:
                 roledict = self.cdmiEntity.get_relationship_HasFunctional(fidlist[start:end], [], [], ["id"])
-            except HTTPError as e:
+            except (HTTPError, ConnectionError) as e:
                 if increment > 1:
                     increment = increment / 2
                     end = start + increment
