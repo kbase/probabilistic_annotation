@@ -4,10 +4,6 @@ import argparse
 import os
 import sys
 import traceback
-from biokbase.probabilistic_annotation.kegg.QueryKEGG import QueryKEGG
-from biokbase.probabilistic_annotation.kegg.KEGGReactionDatabase import KEGGReactionDatabase
-from biokbase.probabilistic_annotation.kegg.KEGGEnzymeDatabase import KEGGEnzymeDatabase
-from biokbase.probabilistic_annotation.kegg.KEGGOrganismDatabase import KEGGOrganismDatabase
 from biokbase.probabilistic_annotation.DataParser import DataParser
 from biokbase.probabilistic_annotation.kegg.KEGGExtractor import KEGGExtractor
 from biokbase.probabilistic_annotation.Helpers import get_config, now
@@ -31,7 +27,8 @@ DESCRIPTION
 
       The --source optional argument specifies the type of the source reaction
       file.  The supported types are "template" for a reaction file created by
-      the fba-export-template command.
+      the fba-export-template command and "modelseed" for a master reaction file
+      from the ModelSEEDDatabase repository.
 
       The --biochem optional argument specifies the ID of a Biochemistry object
       for looking up KEGG reaction IDs.  The --biochemws optional argument specifies
@@ -50,6 +47,9 @@ DESCRIPTION
 
       The --force optional argument deletes all existing files before they are
       generated.
+
+      The --step optional argument starts the process at the specified step,
+      which can be used to restart if there is an error.
 
       The method to generate intermediate data from KEGG is as follows: (1) Lookup
       reactions in input reaction file in the Biochemistry object and find all
@@ -97,66 +97,130 @@ def generate_data(dataParser, keggExtractor, args):
         print 'Done at %s\n' %(now())
 
     # First step is map KBase reaction IDs to KEGG reaction IDs.
+    step = 1
     print 'Getting mapping of KBase reaction IDs to KEGG reaction IDs at %s' %(now())
-    print 'Saving mapping to file "%s"...' %(dataParser.sources['kegg']['reaction_file'])
-
-    kbaseRxnIdList = list()
-    if args.source == 'template':
-        # Read the input Model Template file.  Build a list of reactions from the cytosol
-        # and extracellular compartments. In the Model Template text file, the first field
-        # contains the KBase reaction ID.
-        with open(args.rxnfilename, 'r') as handle:
-            header = handle.readline() # Throw away the header line
-            for line in handle:
-                fields = line.strip('\n').split('\t')
-                if (fields[1] == 'c' or fields[1] == 'e'):
-                    kbaseRxnIdList.append(fields[0])
-        print 'Found %d KBase reactions in ModelTemplate' %(len(kbaseRxnIdList))
-
+    if step >= args.step:
+        print 'Saving mapping to file "%s"...' %(dataParser.sources['kegg']['reaction_file'])
+        kbaseRxnIdList = list()
+    
+        if args.source == 'template':
+            # Read the input Model Template file.  Build a list of reactions from the cytosol
+            # and extracellular compartments. In the Model Template text file, the first field
+            # contains the KBase reaction ID.
+            with open(args.rxnfilename, 'r') as handle:
+                header = handle.readline() # Throw away the header line
+                for line in handle:
+                    fields = line.strip('\n').split('\t')
+                    if (fields[1] == 'c' or fields[1] == 'e'):
+                        kbaseRxnIdList.append(fields[0])
+            print 'Found %d KBase reactions in ModelTemplate' %(len(kbaseRxnIdList))
+    
+        elif args.source == 'modelseed':
+            # Read the input master reactions file from ModelSEED.  Build a list of
+            # reactions, removing duplicates by checking the linked reactions field and
+            # skipping obsolete reactions.
+            numObsolete = 0
+            unique = set()
+            with open(args.rxnfilename, 'r') as handle:
+                header = handle.readline()
+                names = header.strip('\n').split('\t')
+                if names[0] != 'id' or names[18] != 'is_obsolete' or names[19] != 'linked_reaction':
+                    sys.stderr.write('Format of modelseed reaction file is invalid, column headers are wrong')
+                    exit(1)
+                for line in handle:
+                    fields = line.strip('\n').split('\t')
+                    # Skip reactions that are marked obsolete
+                    if fields[18] == '1':
+                        numObsolete += 1
+                        continue
+                    # Add the reaction and its linked reactions if they are not already
+                    # in the unique set.
+                    if fields[0] not in unique:
+                        kbaseRxnIdList.append(fields[0])
+                        unique.add(fields[0])
+                        if fields[19] != 'null':
+                            linkedReactions = fields[19].split(';')
+                            for index in range(len(linkedReactions)):
+                                unique.add(linkedReactions[index])
+            print 'Found %d reactions in modelseed master reaction file' %(len(kbaseRxnIdList))
+            print 'Found %d obsolete reactions in modelseed master reaction file' %(numObsolete)
+            del unique
+    
+        else:
+            print 'Source type %s is not supported' %(args.source)
+            exit(1)
+        
+        # Find the corresponding KEGG reaction IDs for the KBase reaction IDs.  Note that not
+        # all of the KBase reactions have an alias to a KEGG reaction.
+        keggRxnIdList = keggExtractor.getKeggReactionList(kbaseRxnIdList, args.increment, args.biochem, args.biochemws)
+        dataParser.writeKeggReactionFile(dataParser.sources['kegg']['reaction_file'], keggRxnIdList)
+        print 'Stored %d aliases to KEGG reactions' %(len(keggRxnIdList))
     else:
-        print 'Source type %s is not supported' %(args.source)
-        exit(1)
-
-    # Find the corresponding KEGG reaction IDs for the KBase reaction IDs.  Note that not
-    # all of the KBase reactions have an alias to a KEGG reaction.
-    keggRxnIdList = keggExtractor.getKeggReactionList(kbaseRxnIdList, args.increment, args.biochem, args.biochemws)
-    dataParser.writeKeggReactionFile(dataParser.sources['kegg']['reaction_file'], keggRxnIdList)
-#    keggRxnIdList = dataParser.readKeggReactionFile(dataParser.sources['kegg']['reaction_file'])
-    print 'Found %d aliases to KEGG reactions' %(len(keggRxnIdList))
+        print 'Loading list from file "%s"...' %(dataParser.sources['kegg']['reaction_file'])
+        keggRxnIdList = dataParser.readKeggReactionFile(dataParser.sources['kegg']['reaction_file'])
+        print 'Retrieved %d aliases from KEGG reactions' %(len(keggRxnIdList))
     print 'Done at %s\n' %(now()) 
+    step += 1
                            
     # Second step is to update the local KEGG reaction and enzyme databases if requested.
-    if args.update:
-        print 'Updating local KEGG databases at %s' %(now())
-        print 'Local reaction database is in "%s" and has %d records' %(args.reactionDB, keggExtractor.reactionDB.size())
-        print 'Local enzyme database is in "%s" and has %d records' %(args.enzymeDB, keggExtractor.enzymeDB.size())
-        keggExtractor.updateLocalDatabases(keggRxnIdList)
-        print 'Done at %s\n' %(now())
+    print 'Updating local KEGG databases at %s' %(now())
+    print 'Local reaction database is in "%s" and has %d records' %(args.reactionDB, keggExtractor.reactionDB.size())
+    print 'Local enzyme database is in "%s" and has %d records' %(args.enzymeDB, keggExtractor.enzymeDB.size())
+    if step >= args.step:
+        if args.update:
+            keggExtractor.updateLocalDatabases(keggRxnIdList)
+        else:
+            print 'KEGG database update is disabled'
+    else:
+        print 'KEGG database update step is skipped'
+    print 'Done at %s\n' %(now())
+    step += 1
 
     # Third step is to create a reactions to complexes file.
     print 'Creating mapping of reaction to complex at %s' %(now())
-    print 'Saving reaction to complex mapping in file "%s"...' %(dataParser.sources['kegg']['reaction_complex_file'])
-    reactionToComplexes = keggExtractor.mapReactionToComplex(keggRxnIdList)
-    dataParser.writeReactionComplexFile(dataParser.sources['kegg']['reaction_complex_file'], reactionToComplexes)
-    print 'Stored %d reaction to complex mappings' %(len(reactionToComplexes))
+    if step >= args.step:
+        print 'Saving mapping to file "%s"...' %(dataParser.sources['kegg']['reaction_complex_file'])
+        reactionToComplexes = keggExtractor.mapReactionToComplex(keggRxnIdList)
+        dataParser.writeReactionComplexFile(dataParser.sources['kegg']['reaction_complex_file'], reactionToComplexes)
+        print 'Stored %d reaction to complex mappings' %(len(reactionToComplexes))
+    else:
+        print 'Loading mapping from file "%s"...' %(dataParser.sources['kegg']['reaction_complex_file'])
+        reactionToComplexes = dataParser.readReactionComplexFile(dataParser.sources['kegg']['reaction_complex_file'])
+        print 'Retrieved %d reaction to complex mappings' %(len(reactionToComplexes))
     print 'Done at %s\n' %(now())
+    del reactionToComplexes
+    step += 1
 
     # Fourth step is to create a complex to roles file.
     print 'Creating mapping of complex to role at %s' %(now())
-    print 'Saving complex to role mapping in file "%s"...' %(dataParser.sources['kegg']['complex_role_file'])
-    complexToRoles = keggExtractor.mapComplexToRole()
-    dataParser.writeComplexRoleFile(dataParser.sources['kegg']['complex_role_file'], complexToRoles)
-    print 'Stored %d complex to role mappings' %(len(complexToRoles))
+    if step >= args.step:
+        print 'Saving mapping to file "%s"...' %(dataParser.sources['kegg']['complex_role_file'])
+        complexToRoles = keggExtractor.mapComplexToRole()
+        dataParser.writeComplexRoleFile(dataParser.sources['kegg']['complex_role_file'], complexToRoles)
+        print 'Stored %d complex to role mappings' %(len(complexToRoles))
+    else:
+        print 'Loading mappping from file "%s"' %(dataParser.sources['kegg']['complex_role_file'])
+        complexToRoles = dataParser.readComplexRoleFile(dataParser.sources['kegg']['complex_role_file'])
+        print 'Retrieved %d complex to role mappings' %(len(dataParser.sources['kegg']['complex_role_file']))
     print 'Done at %s\n' %(now())
+    del complexToRoles
+    step += 1
 
     # Fifth step is to create a feature ID to roles file and download amino acid sequences.
     print 'Getting amino acid sequences and feature ID to role mapping for OTU representatives at %s' %(now())
-    print 'Saving feature ID to roles mapping in file "%s"...' %(dataParser.sources['kegg']['otu_fid_role_file'])
-    print 'Saving amino acid sequences in file "%s"...' %(dataParser.sources['kegg']['protein_fasta_file'])
-    fidsToRoles = keggExtractor.mapFeatureToRole(None) #dataParser.sources['kegg']['protein_fasta_file']
-    dataParser.writeFidRoleFile(dataParser.sources['kegg']['otu_fid_role_file'], fidsToRoles)
-    print 'Stored %d feature ID to roles mappings' %(len(fidsToRoles))
+    if step >= args.step:
+        print 'Saving feature ID to roles mapping to file "%s"...' %(dataParser.sources['kegg']['otu_fid_role_file'])
+        print 'Saving amino acid sequences to file "%s"...' %(dataParser.sources['kegg']['protein_fasta_file'])
+        fidsToRoles = keggExtractor.mapFeatureToRole(dataParser.sources['kegg']['protein_fasta_file']) #dataParser.sources['kegg']['protein_fasta_file']
+        dataParser.writeFidRoleFile(dataParser.sources['kegg']['otu_fid_role_file'], fidsToRoles)
+        print 'Stored %d feature ID to roles mappings' %(len(fidsToRoles))
+    else:
+        print 'Loading feature ID to roles mapping from file "%s"' %(dataParser.sources['kegg']['otu_fid_role_file'])
+        fidsToRoles = dataParser.readFidRoleFile(dataParser.sources['kegg']['otu_fid_role_file'])
+        print 'Retrieved %d feature ID to roles mappings' %(len(fidsToRoles))
     print 'Done at %s\n' %(now())
+    del fidsToRoles
+    step += 1
 
     return
 
@@ -178,6 +242,7 @@ if __name__ == '__main__':
     parser.add_argument('--organismdb', help='path to file with KEGG organism database', action='store', dest='organismDB', default='organism.db')
     parser.add_argument('--no-update', help='skip adding missing reactions and enzymes to local databases', action='store_false', dest='update', default=True)
     parser.add_argument('--force', help='remove existing static database files first', dest='force', action='store_true', default=False)
+    parser.add_argument('--step', help='start generating database files from this step', dest='step', action='store', type=int, default=1)
     usage = parser.format_usage()
     parser.description = desc1 + '      ' + usage + desc2
     parser.usage = argparse.SUPPRESS
@@ -187,7 +252,7 @@ if __name__ == '__main__':
     config = get_config(args.configFilePath)
     print 'Generating KEGG static database files in directory "%s"' %(config['data_folder_path'])
     print 'KEGG server is at %s' %(config['kegg_url'])
-    print 'FBA modeling server is at %s' %(config['fbamodelservices_url'])
+    print 'FBA modeling server is at %s' %(config['fbamodeling_url'])
     print 'Biochemistry object is %s/%s' %(args.biochemws, args.biochem)
     print 'List of KBase reaction IDs comes from %s\n' %(args.rxnfilename)
 
@@ -203,7 +268,8 @@ if __name__ == '__main__':
     try:
         generate_data(dataParser, keggExtractor, args)
     except:
-        sys.stderr.write("\nERROR Caught exception...\n")
+        sys.stderr.write('\nERROR Caught exception at %s...\n' %(now()))
         traceback.print_exc(file=sys.stderr)
+        exit(1)
 
     exit(0) 

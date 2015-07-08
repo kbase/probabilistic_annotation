@@ -1,6 +1,7 @@
 
 import re
 import time
+import os
 from biokbase.fbaModelServices.Client import fbaModelServices, ServerError as FbaModelServerError
 from biokbase.probabilistic_annotation.kegg.KEGGReactionDatabase import KEGGReactionDatabase
 from biokbase.probabilistic_annotation.kegg.KEGGEnzymeDatabase import KEGGEnzymeDatabase
@@ -31,20 +32,32 @@ class KEGGExtractor:
         # Load the enzyme database.    
         self.enzymeDB = KEGGEnzymeDatabase(enzymeFile)
         self.enzymeDB.load()
+        self.assignComplexIds()
         
+        # Create the organism database.
+        self.organismDB = KEGGOrganismDatabase(organismFile)
+
+        # If the organism database file does not exist, download a current copy.
+        if not os.path.exists(organismFile):
+            self.organismDB.download()
+
+        # Create a query object.
+        self.query = QueryKEGG(url=self.config['kegg_url'])
+
+        return
+
+    def assignComplexIds(self):
+        ''' Assign a complex ID to every enzyme in the enzyme database.
+
+            @return Nothing.
+        '''
+
         # Assign a complex ID to every enzyme in the enzyme database.
         self.nextComplexId = 10000
         self.enzymeComplexDict = dict()
         for key in sorted(self.enzymeDB.enzymes):
             self.enzymeComplexDict[key] = 'kb|cpx.%d' %(self.nextComplexId)
             self.nextComplexId += 1
-
-        # Create the organism database.
-        self.organismDB = KEGGOrganismDatabase(organismFile)
-
-        # Create a query object.
-        self.query = QueryKEGG(url=self.config['kegg_url'])
-
         return
 
     def getKeggReactionList(self, kbaseRxnIdList, increment, biochem, biochemws):
@@ -61,7 +74,7 @@ class KEGGExtractor:
         '''
 
         # Create client object.
-        fbaClient = fbaModelServices(self.config['fbamodelservices_url'])
+        fbaClient = fbaModelServices(self.config['fbamodeling_url'])
         
         # Get the reaction details from the fba modeling service.  For every reaction that
         # has an alias in KEGG format, add it to a list of tuples with the KEGG reaction
@@ -228,6 +241,7 @@ class KEGGExtractor:
                 # Save the updated database.
                 self.enzymeDB.store()
                 print 'There are %d enzymes in updated local enzyme database' %(self.enzymeDB.size())
+                self.assignComplexIds() # Regenerate complex IDs
 
         return
     
@@ -372,68 +386,3 @@ class KEGGExtractor:
         
         print '%d enzymes skipped because there were no genes from prokaryotes' %(numSkipped)
         return fidsToRoles
-    
-    def updateOrganism(self):
-        organismDB = KEGGOrganismDatabase('organism.db')
-    #    organismDB.download()
-        organismDB.load()
-        print '%d %d' %(organismDB.numOtuRepresentatives(), organismDB.numProkaryotes())
-        otuGenomes = getOtuGenomeDictionary(1000, config)
-        print len(otuGenomes)
-        exit(0)
-        # Get the list of all genomes with scientific names.
-        # Move this to organismDB.download()
-        cdmi_entity = CDMI_EntityAPI(config["cdmi_url"])
-        genomes = cdmi_entity.all_entities_Genome(0, 50000, ['id', 'scientific_name'])
-        nameDict = dict()
-        for key in genomes:
-            name = genomes[key]['scientific_name'].replace('substr. ', '')
-            name = name.replace('str. ', '')
-            nameDict[name] = key
-        print len(nameDict)
-    #     for key in nameDict:
-    #         print '%s: %s' %(key, nameDict[key])
-       
-    #     dataParser = DataParser(config) 
-    #     otus, prokotus = dataParser.readOtuData()
-        
-        
-        # For every prokaryote in organism database, see if there is a match on name.
-        numNoMatch = 0
-        numProkaryotes = 0
-        for id in organismDB.organisms:
-            organism = organismDB.get(id)
-            if organism.isProkaryote():
-                numProkaryotes += 1
-                matches = list()
-                if organism.name in nameDict:
-                    matches.append(nameDict[organism.name])
-                else:
-                    name = organism.name.split(' (')[0]
-                    if name in nameDict:
-                        matches.append(nameDict[name])
-                    else:
-                        parts = name.split()
-                        m = parts[0]
-                        if len(parts) > 1:
-                            m += ' '+parts[1]
-                        for key in nameDict:
-                            if key.startswith(m):
-                                matches.append(nameDict[key])
-    #                    print '%s: %s' %(organism.name, matches)
-                if len(matches) == 0:
-                    print organism.name
-                    numNoMatch += 1
-                
-                for index in range(len(matches)):
-                    if matches[index] in otuGenomes:
-                        organism.otuRepresentative = 1
-                        organismDB.update(organism)  
-                        # go through the list of matches, if any kbase id is a representative for the OTU, mark it
-                    # go through the keys. find all that start with the organism.name
-                    # if only one, pick it
-                    # if more than one, search in name for each remaining word
-    #                print 'No match for %s %s' %(organism.name, organism.taxonomy)
-        print '%d %d' %(numProkaryotes, numNoMatch)
-        organismDB.store()
-

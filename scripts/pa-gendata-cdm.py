@@ -183,8 +183,9 @@ def generate_data(dataParser, cdmExtractor, force, startStep):
         fidsToSeqs = cdmExtractor.getAminoAcidSequences(otuFidsToRoles.keys())
         dataParser.writeProteinFastaFile(dataParser.sources['cdm']['protein_fasta_file'], fidsToSeqs)
         print 'Stored %d amino acid sequences' %(len(fidsToSeqs))
+        del fidsToSeqs
     print 'Done at %s\n' %(now())
-    del otuFidsToRoles, fidsToSeqs
+    del otuFidsToRoles
     step += 1
 
     # Create a mapping of complexes to roles which is needed to go from annotation likelihoods to
@@ -196,8 +197,8 @@ def generate_data(dataParser, cdmExtractor, force, startStep):
         complexToRequiredRoles, requiredRolesToComplexes = cdmExtractor.mapComplexToRole(1000)
         dataParser.writeComplexRoleFile(dataParser.sources['cdm']['complex_role_file'], complexToRequiredRoles)
         print 'Stored %d complex to role mappings' %(len(complexToRequiredRoles))
+        del complexToRequiredRoles, requiredRolesToComplexes
     print 'Done at %s\n' %(now())
-    del complexToRequiredRoles, requiredRolesToComplexes
     step += 1
 
     # Create a mapping of reactions to complexes.  Note that it is easier to go in this direction since
@@ -208,8 +209,8 @@ def generate_data(dataParser, cdmExtractor, force, startStep):
         reactionToComplexes, complexesToReactions = cdmExtractor.mapReactionToComplex(5000)
         dataParser.writeReactionComplexFile(dataParser.sources['cdm']['reaction_complex_file'], reactionToComplexes)
         print 'Stored %d reaction to complex mappings' %(len(reactionToComplexes))
+        del reactionToComplexes, complexesToReactions
     print 'Done at %s\n' %(now())
-    del reactionToComplexes, complexesToReactions
     step += 1
 
     print 'Done generating CDM static database files'

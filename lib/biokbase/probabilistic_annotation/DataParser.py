@@ -416,7 +416,7 @@ class DataParser:
             for line in handle:
                 fields = line.strip('\r\n').split('\t')
                 if fields[0] == lastRxn:
-                    print fields
+                    print 'Duplicate KEGG reaction ID: %s' %(fields)
                 else:
                     lastRxn = fields[0]
                 keggReactionList.append( [ fields[0], fields[1], fields[2] ] )

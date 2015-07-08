@@ -112,21 +112,11 @@ class QueryKEGG:
             @return List of something
         '''
         
-        # Need to limit to 100 database entries.
-        
         # Delete the previous result and start fresh with an empty list.        
         del self.result
         self.result = list()
-        
-        # The web service limits the size of the query to 100 items.
-        increment = 100
-        start = 0
-        if len(idList) > increment:
-            end = start + increment
-        else:
-            end = len(idList)
-        counter = len(idList)
-        
+
+        # Retrieve the list.        
         url = self.keggUrl+'/list/'+database
         try:
             self._request(url)
