@@ -253,13 +253,19 @@ class DataParser:
 
             @note Make sure the subsystem FASTA file is available.
             @return Nothing
+            @raise MakeblastdbError: Problem finding or running the search program to build database
         '''
 
         # Build the command based on the configured search program.
         if self.searchProgram == 'usearch':
             args = [ self.searchProgramPath, '-makeudb_ublast', self.DataFiles['protein_fasta_file'], '-output', self.SearchFiles['protein_udb_file'] ]
+        elif self.searchProgram == 'blastp':
+            searchDirectory = os.path.dirname(self.searchProgramPath)
+            searchProgram = os.path.join(searchDirectory, 'makeblastdb')
+            args = [ searchProgram, '-in', self.DataFiles['protein_fasta_file'], '-dbtype', 'prot' ]
         else:
-            args = [ "/usr/bin/makeblastdb", "-in", self.DataFiles['protein_fasta_file'], "-dbtype", "prot" ]
+            details = 'Search program "%s" is not supported' %(self.searchProgram)
+            raise MakeblastdbError(details)
     
         # Run the command to compile the database from the subsystem fasta file.
         try:
@@ -549,9 +555,8 @@ class DataParser:
             @return Current status string
         '''
     
-        fid = open(self.StatusFiles['status_file'], 'r')
-        statusLine = fid.readline()
-        fid.close()
+        with open(self.StatusFiles['status_file'], 'r') as handle:
+            statusLine = handle.readline()
         return statusLine.strip("\r\n")
     
     def writeStatusFile(self, status):
@@ -561,9 +566,8 @@ class DataParser:
             @return Nothing
         '''
     
-        fid = open(self.StatusFiles['status_file'], 'w')
-        fid.write("%s\nupdated at %s\n" %(status, now()))
-        fid.close()
+        with open(self.StatusFiles['status_file'], 'w') as handle:
+            handle.write("%s\nupdated at %s\n" %(status, now()))
         return
     
     def checkIfDatabaseFilesExist(self):
@@ -687,7 +691,7 @@ class DataParser:
                 sys.stderr.write("Could not find '%s' so it was not saved\n" %(localPath))
                 
         # Save the metadata on all of the database files.
-        cacheFilename = os.path.join(self.dataFolderPath, StatusFiles['cache_file'])
+        cacheFilename = os.path.join(self.dataFolderPath, self.StatusFiles['cache_file'])
         json.dump(fileCache, open(cacheFilename, "w"), indent=4)
 
         return

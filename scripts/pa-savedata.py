@@ -17,11 +17,14 @@ DESCRIPTION
       Save the static database of high-quality gene annotations along with
       files containing intermediate data to Shock.  The files are then available
       for all servers to download.  The configFilePath argument specifies the
-      path to the configuration file for the service.
+      path to the configuration file for the service.  The --token optional
+      argument specifies the authorization token for the Shock instance.  The
+      default is the user's current token.
 
       Note that all current instances of the file in Shock are removed before
       saving the new file.  A probabilistic annotation server must be restarted
-      to download and start using the new files.
+      to download and start using the new files.  The public authority for all
+      files is set so any user can download the files.
 '''
 
 desc3 = '''
@@ -31,6 +34,7 @@ EXAMPLES
       
 SEE ALSO
       pa-gendata
+      kbase-login
 
 AUTHORS
       Matt Benedict, Mike Mundy 
@@ -42,6 +46,7 @@ if __name__ == "__main__":
     # Parse arguments.
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, prog='pa-savedata', epilog=desc3)
     parser.add_argument('configFilePath', help='path to configuration file', action='store', default=None)
+    parser.add_argument('--token', help='authorization token for Shock instance', action='store', default=None)
     usage = parser.format_usage()
     parser.description = desc1 + '      ' + usage + desc2
     parser.usage = argparse.SUPPRESS
@@ -54,7 +59,9 @@ if __name__ == "__main__":
     dataParser = DataParser(config)
 
     # Store the static database files in Shock.
-    paClient = ProbabilisticAnnotation(url=get_url())
-    dataParser.storeDatabaseFiles(paClient._headers['AUTHORIZATION'])
+    if args.token is None:
+        paClient = ProbabilisticAnnotation(url=get_url())
+        args.token = paClient._headers['AUTHORIZATION']
+    dataParser.storeDatabaseFiles(args.token)
 
     exit(0)
