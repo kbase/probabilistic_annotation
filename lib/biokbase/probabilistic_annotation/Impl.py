@@ -59,7 +59,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         if requiredArgs is not None:
             for arg in requiredArgs:
                 if arg not in input:
-                    message = "Required argument %s not found" %(arg)
+                    message = 'Required argument %s not found' %(arg)
                     ctx.log_err(message)
                     raise ValueError(message)
         if defaultArgDict is not None:
@@ -80,12 +80,12 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         '''
         try:
             status = self.dataParser.readStatusFile()
-            if status != "ready":
-                message = "Static database files are not ready.  Current status is '%s'." %(status)
+            if status != 'ready':
+                message = 'Static database files are not ready.  Current status is "%s".' %(status)
                 ctx.log_err(message)
                 raise NotReadyError(message)
         except IOError:
-            message = "Static database files are not ready.  Failed to open status file '%s'." %(self.dataParser.StatusFiles['status_file'])
+            message = 'Static database files are not ready.  Failed to open status file "%s".' %(self.dataParser.StatusFiles['status_file'])
             ctx.log_err(message)
             raise NotReadyError(message)
         return
@@ -104,7 +104,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         '''
         if config == None:
             # There needs to be a config for the server to work.
-            raise ValueError("__init__: A valid configuration was not provided.  Check KB_DEPLOYMENT_CONFIG and KB_SERVICE_NAME environment variables.")
+            raise ValueError('__init__: A valid configuration was not provided.  Check KB_DEPLOYMENT_CONFIG and KB_SERVICE_NAME environment variables.')
         else:
             self.config = config
         
@@ -125,7 +125,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         configValues += ', job_queue='+self.config['job_queue']
         configValues += ', search_program='+self.config['search_program']
         configValues += ', search_program_path='+self.config['search_program_path']
-        configValues += ', blast_threads='+self.config['blast_threads']
+        configValues += ', search_program_threads='+self.config['search_program_threads']
         configValues += ', usearch_accel='+self.config['usearch_accel']
         self.mylog.log_message(log.NOTICE, configValues)
 
@@ -188,8 +188,8 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         '''
 
         input = self._checkInputArguments(ctx, input, 
-                                          [ "genome", "genome_workspace", "probanno", "probanno_workspace"],
-                                          { "verbose" : False }
+                                          [ 'genome', 'genome_workspace', 'probanno', 'probanno_workspace'],
+                                          { 'verbose' : False }
                                           )
         
         # Make sure the static database files are ready.
@@ -200,7 +200,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
             ctx.set_log_level(log.DEBUG)
 
         # Make sure the Genome object is available.
-        wsClient = Workspace(self.config["workspace_url"], token=ctx['token'])
+        wsClient = Workspace(self.config['workspace_url'], token=ctx['token'])
         genomeIdentity = make_object_identity(input['genome_workspace'], input['genome'])
         wsClient.get_object_info( [ genomeIdentity ], 0 )
 
@@ -225,11 +225,11 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
 
                 # Save data required for running the job.
                 jobData = { 'id': jobid, 'input': input, 'context': ctx, 'config': self.config }
-                json.dump(jobData, open(jobDataFilename, "w"), indent=4)
+                json.dump(jobData, open(jobDataFilename, 'w'), indent=4)
 
                 # Start worker to run the job.
                 jobScript = os.path.join(os.environ['KB_TOP'], 'bin/pa-runjob')
-                cmdline = "nohup %s %s >%s 2>%s &" %(jobScript, jobDirectory, outputFilename, errorFilename)
+                cmdline = 'nohup %s %s >%s 2>%s &' %(jobScript, jobDirectory, outputFilename, errorFilename)
                 status = os.system(cmdline)
                 ctx.log_info('Job %s is running on local host, status %d' %(jobid, status))
 
@@ -273,19 +273,151 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
 
         # Sanity check on input arguments
         input = self._checkInputArguments(ctx, input, 
-                                          ["probanno", "probanno_workspace", "rxnprobs", "rxnprobs_workspace"], 
-                                          { "verbose" : False ,
-                                            "template_model" : None,
-                                            "template_workspace" : None
+                                          ['probanno', 'probanno_workspace', 'rxnprobs', 'rxnprobs_workspace'], 
+                                          { 'verbose' : False ,
+                                            'template_model' : None,
+                                            'template_workspace' : None
                                           }
                                          )
 
         # Make sure the static database files are ready.
         self._checkDatabaseFiles(ctx)
         
+        # Get the ProbAnno object from the specified workspace.
+        wsClient = Workspace(self.config['workspace_url'], token=ctx['token'])
+        probannoObjectId = make_object_identity(input['probanno_workspace'], input['probanno'])
+        objectList = wsClient.get_objects( [ probannoObjectId ] )
+        probannoObject = objectList[0]
+        if probannoObject['info'][2] != ProbAnnoType:
+            message = 'ProbAnno object type %s is not %s for object %s' %(probannoObject['info'][2], ProbAnnoType, probannoObject['info'][1])
+            ctx.log_err(message)
+            raise WrongVersionError(message)
+        genome = probannoObject['data']['genome']
+
+        # Set a job ID when debug is turned on to create a temporary directory for storing intermediate files.
+        if ctx.get_log_level() >= log.DEBUG2:
+            jobid = ctx['call_id']
+            ctx.log_debug('Intermediate files saved in job folder '+jobid, level=DEBUG2)
+        else:
+            jobid = None
+
         # Create a Worker object and calculate reaction probabilities.
-        worker = ProbabilisticAnnotationWorker(ctx)
-        output = worker.runCalculate(input)
+        worker = ProbabilisticAnnotationWorker(genome, jobid, context=ctx)
+
+        # When a template model is specified, use it to build dictionaries for roles,
+        # complexes, and reactions instead of retrieving from static database files.
+        complexesToRoles = None
+        reactionsToComplexes = None
+        if input['template_model'] is not None or input['template_workspace'] is not None:
+            if not(input['template_model'] is not None and input['template_workspace'] is not None) :
+                message = 'Template model workspace is required if template model ID is provided'
+                ctx.log_err(message)
+                raise ValueError(message)
+
+            # Create a dictionary to map a complex to a list of roles and a dictionary
+            # to map a reaction to a list of complexes.  The dictionaries are specific to
+            # the specified template model instead of covering everything in the central
+            # data model.
+            complexesToRoles = dict()
+            reactionsToComplexes = dict()
+
+            # Get the list of RoleComplexReactions for the template model from the
+            # fba modeling service.  The RoleComplexReactions structure has a list
+            # of ComplexReactions structures for the given role.  And each ComplexReactions
+            # structure has a list of reactions for the given complex.
+            fbaClient = fbaModelServices(self.config['fbamodeling_url'], token=ctx['token'])
+            roleComplexReactionsList = fbaClient.role_to_reactions( { 'templateModel': input['template_model'], 'workspace': input['template_workspace'] } )
+
+            # Build the two dictionaries from the returned list.
+            for rcr in roleComplexReactionsList:
+                for complex in rcr['complexes']:
+                    complexId = re.sub(r'cpx0*(\d+)', r'kb|cpx.\1', complex['name']) # Convert ModelSEED format to KBase format
+                    if complexId in complexesToRoles:
+                        complexesToRoles[complexId].append(rcr['name'])
+                    else:
+                        complexesToRoles[complexId] = [ rcr['name'] ]
+                    for reaction in complex['reactions']:
+                        reactionId = reaction['reaction']
+                        if reactionId in reactionsToComplexes:
+                            reactionsToComplexes[reactionId].append(complexId)
+                        else:
+                            reactionsToComplexes[reactionId] = [ complexId ]
+
+        # Calculate per-gene role probabilities.
+        roleProbs = worker.rolesetProbabilitiesToRoleProbabilities(probannoObject['data']['roleset_probabilities'])
+
+        # Calculate whole cell role probabilities.
+        # Note - eventually workFolder will be replaced with a rolesToReactions call
+        totalRoleProbs = worker.totalRoleProbabilities(roleProbs)
+
+        # Calculate complex probabilities.
+        complexProbs = worker.complexProbabilities(totalRoleProbs, complexesToRequiredRoles = complexesToRoles)
+
+        # Calculate reaction probabilities.
+        reactionProbs = worker.reactionProbabilities(complexProbs, rxnsToComplexes = reactionsToComplexes)
+
+        # Cleanup resources.
+        worker.cleanup()
+
+        # If the reaction probabilities were not calculated using the data from the fba modeling service
+        # via the template model, we need to convert from the KBase ID format to the ModelSEED format.
+        if input['template_model'] is None:
+            reactionList = list()
+            for index in range(len(reactionProbs)):
+                reactionList.append(reactionProbs[index][0])
+            EntityAPI = CDMI_EntityAPI(self.config['cdmi_url'])
+            numAttempts = 4
+            while numAttempts > 0:
+                try:
+                    numAttempts -= 1
+                    reactionData = EntityAPI.get_entity_Reaction( reactionList, [ 'source_id' ] )
+                    if len(reactionList) == len(reactionData):
+                        numAttempts = 0
+                except HTTPError as e:
+                    pass
+            for index in range(len(reactionProbs)):
+                rxnId = reactionProbs[index][0]
+                if rxnId in reactionData:
+                    reactionProbs[index][0] = reactionData[rxnId]['source_id']
+                else:
+                    ctx.log_debug('Reaction %s was not found in CDM' %(rxnId), level=DEBUG2)
+                    rxnnum = re.sub(r'kb\|rxn.', '', rxnId)
+                    reactionProbs[index][0] = 'rxn%05d' %(int(rxnnum))
+
+        # Create a reaction probability object
+        objectData = dict()
+        objectData['genome'] = probannoObject['data']['genome']
+        objectData['genome_workspace'] = probannoObject['data']['genome_workspace']
+        if input['template_model'] is None:
+            objectData['template_model'] = 'None'
+        else:
+            objectData['template_model'] = input['template_model']
+        if input['template_workspace'] is None:
+            objectData['template_workspace'] = 'None'
+        else:
+            objectData['template_workspace'] = input['template_workspace']
+        objectData['probanno'] = input['probanno']
+        objectData['probanno_workspace'] = input['probanno_workspace']
+        objectData['id'] = input['rxnprobs']
+        objectData['reaction_probabilities'] = reactionProbs
+
+        objectMetaData = { 'num_reaction_probs': len(objectData['reaction_probabilities']) }
+        objectProvData = dict()
+        objectProvData['time'] = timestamp(0)
+        objectProvData['service'] = os.environ.get('KB_SERVICE_NAME', ServiceName)
+        objectProvData['service_ver'] = ServiceVersion
+        objectProvData['method'] = 'calculate'
+        objectProvData['method_params'] = input.items()
+        objectProvData['input_ws_objects'] = [ '%s/%s/%d' %(probannoObject['info'][7], probannoObject['info'][1], probannoObject['info'][4]) ]
+        objectSaveData = dict();
+        objectSaveData['type'] = RxnProbsType
+        objectSaveData['name'] = input['rxnprobs']
+        objectSaveData['data'] = objectData
+        objectSaveData['meta'] = objectMetaData
+        objectSaveData['provenance'] = [ objectProvData ]
+        objectInfo = wsClient.save_objects( { 'workspace': input['rxnprobs_workspace'], 'objects': [ objectSaveData ] } )
+        output = objectInfo[0]
+
         #END calculate
 
         # At some point might do deeper type checking...
@@ -309,19 +441,19 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
 
         # Sanity check on input arguments
         input = self._checkInputArguments(ctx, input, 
-                                          [ "rxnprobs", "rxnprobs_workspace" ], 
+                                          [ 'rxnprobs', 'rxnprobs_workspace' ], 
                                           { 'rxnprobs_version': None, 'sort_field': 'rxnid' }
                                           )
 
-        wsClient = Workspace(self.config["workspace_url"], token=ctx['token'])
-        rxnProbsObjectId = make_object_identity(input["rxnprobs_workspace"], input["rxnprobs"], input['rxnprobs_version'])
+        wsClient = Workspace(self.config['workspace_url'], token=ctx['token'])
+        rxnProbsObjectId = make_object_identity(input['rxnprobs_workspace'], input['rxnprobs'], input['rxnprobs_version'])
         objectList = wsClient.get_objects( [ rxnProbsObjectId ] )
         rxnProbsObject = objectList[0]
         if rxnProbsObject['info'][2] != RxnProbsType:
             message = 'RxnProbs object type %s is not %s for object %s' %(rxnProbsObject['info'][2], RxnProbsType, rxnProbsObject['info'][1])
             ctx.log_err(message)
             raise WrongVersionError(message)
-        output = rxnProbsObject["data"]["reaction_probabilities"]
+        output = rxnProbsObject['data']['reaction_probabilities']
         if input['sort_field'] == 'rxnid':
             output.sort(key=lambda tup: tup[0])
         elif input['sort_field'] == 'probability':
@@ -352,15 +484,15 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
                                           { 'probanno_version': None }
                                           )
 
-        wsClient = Workspace(self.config["workspace_url"], token=ctx['token'])
-        probAnnoObjectId = make_object_identity(input["probanno_workspace"], input["probanno"], input['probanno_version'])
+        wsClient = Workspace(self.config['workspace_url'], token=ctx['token'])
+        probAnnoObjectId = make_object_identity(input['probanno_workspace'], input['probanno'], input['probanno_version'])
         objectList = wsClient.get_objects( [ probAnnoObjectId ] )
         probAnnoObject = objectList[0]
         if probAnnoObject['info'][2] != ProbAnnoType:
             message = 'ProbAnno object type %s is not %s for object %s' %(probAnnoObject['info'][2], ProbAnnoType, probAnnoObject['info'][1])
             ctx.log_err(message)
             raise WrongVersionError(message)
-        output = probAnnoObject["data"]["roleset_probabilities"]
+        output = probAnnoObject['data']['roleset_probabilities']
 
         #END get_probanno
 
