@@ -9,6 +9,7 @@ from biokbase.probabilistic_annotation.Worker import ProbabilisticAnnotationWork
 from biokbase.probabilistic_annotation.Helpers import make_object_identity, timestamp, ServiceVersion, ServiceName, ProbAnnoType
 from biokbase.userandjobstate.client import UserAndJobState
 from biokbase.workspace.client import Workspace
+from urllib2 import HTTPError
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog='pa-runjob')

@@ -297,7 +297,7 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
         # Set a job ID when debug is turned on to create a temporary directory for storing intermediate files.
         if ctx.get_log_level() >= log.DEBUG2:
             jobid = ctx['call_id']
-            ctx.log_debug('Intermediate files saved in job folder '+jobid, level=DEBUG2)
+            ctx.log_debug('Intermediate files saved in job folder '+jobid, level=log.DEBUG2)
         else:
             jobid = None
 
@@ -358,31 +358,6 @@ reactions in metabolic models.  With the Probabilistic Annotation service:
 
         # Cleanup resources.
         worker.cleanup()
-
-        # If the reaction probabilities were not calculated using the data from the fba modeling service
-        # via the template model, we need to convert from the KBase ID format to the ModelSEED format.
-        if input['template_model'] is None:
-            reactionList = list()
-            for index in range(len(reactionProbs)):
-                reactionList.append(reactionProbs[index][0])
-            EntityAPI = CDMI_EntityAPI(self.config['cdmi_url'])
-            numAttempts = 4
-            while numAttempts > 0:
-                try:
-                    numAttempts -= 1
-                    reactionData = EntityAPI.get_entity_Reaction( reactionList, [ 'source_id' ] )
-                    if len(reactionList) == len(reactionData):
-                        numAttempts = 0
-                except HTTPError as e:
-                    pass
-            for index in range(len(reactionProbs)):
-                rxnId = reactionProbs[index][0]
-                if rxnId in reactionData:
-                    reactionProbs[index][0] = reactionData[rxnId]['source_id']
-                else:
-                    ctx.log_debug('Reaction %s was not found in CDM' %(rxnId), level=DEBUG2)
-                    rxnnum = re.sub(r'kb\|rxn.', '', rxnId)
-                    reactionProbs[index][0] = 'rxn%05d' %(int(rxnnum))
 
         # Create a reaction probability object
         objectData = dict()

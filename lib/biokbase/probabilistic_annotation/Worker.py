@@ -9,9 +9,8 @@ import math
 import re
 import tempfile
 from biokbase.probabilistic_annotation.DataParser import DataParser
-from biokbase.probabilistic_annotation.Helpers import ServiceName, make_job_directory, rmtree_error
+from biokbase.probabilistic_annotation.Helpers import ServiceName, make_job_directory
 from biokbase import log
-from urllib2 import HTTPError
 from ConfigParser import ConfigParser
 
 # Exception thrown when no features are found in Genome object
@@ -86,7 +85,7 @@ class ProbabilisticAnnotationWorker:
         self.dataParser.getDatabaseFiles(self.logger, '')
         
         # Create a work directory for storing temporary files when a job ID is specified.
-        if jobid is not None:
+        if jobId is not None:
             self.workFolder = make_job_directory(self.config['work_folder_path'], jobId)
         else:
             self.workFolder = None
